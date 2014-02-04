@@ -1,0 +1,10 @@
+*.log
+*.suo
+*.user
+
+.nuget/nuget.exe
+packages/
+
+scalejs.visualization-d3/build
+scalejs.visualization-d3/js
+scalejs.visualization-d3/obj
