@@ -4,7 +4,7 @@
   "runOnBuild": true,
   "cancelBuild": false,
   "ignore": [
-    "Scripts"
+    "\\Scripts\\"
   ],
   "options": {
     "predef": {}

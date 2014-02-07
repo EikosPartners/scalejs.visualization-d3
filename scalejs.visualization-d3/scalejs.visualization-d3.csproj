@@ -14,6 +14,7 @@
       <SubType>Designer</SubType>
     </Content>
     <Content Include="scalejs.visualization-d3.js" />
+    <Content Include="scalejs.visualization-d3\sunburst.js" />
     <Content Include="Scripts\d3.colorbrewer.js" />
     <Content Include="scalejs.visualization-d3\treemap.js" />
     <Content Include="scalejs.visualization-d3\d3.js" />

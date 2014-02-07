@@ -17,9 +17,9 @@ define([
         element,
         valueAccessor
     ) {
-        var //Treemap variables
+        var //Sunburst variables
             svgElement = element,
-            treemap = valueAccessor(),
+            sunburst = valueAccessor(),
             json,
             dataSource,
             levelsSource,
@@ -33,11 +33,14 @@ define([
             selectedItemPathObservable,
             svgWidth = parseInt(d3.select(svgElement).style("width"), 10),
             svgHeight = parseInt(d3.select(svgElement).style("height"), 10),
-            x = d3.scale.linear().range([0, svgWidth]),
-            y = d3.scale.linear().range([0, svgHeight]),
+            radius = Math.min(svgWidth, svgHeight) / 2,
+            x = d3.scale.linear().range([0, 2 * Math.PI]),  //d3.scale.linear().range([0, w]),
+            y = d3.scale.sqrt().range([0, radius]),//d3.scale.linear().range([0, h]),
             root,
+            celSel,
             nodeSelected,
-            treemapLayout,
+            sunburstLayout,
+            arc,
             svgArea,
             domData;
 
@@ -74,6 +77,15 @@ define([
                 i;
 
             // Loop through all levels and parse the parameters:
+            if (typeof lvls !== 'array' || lvls.length === 0) {
+                levels[0] = {   // Use global parameters for the level:
+                    childrenPath: unwrap(childrenPath),
+                    areaPath: unwrap(areaPath),
+                    colorPath: unwrap(colorPath),
+                    colorPalette: unwrap(colorPalette),
+                    colorScale: colorScale
+                };
+            }
             for (i = 0; i < lvls.length; i += 1) {
                 if (typeof lvls[i] === 'string') {
                     levels[i] = {   // Level just defines the childrenPath, use global parameters for the rest:
@@ -125,101 +137,125 @@ define([
             }
         }
         // Recursively traverse json data, and build it for rendering:
-        function createNodeJson(dat, lvls) {
-            var node = unwrap(dat);
+        function createNodeJson(dat, lvls, ind) {
+            var node = unwrap(dat), newNode, childNode, i, children, stepSize;
+
             if (lvls.length === 0) {    // Out of defined levels, so use global parameters for node:
                 return {
-                    name: unwrap(node.name) || '',
+                    name: unwrap(node.name || ''),
                     size: unwrap(node[unwrap(areaPath)] || 1),
                     color: unwrap(node[unwrap(colorPath)] || 0)
                 };
             }
-            if (node[lvls[0].childrenPath] === undefined) { // Use current level parameters for node:
+
+            if (node[lvls[ind].childrenPath] === undefined) {   // Use current level parameters for node:
                 return {
-                    name: unwrap(node.name) || '',
-                    size: unwrap(node[lvls[0].areaPath] || 1),
-                    color: unwrap(node[lvls[0].colorPath] || 0)
+                    name: unwrap(node.name || ''),
+                    size: unwrap(node[lvls[ind].areaPath] || 1),
+                    color: unwrap(node[lvls[ind].colorPath] || 0)
                 };
             }
-            // Node has children, so set them up first:
-            return unwrap(node[lvls[0].childrenPath]).reduce(function (acc, level, index) {
-                // 
-                var stepSize;
-                node = createNodeJson(level, lvls.slice(1)); // Get basic node-specific properties
-                node.parent = acc;  // Set node's parent
-                node.index = index; // Set node's index to match the index it appears in the original dataset.
-                acc.size += node.size;  // Update the parent's overall size.
 
-                // Update min and max size values:
-                acc.color = unwrap(node[lvls[0].colorPath] || 0);
-                if (acc.children.length === 0) {
-                    // Insure min and max values are different if there is only one child:
-                    acc.minSize = node.size;
-                    acc.maxSize = node.size + 1;
-                    acc.minColor = node.color;
-                    acc.maxColor = node.color + 1;
-                } else {
-                    acc.minSize = Math.min(acc.minSize, node.size);
-                    acc.maxSize = Math.max(acc.maxSize, node.size);
-                    acc.minColor = Math.min(acc.minColor, node.color);
-                    acc.maxColor = Math.max(acc.maxColor, node.color);
-                }
-
-                // Set parent node's colorScale range (Palette):
-                if (lvls.length === 1) {    // Set to global Palette:
-                    acc.colorScale.range(colorScale.range());
-                } else { // Set to node's Level color Palette:
-                    acc.colorScale.range(lvls[1].colorScale.range());
-                }
-                // Set domain of color values:
-                stepSize = (acc.maxColor - acc.minColor) / Math.max(acc.colorScale.range().length - 1, 1);
-                acc.colorScale.domain(d3.range(acc.minColor, acc.maxColor + stepSize, stepSize));
-
-                // Add node to parent's children and childrenReference arrays:
-                acc.children[index] = node;
-                // d3 reorganizes the children later in the code, so the following array is used to preserve children order for indexing:
-                acc.childrenReference[index] = node;
-                return acc;
-            }, {    // Set default properties of node with children:
-                name: node.name || '',
+            // Set default properties of node with children:
+            newNode = {
+                name: unwrap(node.name || ''),
                 children: [],
                 childrenReference: [],
-                size: 0,
-                color: 0,
+                size: unwrap(node[lvls[ind].areaPath] || 1),
+                color: unwrap(node[lvls[ind].colorPath] || 0),
                 colorScale: d3.scale.linear(),
                 minSize: 0,
                 maxSize: 1,
                 minColor: 0,
                 maxColor: 1
-            });
+            };
+
+            // Node has children, so set them up first:
+            children = unwrap(node[lvls[ind].childrenPath]);
+            for (i = 0; i < children.length; i += 1) {
+                childNode = createNodeJson(children[i], lvls, ind + 1);    // Get basic node-specific properties
+                childNode.parent = newNode;  // Set node's parent
+                childNode.index = i; // Set node's index to match the index it appears in the original dataset.
+
+                // Update the parent's overall size:
+                if (node[lvls[ind].areaPath] === undefined) {
+                    newNode.size += childNode.size; // If parent has no size, default to adding child colors.
+                }
+
+                // Update the parent's overall color:
+                if (node[lvls[ind].colorPath] === undefined) {
+                    newNode.color += childNode.color;   // If parent has no color, default to adding child colors.
+                }
+
+                // Update min and max properties:
+                if (i) {
+                    // Update min and max values: 
+                    newNode.minSize = Math.min(newNode.minSize, childNode.size);
+                    newNode.maxSize = Math.max(newNode.maxSize, childNode.size);
+                    newNode.minColor = Math.min(newNode.minColor, childNode.color);
+                    newNode.maxColor = Math.max(newNode.maxColor, childNode.color);
+                } else {
+                    // Insure min and max values are different if there is only one child:
+                    newNode.minSize = childNode.size;
+                    newNode.maxSize = childNode.size + 1;
+                    newNode.minColor = childNode.color;
+                    newNode.maxColor = childNode.color + 1;
+                }
+
+                // Add node to parent's children and childrenReference arrays:
+                newNode.children[i] = childNode;
+                // d3 reorganizes the children later in the code, so the following array is used to preserve children order for indexing:
+                newNode.childrenReference[i] = childNode;
+            }
+
+            // Set parent node's colorScale range (Palette):
+            if (lvls.length < ind + 1) {    // Set to global Palette:
+                newNode.colorScale.range(colorScale.range());
+            } else {    // Set to node's Level color Palette:
+                newNode.colorScale.range(lvls[ind + 1].colorScale.range());
+            }
+            // Set domain of color values:
+            stepSize = (newNode.maxColor - newNode.minColor) / Math.max(newNode.colorScale.range().length - 1, 1);
+            newNode.colorScale.domain(d3.range(newNode.minColor, newNode.maxColor + stepSize, stepSize));
+
+            return newNode;
         }
         json = ko.computed(function () {
-            dataSource = treemap.data || { name: "Empty" };
-            levelsSource = treemap.levels || [{ }];
-            childrenPath = treemap.childrenPath || 'children';
-            areaPath = treemap.areaPath || 'area';
-            colorPath = treemap.colorPath || 'color';
-            colorPalette = treemap.colorPalette || 'PuBu';
+            dataSource = sunburst.data || { name: "Empty" };
+            levelsSource = sunburst.levels || [{ }];
+            childrenPath = sunburst.childrenPath || 'children';
+            areaPath = sunburst.areaPath || 'area';
+            colorPath = sunburst.colorPath || 'color';
+            colorPalette = sunburst.colorPalette || 'PuBu';
             createLevelParameters(levelsSource);
-            root = createNodeJson(dataSource, levels);
+            root = createNodeJson(dataSource, levels, 0);
+            // Setup parent of root for root color:
+            root.parent = {
+                children: [root],
+                childrenReference: [root],
+                colorScale: d3.scale.linear()
+            };
+            root.parent.colorScale.range(levels[0].colorScale.range());
+            var stepSize = 2 / Math.max(root.parent.colorScale.range().length - 1, 1);
+            root.parent.colorScale.domain(d3.range(root.color - 1, root.color + stepSize + 1, stepSize));
             return root;
         });
         selectedItemPathObservable = ko.computed(function () {
-            selectedItemPath = treemap.selectedItemPath || ko.observable([]);
+            selectedItemPath = sunburst.selectedItemPath || ko.observable([]);
             return unwrap(selectedItemPath);
         });
 
         // Zoom animation:
         function zoom(d) {
-            if (svgArea === undefined) {
-                return; // Catch for if treemap hasn't been setup.
+            if (svgArea === undefined || true) {
+                return; // Catch for if sunburst hasn't been setup.
             }
             // Set zoom domain to d's area:
             var kx = svgWidth / d.dx, ky = svgHeight / d.dy, t;
             x.domain([d.x, d.x + d.dx]);
             y.domain([d.y, d.y + d.dy]);
 
-            // Animate treemap nodes:
+            // Animate sunburst nodes:
             t = svgArea.selectAll("g.cell").transition()
                 .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
                 .attr("transform", function (d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
@@ -288,36 +324,58 @@ define([
             }
         });
 
-        function treemapRender() {
-            // Define temp vars:
-            var celSel, cell, nodes;
+        // Interpolate scales:
+        function arcTween(d) {
+            var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
+                yd = d3.interpolate(y.domain(), [d.y, 1]),
+                yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
+            return function (d, i) {
+                return i
+                    ? function () { return arc(d); }
+                    : function (t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
+            };
+        }
 
-            // Get treemap data:
+        // Zoom after click:
+        function click(d) {
+            celSel.transition()
+                .duration(1000)
+                .attrTween("d", arcTween(d));
+        }
+
+        function sunburstRender() {
+            // Define temp vars:
+            var cell, nodes;
+
+            // Get sunburst data:
             root = json();
 
-            // Get domData from element (used to see if treemap was setup before):
+            // Get domData from element (used to see if sunburst was setup before):
             domData = ko.utils.domData.get(svgElement, 'selection');
 
-            if (domData === undefined) {    // This is a new treemap:
-                // Set selected node to the root of the treemap:
+            if (domData === undefined) {    // This is a new sunburst:
+                // Set selected node to the root of the sunburst:
                 nodeSelected = root;
 
-                // Setup treemap and SVG:
-                treemapLayout = d3.layout.treemap()
-                                .round(false)
-                                .size([svgWidth, svgHeight])
-                                .sticky(false)
-                                .mode('squarify')
+                // Setup sunburst and SVG:
+                sunburstLayout = d3.layout.partition()
                                 .value(function (d) { return d.size; })
                                 .children(function (d) { return d.children; });
                 svgArea = d3.select(svgElement)
                           .style('overflow', 'hidden')
                           .append("g")
-                            .attr("transform", "translate(.5,.5)");
+                            .attr("transform", "translate(" + svgWidth / 2 + "," + (svgHeight / 2 + 10) + ")");
+
+                // Setup arc function:
+                arc = d3.svg.arc()
+                        .startAngle(function (d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
+                        .endAngle(function (d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
+                        .innerRadius(function (d) { return Math.max(0, y(d.y)); })
+                        .outerRadius(function (d) { return Math.max(0, y(d.y + d.dy)); });
 
                 // Filter out nodes with children:
-                nodes = treemapLayout.nodes(root)
-                        .filter(function (d) { return !d.children; });
+                nodes = sunburstLayout.nodes(root);
+                        //.filter(function (d) { return !d.children; });
 
                 // Set default selected item (do this after the data is set, and before modifying attributes):
                 if (isObservable(selectedItemPath)) {
@@ -325,39 +383,26 @@ define([
                 }
 
                 // Join data with selection:
-                celSel = svgArea.selectAll("g")
+                celSel = svgArea.selectAll("path")
                         .data(nodes, function (d) { return d.name; });
 
                 // Add nodes to SVG:
-                cell = celSel.enter().append("svg:g")
-                        .attr("class", "cell")
-                        .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; })
-                        .on("click", selectZoom);
-
-                // Add rectangle to each node:
-                cell.append("svg:rect")
-                    .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
-                    .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                    .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); });
-
-                // Add title to each node:
-                cell.append("svg:text")
-                    .attr("x", function (d) { return d.dx / 2; })
-                    .attr("y", function (d) { return d.dy / 2; })
-                    .attr("dy", ".35em")
-                    .attr("text-anchor", "middle")
-                    .text(function (d) { return d.name; })
-                    .style("opacity", function (d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+                cell = celSel.enter().append("path")
+                        .attr("d", arc)
+                        .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); })
+                        .attr("text", function (d) { return d.name; })
+                        .attr("ptext", function (d) { return d.parent ? d.parent.name : "none123"; })
+                        .on("click", click);
 
                 // Set domData for SVG:
                 ko.utils.domData.set(svgElement, 'selection', { });
-            } else {    // This is a treemap being updated:
+            } else {    // This is a sunburst being updated:
                 // Set selected node to the root of the treemap:
                 nodeSelected = root;
 
                 // Filter out nodes with children:
-                nodes = treemapLayout.nodes(root)
-                        .filter(function (d) { return !d.children; });
+                nodes = sunburstLayout.nodes(root);
+                        //.filter(function (d) { return !d.children; });
 
                 // Set default selected item (do this after the data is set, and before modifying attributes):
                 if (isObservable(selectedItemPath)) {
@@ -365,48 +410,20 @@ define([
                 }
 
                 // Select all nodes in SVG, and apply data:
-                celSel = svgArea.selectAll("g")
+                celSel = svgArea.selectAll("path")
                         .data(nodes, function (d) { return d.name; });
 
                 // Update nodes on SVG:
                 cell = celSel.transition()
                     .duration(1000)
-                    .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
-
-                // Update rectangles on SVG:
-                cell.select("rect")
-                    .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
-                    .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
+                    .attr("d", arc)
                     .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); });
-
-                // Update titles on SVG:
-                cell.select("text")
-                    .attr("x", function (d) { return d.dx / 2; })
-                    .attr("y", function (d) { return d.dy / 2; })
-                    .text(function (d) { return d.name; })
-                    .style("opacity", function (d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
-
 
                 // Add new nodes to SVG:
-                cell = celSel.enter().append("svg:g")
-                        .attr("class", "cell")
-                        .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; })
-                        .on("click", selectZoom);
-
-                // Add rectangle to each new node on SVG:
-                cell.append("svg:rect")
-                    .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
-                    .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                    .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); });
-
-                // Add title to each new node on SVG:
-                cell.append("svg:text")
-                    .attr("x", function (d) { return d.dx / 2; })
-                    .attr("y", function (d) { return d.dy / 2; })
-                    .attr("dy", ".35em")
-                    .attr("text-anchor", "middle")
-                    .text(function (d) { return d.name; })
-                    .style("opacity", function (d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+                cell = celSel.enter().append("path")
+                        .attr("d", arc)
+                        .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); })
+                        .on("click", click);
 
                 // Remove nodes from SVG:
                 cell = celSel.exit().remove();
@@ -415,14 +432,14 @@ define([
                 ko.utils.domData.set(svgElement, 'selection', { });
             }
         }
-        // Subscribe to treemap data changes:
+        // Subscribe to sunburst data changes:
         json.subscribe(function () {
-            treemapRender();    // Re-render on change
+            sunburstRender();    // Re-render on change
         });
-        treemapRender();
+        sunburstRender();
     }
 
-    // Return treemap object:
+    // Return sunburst object:
     return {
         init: init
     };

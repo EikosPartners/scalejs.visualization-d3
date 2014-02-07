@@ -1,10 +1,12 @@
 ﻿/*global define*/
 define([
     //'scalejs!core',
-    'scalejs.visualization-d3/treemap'
+    'scalejs.visualization-d3/treemap',
+    'scalejs.visualization-d3/sunburst'
 ], function (
     //core,
-    treemap
+    treemap,
+    sunburst
 ) {
     'use strict';
 
@@ -17,6 +19,9 @@ define([
 
         if (d3.visualization === 'treemap') {
             visualization = treemap;
+            visualization.init(element, valueAccessor);
+        } else if (d3.visualization === 'sunburst') {
+            visualization = sunburst;
             visualization.init(element, valueAccessor);
         }
     }
