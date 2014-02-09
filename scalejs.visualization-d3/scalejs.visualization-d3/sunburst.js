@@ -31,6 +31,7 @@ define([
             colorScale,
             selectedItemPath,
             selectedItemPathObservable,
+            rootScale = d3.scale.linear(),
             svgWidth = parseInt(d3.select(svgElement).style("width"), 10),
             svgHeight = parseInt(d3.select(svgElement).style("height"), 10),
             radius = Math.min(svgWidth, svgHeight) / 2,
@@ -45,28 +46,31 @@ define([
             domData;
 
         // Loop through levels to determine parameters:
-        function createLevelParameters(lvlsParam) {
+        function createLevelParameters(lvlsParam)
+        {
             // Set colorPalette parameters:
             colorScale = d3.scale.linear();
-            switch (Object.prototype.toString.call(unwrap(colorPalette))) {
-            case '[object Array]':
-                //colorPalette is an array:
-                colorScale.range(unwrap(colorPalette));
-                break;
-            case '[object String]':
-                // Check if colorPalette is a predefined colorbrewer array:
-                if (colorbrewer[unwrap(colorPalette)] !== undefined) {
-                    // Use specified colorbrewer palette:
-                    colorScale.range(colorbrewer[unwrap(colorPalette)][3]);
+            switch (Object.prototype.toString.call(unwrap(colorPalette)))
+            {
+                case '[object Array]':
+                    //colorPalette is an array:
+                    colorScale.range(unwrap(colorPalette));
                     break;
-                }
-                // Use default palette:
-                colorScale.range(colorbrewer.PuBu[3]);
-                break;
-            default:
-                // Use default palette:
-                colorScale.range(colorbrewer.PuBu[3]);
-                break;
+                case '[object String]':
+                    // Check if colorPalette is a predefined colorbrewer array:
+                    if (colorbrewer[unwrap(colorPalette)] !== undefined)
+                    {
+                        // Use specified colorbrewer palette:
+                        colorScale.range(colorbrewer[unwrap(colorPalette)][3]);
+                        break;
+                    }
+                    // Use default palette:
+                    colorScale.range(colorbrewer.PuBu[3]);
+                    break;
+                default:
+                    // Use default palette:
+                    colorScale.range(colorbrewer.PuBu[3]);
+                    break;
             }
 
             // Clear levels:
@@ -77,7 +81,8 @@ define([
                 i;
 
             // Loop through all levels and parse the parameters:
-            if (typeof lvls !== 'array' || lvls.length === 0) {
+            if (typeof lvls !== 'array' || lvls.length === 0)
+            {
                 levels[0] = {   // Use global parameters for the level:
                     childrenPath: unwrap(childrenPath),
                     areaPath: unwrap(areaPath),
@@ -86,8 +91,10 @@ define([
                     colorScale: colorScale
                 };
             }
-            for (i = 0; i < lvls.length; i += 1) {
-                if (typeof lvls[i] === 'string') {
+            for (i = 0; i < lvls.length; i += 1)
+            {
+                if (typeof lvls[i] === 'string')
+                {
                     levels[i] = {   // Level just defines the childrenPath, use global parameters for the rest:
                         childrenPath: unwrap(lvls[i]),
                         areaPath: unwrap(areaPath),
@@ -95,52 +102,59 @@ define([
                         colorPalette: unwrap(colorPalette),
                         colorScale: colorScale
                     };
-                } else {
+                } else
+                {
                     // Level has parameters:
                     levels[i] = {   // Use global parameters for parameters not defined:
                         childrenPath: unwrap(lvls[i].childrenPath || childrenPath),
                         areaPath: unwrap(lvls[i].areaPath || areaPath),
                         colorPath: unwrap(lvls[i].colorPath || colorPath)
                     };
-                    if (lvls[i].colorPalette === undefined) {
+                    if (lvls[i].colorPalette === undefined)
+                    {
                         // Use global colorScale and Palette for this Level:
                         levels[i].colorPalette = colorPalette;
                         levels[i].colorScale = colorScale;
-                    } else {
+                    } else
+                    {
                         // Create colorScale and Palette for this Level:
                         levels[i].colorPalette = unwrap(lvls[i].colorPalette);
                         levels[i].colorScale = d3.scale.linear();
-                        switch (Object.prototype.toString.call(levels[i].colorPalette)) {
-                        case '[object Array]':
-                            //colorPalette is an array:
-                            levels[i].colorScale.range(levels[i].colorPalette);
-                            break;
-                        case '[object String]':
-                            // Check if colorPalette is a predefined colorbrewer array:
-                            if (colorbrewer[levels[i].colorPalette] !== undefined) {
-                                // Use specified colorbrewer palette:
-                                levels[i].colorScale.range(colorbrewer[levels[i].colorPalette][3]);
+                        switch (Object.prototype.toString.call(levels[i].colorPalette))
+                        {
+                            case '[object Array]':
+                                //colorPalette is an array:
+                                levels[i].colorScale.range(levels[i].colorPalette);
                                 break;
-                            }
-                            // Use default palette:
-                            levels[i].colorPalette = colorPalette;
-                            levels[i].colorScale = colorScale;
-                            break;
-                        default:
-                            // Use default palette:
-                            levels[i].colorPalette = colorPalette;
-                            levels[i].colorScale = colorScale;
-                            break;
+                            case '[object String]':
+                                // Check if colorPalette is a predefined colorbrewer array:
+                                if (colorbrewer[levels[i].colorPalette] !== undefined)
+                                {
+                                    // Use specified colorbrewer palette:
+                                    levels[i].colorScale.range(colorbrewer[levels[i].colorPalette][3]);
+                                    break;
+                                }
+                                // Use default palette:
+                                levels[i].colorPalette = colorPalette;
+                                levels[i].colorScale = colorScale;
+                                break;
+                            default:
+                                // Use default palette:
+                                levels[i].colorPalette = colorPalette;
+                                levels[i].colorScale = colorScale;
+                                break;
                         }
                     }
                 }
             }
         }
         // Recursively traverse json data, and build it for rendering:
-        function createNodeJson(dat, lvls, ind) {
+        function createNodeJson(dat, lvls, ind)
+        {
             var node = unwrap(dat), newNode, childNode, i, children, stepSize;
 
-            if (lvls.length === 0) {    // Out of defined levels, so use global parameters for node:
+            if (lvls.length === 0)
+            {    // Out of defined levels, so use global parameters for node:
                 return {
                     name: unwrap(node.name || ''),
                     size: unwrap(node[unwrap(areaPath)] || 1),
@@ -148,7 +162,8 @@ define([
                 };
             }
 
-            if (node[lvls[ind].childrenPath] === undefined) {   // Use current level parameters for node:
+            if (node[lvls[ind].childrenPath] === undefined)
+            {   // Use current level parameters for node:
                 return {
                     name: unwrap(node.name || ''),
                     size: unwrap(node[lvls[ind].areaPath] || 1),
@@ -172,29 +187,34 @@ define([
 
             // Node has children, so set them up first:
             children = unwrap(node[lvls[ind].childrenPath]);
-            for (i = 0; i < children.length; i += 1) {
+            for (i = 0; i < children.length; i += 1)
+            {
                 childNode = createNodeJson(children[i], lvls, ind + 1);    // Get basic node-specific properties
                 childNode.parent = newNode;  // Set node's parent
                 childNode.index = i; // Set node's index to match the index it appears in the original dataset.
 
                 // Update the parent's overall size:
-                if (node[lvls[ind].areaPath] === undefined) {
+                if (node[lvls[ind].areaPath] === undefined)
+                {
                     newNode.size += childNode.size; // If parent has no size, default to adding child colors.
                 }
 
                 // Update the parent's overall color:
-                if (node[lvls[ind].colorPath] === undefined) {
+                if (node[lvls[ind].colorPath] === undefined)
+                {
                     newNode.color += childNode.color;   // If parent has no color, default to adding child colors.
                 }
 
                 // Update min and max properties:
-                if (i) {
+                if (i)
+                {
                     // Update min and max values: 
                     newNode.minSize = Math.min(newNode.minSize, childNode.size);
                     newNode.maxSize = Math.max(newNode.maxSize, childNode.size);
                     newNode.minColor = Math.min(newNode.minColor, childNode.color);
                     newNode.maxColor = Math.max(newNode.maxColor, childNode.color);
-                } else {
+                } else
+                {
                     // Insure min and max values are different if there is only one child:
                     newNode.minSize = childNode.size;
                     newNode.maxSize = childNode.size + 1;
@@ -209,9 +229,11 @@ define([
             }
 
             // Set parent node's colorScale range (Palette):
-            if (lvls.length < ind + 1) {    // Set to global Palette:
+            if (lvls.length < ind + 1)
+            {    // Set to global Palette:
                 newNode.colorScale.range(colorScale.range());
-            } else {    // Set to node's Level color Palette:
+            } else
+            {    // Set to node's Level color Palette:
                 newNode.colorScale.range(lvls[ind + 1].colorScale.range());
             }
             // Set domain of color values:
@@ -220,116 +242,42 @@ define([
 
             return newNode;
         }
-        json = ko.computed(function () {
+        json = ko.computed(function ()
+        {
+            // Get parameters (or defaults values):
             dataSource = sunburst.data || { name: "Empty" };
-            levelsSource = sunburst.levels || [{ }];
+            levelsSource = sunburst.levels || [{}];
             childrenPath = sunburst.childrenPath || 'children';
             areaPath = sunburst.areaPath || 'area';
             colorPath = sunburst.colorPath || 'color';
             colorPalette = sunburst.colorPalette || 'PuBu';
+
+            // 
             createLevelParameters(levelsSource);
             root = createNodeJson(dataSource, levels, 0);
-            // Setup parent of root for root color:
-            root.parent = {
-                children: [root],
-                childrenReference: [root],
-                colorScale: d3.scale.linear()
-            };
-            root.parent.colorScale.range(levels[0].colorScale.range());
-            var stepSize = 2 / Math.max(root.parent.colorScale.range().length - 1, 1);
-            root.parent.colorScale.domain(d3.range(root.color - 1, root.color + stepSize + 1, stepSize));
+            // Setup colorscale for the root:
+            rootScale = d3.scale.linear()
+                        .range(levels[0].colorScale.range());
+            var stepSize = 2 / Math.max(rootScale.range().length - 1, 1);
+            rootScale.domain(d3.range(root.color - 1, root.color + stepSize + 1, stepSize));
+
+            // Return the new json data:
             return root;
         });
-        selectedItemPathObservable = ko.computed(function () {
+        selectedItemPathObservable = ko.computed(function ()
+        {
             selectedItemPath = sunburst.selectedItemPath || ko.observable([]);
             return unwrap(selectedItemPath);
         });
 
-        // Zoom animation:
-        function zoom(d) {
-            if (svgArea === undefined || true) {
-                return; // Catch for if sunburst hasn't been setup.
-            }
-            // Set zoom domain to d's area:
-            var kx = svgWidth / d.dx, ky = svgHeight / d.dy, t;
-            x.domain([d.x, d.x + d.dx]);
-            y.domain([d.y, d.y + d.dy]);
-
-            // Animate sunburst nodes:
-            t = svgArea.selectAll("g.cell").transition()
-                .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
-                .attr("transform", function (d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
-
-            t.select("rect")
-                .attr("width", function (d) { return Math.max(kx * d.dx - 1, 0); })
-                .attr("height", function (d) { return Math.max(ky * d.dy - 1, 0); });
-
-            t.select("text")
-                .attr("x", function (d) { return kx * d.dx / 2; })
-                .attr("y", function (d) { return ky * d.dy / 2; })
-                .style("opacity", function (d) { return kx * d.dx > d.w ? 1 : 0; });
-
-            // Prevent event from firing more than once:
-            if (d3.event) {
-                d3.event.stopPropagation();
-            }
-        }
-        // Zoom after click, and set the path:
-        function selectZoom(d) {
-            var path = [],
-                dTmp,
-                oldSelected = nodeSelected;
-
-            if (d === oldSelected) {    // Reset path since item was already selected.
-                d = root;
-            }
-
-            nodeSelected = dTmp = d;
-            // Check if selectedItemPath is an observable:
-            if (isObservable(selectedItemPath)) {   // Path is an observable, so set path to the selected item:
-                while (dTmp.parent !== undefined) {
-                    path.unshift(dTmp.index);
-                    dTmp = dTmp.parent;
-                }
-                selectedItemPath(path);
-            } else {    // Path is not an observable, so no need to push an update to it.
-                zoom(d.parent || d);
-            }
-
-            // Prevent event from firing more than once:
-            if (d3.event) {
-                d3.event.stopPropagation();
-            }
-        }
-        // Subscribe to selectedItemPath changes from outside of the extension (and then zoom):
-        selectedItemPathObservable.subscribe(function (path) {
-            var d = json(), i;
-            if (Object.prototype.toString.call(path) === '[object Array]') {
-                for (i = 0; i < path.length; i += 1) {
-                    if (d.childrenReference === undefined) {
-                        d = json(); // Path doesn't exist, so reset path.
-                        break;
-                    }
-                    if (d.childrenReference[path[i]] === undefined) {
-                        d = json(); // Path doesn't exist, so reset path.
-                        break;
-                    }
-                    d = d.childrenReference[path[i]];
-                }
-            }
-            // Verify d exists:
-            if (d) {
-                nodeSelected = d;       // Set nodeSelected to d
-                zoom(d.parent || d);    // Animate zoom affect to d's parent
-            }
-        });
-
         // Interpolate scales:
-        function arcTween(d) {
+        function arcTween(d)
+        {
             var xd = d3.interpolate(x.domain(), [d.x, d.x + d.dx]),
                 yd = d3.interpolate(y.domain(), [d.y, 1]),
                 yr = d3.interpolate(y.range(), [d.y ? 20 : 0, radius]);
-            return function (d, i) {
+            return function (d, i)
+            {
                 return i
                     ? function () { return arc(d); }
                     : function (t) { x.domain(xd(t)); y.domain(yd(t)).range(yr(t)); return arc(d); };
@@ -337,11 +285,85 @@ define([
         }
 
         // Zoom after click:
-        function click(d) {
-            celSel.transition()
+        function zoom(d)
+        {
+            if (svgArea === undefined)
+            {
+                return; // Catch for if sunburst hasn't been setup.
+            }
+
+            // Animate sunburst nodes:
+            svgArea.selectAll("path").transition()
                 .duration(1000)
                 .attrTween("d", arcTween(d));
+
+            // Prevent event from firing more than once:
+            if (d3.event)
+            {
+                d3.event.stopPropagation();
+            }
         }
+        // Zoom after click, and set the path:
+        function selectZoom(d)
+        {
+            var path = [],
+                dTmp,
+                oldSelected = nodeSelected;
+
+            if (d === oldSelected)
+            {    // Reset path since item was already selected.
+                d = root;
+            }
+
+            nodeSelected = dTmp = d;
+            // Check if selectedItemPath is an observable:
+            if (isObservable(selectedItemPath))
+            {   // Path is an observable, so set path to the selected item:
+                while (dTmp.parent !== undefined)
+                {
+                    path.unshift(dTmp.index);
+                    dTmp = dTmp.parent;
+                }
+                selectedItemPath(path);
+            } else
+            {    // Path is not an observable, so no need to push an update to it.
+                zoom(d.parent || d);
+            }
+
+            // Prevent event from firing more than once:
+            if (d3.event)
+            {
+                d3.event.stopPropagation();
+            }
+        }
+        // Subscribe to selectedItemPath changes from outside of the extension (and then zoom):
+        selectedItemPathObservable.subscribe(function (path)
+        {
+            var rootTmp = json(), d = rootTmp, i;
+            if (Object.prototype.toString.call(path) === '[object Array]')
+            {
+                for (i = 0; i < path.length; i += 1)
+                {
+                    if (d.childrenReference === undefined)
+                    {
+                        d = rootTmp; // Path doesn't exist, so reset path.
+                        break;
+                    }
+                    if (d.childrenReference[path[i]] === undefined)
+                    {
+                        d = rootTmp; // Path doesn't exist, so reset path.
+                        break;
+                    }
+                    d = d.childrenReference[path[i]];
+                }
+            }
+            // Verify d exists:
+            if (d)
+            {
+                nodeSelected = d;       // Set nodeSelected to d
+                zoom(d.parent || d);    // Animate zoom affect to d's parent
+            }
+        });
 
         function sunburstRender() {
             // Define temp vars:
@@ -389,10 +411,10 @@ define([
                 // Add nodes to SVG:
                 cell = celSel.enter().append("path")
                         .attr("d", arc)
-                        .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); })
+                        .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : rootScale(d.color)); }) //colorScale(d.color)
                         .attr("text", function (d) { return d.name; })
                         .attr("ptext", function (d) { return d.parent ? d.parent.name : "none123"; })
-                        .on("click", click);
+                        .on("click", selectZoom);
 
                 // Set domData for SVG:
                 ko.utils.domData.set(svgElement, 'selection', { });
@@ -417,13 +439,13 @@ define([
                 cell = celSel.transition()
                     .duration(1000)
                     .attr("d", arc)
-                    .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); });
+                    .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : rootScale(d.color)); }) //colorScale(d.color)
 
                 // Add new nodes to SVG:
                 cell = celSel.enter().append("path")
                         .attr("d", arc)
-                        .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : colorScale(d.color)); })
-                        .on("click", click);
+                        .style("fill", function (d) { return (d.parent ? d.parent.colorScale(d.color) : rootScale(d.color)); }) //colorScale(d.color)
+                        .on("click", selectZoom);
 
                 // Remove nodes from SVG:
                 cell = celSel.exit().remove();
