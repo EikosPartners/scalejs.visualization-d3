@@ -11,19 +11,18 @@ define([
 
     return function () {
         var //Sunburst variables
-            svgElement,
+            canvasElement,
             json,
             selectZoom,
-            elementStyle,
-            svgWidth,
-            svgHeight,
+            canvasWidth,
+            canvasHeight,
             radius,
             x,
             y,
             root,
             sunburstLayout,
             arc,
-            svgArea;
+            canvasArea;
 
         function isParentOf(p, c) {
             if (p === c) {
@@ -35,6 +34,11 @@ define([
                 });
             }
             return false;
+        }
+        function canvasArc(d) {
+            var patt1 = /(\d+\.\d+e\-\d+)/g,
+                res = arc(d).replace(patt1, "0");
+            return res;
         }
         function pathTween(p) {
             return function (d) {
@@ -61,7 +65,7 @@ define([
                     };
                     x.domain(pathElement.old.xd);
                     y.domain(pathElement.old.yd).range(pathElement.old.yr);
-                    return arc({
+                    return canvasArc({
                         x: pathElement.old.x,
                         y: pathElement.old.y,
                         dx: pathElement.old.dx,
@@ -77,10 +81,10 @@ define([
                     interpY = d3.interpolate(this.old.y, d.y),
                     interpDX = d3.interpolate(this.old.dx, d.dx),
                     interpDY = d3.interpolate(this.old.dy, d.dy),
-                    textElement = this,
-                    d3this = d3.select(this);
+                    textElement = this;
                 return function (t) { // Interpolate attributes:
-                    var rad, angle;
+                    var rad, radless, offsety, angle,
+                        outerRadius, innerRadius, padding, arcWidth;
                     // Store new data in the old property:
                     textElement.old = {
                         x: interpX(t),
@@ -89,48 +93,53 @@ define([
                         dy: interpDY(t)
                     };
 
+                    // Update data:
+                    d.w = this.getWidth();
+                    d.h = this.getHeight();
+
                     // Calculate text angle:
                     rad = x(textElement.old.x + textElement.old.dx / 2);
+                    radless = rad - Math.PI / 2;
+                    offsety = y(d.y) + 2;
                     angle = rad * 180 / Math.PI - 90;
-
-                    // Change padding and anchor based on side of Sunburst the text is on:
-                    if (rad > Math.PI) {
-                        // Center of Sunburst is Right:
-                        d3this.attr("dx", "-2px");
-                        d3this.attr("text-anchor", "end");
-                    } else {
-                        // Center of Sunburst is Left:
-                        d3this.attr("dx", "2px");
-                        d3this.attr("text-anchor", "start");
+                    if (angle > 90) {
+                        angle = (angle + 180) % 360;
                     }
 
-                    // Change opacity:
-                    d3this.style("opacity", function (d) {
-                        var outerRadius = Math.max(0, y(textElement.old.y + textElement.old.dy)),
-                            innerRadius = Math.max(0, y(textElement.old.y)),
-                            padding = 4;    // 2 pixel padding on inner and outer radius
-                        return isParentOf(p, d) && (outerRadius - innerRadius - padding >= d.w) ? 1 : 0;
-                    });
+                    // Change anchor based on side of Sunburst the text is on:
+                    textElement.setOriginX((rad > Math.PI ? "right" : "left"));
+                    textElement.setLeft(offsety * Math.cos(radless));
+                    textElement.setTop(offsety * Math.sin(radless));
 
-                    d3this.attr("transform", "rotate(" + angle + ")translate(" + y(textElement.old.y) + ")rotate(" + (angle > 90 ? -180 : 0) + ")");
+                    // Setup variables for opacity:
+                    outerRadius = Math.max(0, y(textElement.old.y + textElement.old.dy));
+                    innerRadius = Math.max(0, y(textElement.old.y));
+                    padding = 2 + 2;    // 2 pixel padding on inner and outer radius
+                    arcWidth = (x(textElement.old.x + textElement.old.dx) - x(textElement.old.x)) * y(textElement.old.y);
+
+                    // Change opacity:
+                    textElement.setOpacity(isParentOf(p, d) && (outerRadius - innerRadius - padding >= d.w) && ((arcWidth - 2 >= d.h) || y(textElement.old.y) < 1) ? 1 : 0);
+
+                    // Rotate text angle:
+                    textElement.setAngle(angle);
                 };
             };
         }
-
         // Zoom after click:
         function zoom(p) {
-            if (svgArea === undefined) {
+            if (canvasArea === undefined) {
                 return; // Catch for if sunburst hasn't been setup.
             }
             // Animate sunburst nodes:
-            var t = svgArea.selectAll("g.cell")
+            var t = canvasArea.selectAll("group")
                 .transition()
-                .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000);
+                .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
+                .attr("left", canvasWidth / 2)
+                .attr("top", canvasHeight / 2);
 
             t.select("path")
                 .attrTween("d", pathTween(p));
 
-            // Somewhat of a hack as we rely on arcTween updating the scales.
             t.select("text")
                 .tween("textTween", textTween(p));
 
@@ -141,7 +150,7 @@ define([
         }
 
         function update() {
-            if (svgArea === undefined) {
+            if (canvasArea === undefined) {
                 return; // Catch for if sunburst hasn't been setup.
             }
             // Define temp vars:
@@ -154,36 +163,39 @@ define([
             // Filter out nodes with children:
             nodes = sunburstLayout.nodes(root);
 
-            // Select all nodes in SVG, and apply data:
-            celSel = svgArea.selectAll("g")
+            // Select all nodes in Canvas, and apply data:
+            celSel = canvasArea.selectAll("group")
                 .data(nodes, function (d) { return d.name; });
 
-            // Update nodes on SVG:
+            // Update nodes on Canvas:
             cell = celSel.transition()
-                .duration(1000);
+                .duration(1000)
+                .attr("left", canvasWidth / 2)
+                .attr("top", canvasHeight / 2);
 
-            // Update arcs on SVG:
+            // Update arcs on Canvas:
             cell.select("path")
                 .attrTween("d", pathTween(nodes[0]))    // Sunburst Path attrTween animation, zoom to root (node0)
-                .style("fill", function (d) { return d.color; });   //(d.parent ? d.parent.colorScale(d.color) : rootScale(d.color)); });
+                .attr("fill", function (d) { return d.color; });   //(d.parent ? d.parent.colorScale(d.color) : rootScale(d.color)); });
 
-            // Update titles on SVG:
+            // Update titles on Canvas:
             cell.select("text")
-                .text(function (d) {
-                    d.w = this.getComputedTextLength();
-                    return d.name;
-                })
                 .tween("textTween", textTween(nodes[0]));   // Sunburst Text Tween animation, zoom to root (node0)
 
-            // Add nodes to SVG:
-            cell = celSel.enter().append("svg:g")
-                .attr("class", "cell")
-                .on("click", selectZoom);
+            // Add nodes to Canvas:
+            cell = celSel.enter().append("group")
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", canvasWidth / 2)
+                .attr("top", canvasHeight / 2)
+                .classed("cell", true)
+                .property("perPixelTargetFind", true)
+                .on("mousedown", selectZoom);
 
             // Add arc to nodes:
-            cell.append("svg:path")
-                .attr("d", arc)
-                .style("fill", function (d) { return d.color; })    //(d.parent ? d.parent.colorScale(d.color) : rootScale(d.color)); });
+            cell.append("path")
+                .attr("d", canvasArc)
+                .attr("fill", function (d) { return d.color; })
                 .each(function (d) {
                     this.old = {
                         x: d.x,
@@ -197,27 +209,28 @@ define([
                 });
 
             // Add text to nodes:
-            cell.append("svg:text")
+            cell.append("text")
+                .attr("originX", function (d) { return (x(d.x + d.dx / 2) > Math.PI) ? "right" : "left"; })
+                .attr("originY", "center")
                 .text(function (d) { return d.name; })
-                .attr("dy", "0.35em")   // Align vertically centered
-                .attr("text-anchor", function (d) {
-                    if (x(d.x + d.dx / 2) > Math.PI) {
-                        // Center of Sunburst is Right:
-                        d3.select(this).attr("dx", "-2px");
-                        return "end";
+                .attr("fontSize", 11)
+                .attr("opacity", function (d) {
+                    d.w = this.getWidth();
+                    d.bw = y(d.y + d.dy) - y(d.y);
+                    d.h = this.getHeight();
+                    d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
+                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
+                    return (d.bw - padding >= d.w) && ((d.bh - 2 >= d.h) || y(d.y) < 1) ? 1 : 0;
+                })
+                .attr("angle", function (d) {
+                    var ang = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
+                    if (ang > 90) {
+                        ang = (ang + 180) % 360;
                     }
-                    // Center of Sunburst is Left:
-                    d3.select(this).attr("dx", "2px");
-                    return "start";
+                    return ang;
                 })
-                .style("opacity", function (d) {
-                    d.w = this.getComputedTextLength();
-                    return (y(d.y + d.dy) - y(d.y) > d.w) ? 1 : 0;
-                })
-                .attr("transform", function (d) {
-                    var angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
-                    return "rotate(" + angle + ")translate(" + y(d.y) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
-                })
+                .attr("left", function (d) { return (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2); })
+                .attr("top", function (d) { return (y(d.y) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2); })
                 .each(function (d) {
                     this.old = {
                         x: d.x,
@@ -227,24 +240,25 @@ define([
                     };
                 });
 
-            // Remove nodes from SVG:
+            // Remove nodes from Canvas:
             cell = celSel.exit().remove();
         }
 
         function init(
             element,
+            width,
+            height,
             jsonObservable,
             selectZoomFunction
         ) {
-            if (svgArea !== undefined) {
+            if (canvasArea !== undefined) {
                 return; // Catch for if sunburst has been setup.
             }
-            svgElement = element;
+            canvasElement = element;
             json = jsonObservable;
-            elementStyle = window.getComputedStyle(svgElement);
-            svgWidth = parseInt(elementStyle.width, 10);
-            svgHeight = parseInt(elementStyle.height, 10);
-            radius = Math.min(svgWidth, svgHeight) / 2;
+            canvasWidth = width;
+            canvasHeight = height;
+            radius = Math.min(canvasWidth, canvasHeight) / 2;
             x = d3.scale.linear().range([0, 2 * Math.PI]);
             y = d3.scale.sqrt().range([0, radius]);
             selectZoom = selectZoomFunction;
@@ -256,14 +270,12 @@ define([
             root = json();
 
             // This is a new sunburst:
-            // Setup sunburst and SVG:
+            // Setup sunburst and Canvas:
             sunburstLayout = d3.layout.partition()
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
-            svgArea = d3.select(svgElement)
-                .style('overflow', 'hidden')
-                .append("g")
-                    .attr("transform", "translate(" + svgWidth / 2 + "," + (svgHeight / 2) + ")");
+
+            canvasArea = canvasElement;
 
             // Setup arc function:
             arc = d3.svg.arc()
@@ -276,18 +288,23 @@ define([
             nodes = sunburstLayout.nodes(root);
 
             // Join data with selection:
-            celSel = svgArea.selectAll("g")
+            celSel = canvasArea.selectAll("group")
                 .data(nodes, function (d) { return d.name; });
 
-            // Add nodes to SVG:
-            cell = celSel.enter().append("svg:g")
-                .attr("class", "cell")
-                .on("click", selectZoom);
+            // Add nodes to Canvas:
+            cell = celSel.enter().append("group")
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", canvasWidth / 2)
+                .attr("top", canvasHeight / 2)
+                .classed("cell", true)
+                .property("perPixelTargetFind", true)
+                .on("mousedown", selectZoom);
 
             // Add arc to nodes:
-            cell.append("svg:path")
-                .attr("d", arc)
-                .style("fill", function (d) { return d.color; })    //(d.parent ? d.parent.colorScale(d.color) : rootScale(d.color)); });
+            cell.append("path")
+                .attr("d", canvasArc)
+                .attr("fill", function (d) { return d.color; })
                 .each(function (d) {
                     this.old = {
                         x: d.x,
@@ -301,27 +318,28 @@ define([
                 });
 
             // Add text to nodes:
-            cell.append("svg:text")
+            cell.append("text")
+                .attr("originX", function (d) { return (x(d.x + d.dx / 2) > Math.PI) ? "right" : "left"; })
+                .attr("originY", "center")
                 .text(function (d) { return d.name; })
-                .attr("dy", "0.35em")   // Align vertically centered
-                .attr("text-anchor", function (d) {
-                    if (x(d.x + d.dx / 2) > Math.PI) {
-                        // Center of Sunburst is Right:
-                        d3.select(this).attr("dx", "-2px");
-                        return "end";
+                .attr("fontSize", 11)
+                .attr("opacity", function (d) {
+                    d.w = this.getWidth();
+                    d.bw = y(d.y + d.dy) - y(d.y);
+                    d.h = this.getHeight();
+                    d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
+                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
+                    return (d.bw - padding >= d.w) && ((d.bh - 2 >= d.h) || y(d.y) < 1) ? 1 : 0;
+                })
+                .attr("angle", function (d) {
+                    var ang = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
+                    if (ang > 90) {
+                        ang = (ang + 180) % 360;
                     }
-                    // Center of Sunburst is Left:
-                    d3.select(this).attr("dx", "2px");
-                    return "start";
+                    return ang;
                 })
-                .style("opacity", function (d) {
-                    d.w = this.getComputedTextLength();
-                    return (y(d.y + d.dy) - y(d.y) > d.w) ? 1 : 0;
-                })
-                .attr("transform", function (d) {
-                    var angle = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
-                    return "rotate(" + angle + ")translate(" + y(d.y) + ")rotate(" + (angle > 90 ? -180 : 0) + ")";
-                })
+                .attr("left", function (d) { return (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2); })
+                .attr("top", function (d) { return (y(d.y) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2); })
                 .each(function (d) {
                     this.old = {
                         x: d.x,
@@ -332,21 +350,22 @@ define([
                 });
         }
 
-        function resize() {
-            elementStyle = window.getComputedStyle(svgElement);
-            svgWidth = parseInt(elementStyle.width, 10);
-            svgHeight = parseInt(elementStyle.height, 10);
+        function resize(width, height) {
+            canvasWidth = width;
+            canvasHeight = height;
 
-            radius = Math.min(svgWidth, svgHeight) / 2;
+            radius = Math.min(canvasWidth, canvasHeight) / 2;
             y.range([0, radius]);
 
-            svgArea.attr("transform", "translate(" + svgWidth / 2 + "," + (svgHeight / 2) + ")");
+            canvasArea
+                .attr("left", canvasWidth / 2)
+                .attr("top", canvasHeight / 2);
         }
 
         function remove() {
-            if (svgArea !== undefined) {
-                svgArea.remove();
-                svgArea = undefined;
+            if (canvasArea !== undefined) {
+                canvasArea.selectAll("group").remove();
+                canvasArea = undefined;
             }
         }
 

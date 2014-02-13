@@ -15,7 +15,7 @@ define([
     treemap,
     sunburst
 ) {
-    'use strict';
+    "use strict";
     var //imports
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable;
@@ -46,9 +46,27 @@ define([
             selectedItemPath,
             selectedItemPathObservable,
             rootScale = d3.scale.linear(),
+            canvas,
+            elementStyle,
+            canvasWidth,
+            canvasHeight,
             root,
             nodeSelected,
             zoomEnabled = true; // Temporary fix to errors with NaN widths during adding/removing nodes.
+
+        // Get element's width and height:
+        elementStyle = window.getComputedStyle(element);
+        canvasWidth = parseInt(elementStyle.width, 10);
+        canvasHeight = parseInt(elementStyle.height, 10);
+
+        canvas = d3.select(element)
+                .style('overflow', 'hidden')
+                .append("fabric:canvas")
+                    .property("renderOnAddRemove", false)
+                    .property("selection", false)
+                    .property("targetFindTolerance", 1)
+                    .attr("width", canvasWidth)
+                    .attr("height", canvasHeight);
 
         // Loop through levels to determine parameters:
         function createLevelParameters(lvlsParam) {
@@ -339,7 +357,9 @@ define([
             };
         }
         // Run visualization's initialize code:
-        visualization.init(element, json, selectZoom);
+        visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom);
+        // Start rendering the canvas
+        canvas.startRender();
 
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
@@ -368,7 +388,9 @@ define([
             }
 
             // Run visualization's initialize code:
-            visualization.init(element, json, selectZoom);
+            visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom);
+            // Start rendering the canvas
+            canvas.startRender();
         });
 
         function update() {
@@ -394,8 +416,15 @@ define([
         if (core.layout) {
             // Add event listener for on layout change:
             core.layout.onLayoutDone(function () {
+                // Get element's width and height:
+                elementStyle = window.getComputedStyle(element);
+                canvasWidth = parseInt(elementStyle.width, 10);
+                canvasHeight = parseInt(elementStyle.height, 10);
+                // Resize canvas:
+                canvas.attr('width', canvasWidth);
+                canvas.attr('height', canvasHeight);
                 // Call visualization's resize function to handle resizing internally:
-                visualization.resize();
+                visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
                 visualization.update();
             });
@@ -406,4 +435,3 @@ define([
         init: init
     };
 });
-

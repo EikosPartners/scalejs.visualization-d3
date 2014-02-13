@@ -13,41 +13,41 @@ define([
 
     return function () {
         var //Treemap variables
-            svgElement,
+            canvasElement,
             json,
             selectZoom,
-            elementStyle,
-            svgWidth,
-            svgHeight,
+            canvasWidth,
+            canvasHeight,
             x,
             y,
             root,
             treemapLayout,
-            svgArea;
+            canvasArea;
 
         // Zoom after click:
         function zoom(d) {
-            if (svgArea === undefined) {
+            if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
             // Set zoom domain to d's area:
-            var kx = svgWidth / d.dx, ky = svgHeight / d.dy, t;
+            var kx = canvasWidth / d.dx, ky = canvasHeight / d.dy, t;
             x.domain([d.x, d.x + d.dx]);
             y.domain([d.y, d.y + d.dy]);
 
             // Animate treemap nodes:
-            t = svgArea.selectAll("g.cell").transition()
+            t = canvasArea.selectAll("group.cell").transition()
                 .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
-                .attr("transform", function (d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
+                .attr("left", function (d) { return x(d.x); })
+                .attr("top", function (d) { return y(d.y); });
 
             t.select("rect")
                 .attr("width", function (d) { return Math.max(kx * d.dx - 1, 0); })
                 .attr("height", function (d) { return Math.max(ky * d.dy - 1, 0); });
 
             t.select("text")
-                .attr("x", function (d) { return kx * d.dx / 2; })
-                .attr("y", function (d) { return ky * d.dy / 2; })
-                .style("opacity", function (d) { return kx * d.dx > d.w ? 1 : 0; });
+                .attr("left", function (d) { return kx * d.dx / 2; })
+                .attr("top", function (d) { return ky * d.dy / 2; })
+                .attr("opacity", function (d) { return kx * d.dx > d.w ? 1 : 0; });
 
             // Prevent event from firing more than once:
             if (d3.event) {
@@ -56,7 +56,7 @@ define([
         }
 
         function update() {
-            if (svgArea === undefined) {
+            if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
             // Define temp vars:
@@ -65,81 +65,80 @@ define([
             // Get treemap data:
             root = json();
 
-            // Get domData from element (used to see if treemap was setup before):
-            //domData = ko.utils.domData.get(svgElement, 'selection');
-
             // This is a treemap being updated:
             // Filter out nodes with children:
-            nodes = treemapLayout.size([svgWidth, svgHeight])
+            nodes = treemapLayout.size([canvasWidth, canvasHeight])
                     .nodes(root)
                     .filter(function (d) { return !d.children; });
 
-            // Select all nodes in SVG, and apply data:
-            celSel = svgArea.selectAll("g")
+            // Select all nodes in Canvas, and apply data:
+            celSel = canvasArea.selectAll("group")
                     .data(nodes, function (d) { return d.name; });
 
-            // Update nodes on SVG:
+            // Update nodes on Canvas:
             cell = celSel.transition()
                 .duration(1000)
-                .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; });
+                .attr("left", function (d) { return d.x; })
+                .attr("top", function (d) { return d.y; });
 
-            // Update rectangles on SVG:
+            // Update each node's rectangle:
             cell.select("rect")
                 .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
                 .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                .style("fill", function (d) { return d.color; });
+                .attr("fill", function (d) { return d.color; });
 
-            // Update titles on SVG:
+            // Update each node's title:
             cell.select("text")
-                .attr("x", function (d) { return d.dx / 2; })
-                .attr("y", function (d) { return d.dy / 2; })
+                .attr("left", function (d) { return d.dx / 2; })
+                .attr("top", function (d) { return d.dy / 2; })
                 .text(function (d) { return d.name; })
-                .style("opacity", function (d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+                .attr("opacity", function (d) { d.w = this.getWidth(); return d.dx > d.w ? 1 : 0; });
 
+            // Add new nodes to Canvas:
+            cell = celSel.enter().append("group")
+                .classed("cell", true)
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", function (d) { return d.x; })
+                .attr("top", function (d) { return d.y; })
+                .on("mousedown", selectZoom);
 
-            // Add new nodes to SVG:
-            cell = celSel.enter().append("svg:g")
-                    .attr("class", "cell")
-                    .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; })
-                    .on("click", selectZoom);
-
-            // Add rectangle to each new node on SVG:
-            cell.append("svg:rect")
+            // Add rectangle to each new node on Canvas:
+            cell.append("rect")
                 .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
                 .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                .style("fill", function (d) { return d.color; });
+                .attr("fill", function (d) { return d.color; });
 
-            // Add title to each new node on SVG:
-            cell.append("svg:text")
-                .attr("x", function (d) { return d.dx / 2; })
-                .attr("y", function (d) { return d.dy / 2; })
-                .attr("dy", ".35em")
-                .attr("text-anchor", "middle")
+            // Add title to each new node on Canvas:
+            cell.append("text")
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", function (d) { return d.dx / 2; })
+                .attr("top", function (d) { return d.dy / 2; })
+                .attr("fontSize", 11)
                 .text(function (d) { return d.name; })
-                .style("opacity", function (d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+                .attr("opacity", function (d) { d.w = this.getWidth(); return d.dx > d.w ? 1 : 0; });
 
-            // Remove nodes from SVG:
+            // Remove nodes from Canvas:
             cell = celSel.exit().remove();
-
-            // Set domData for SVG:
-            //ko.utils.domData.set(svgElement, 'selection', {});
         }
 
         function init(
             element,
+            width,
+            height,
             jsonObservable,
             selectZoomFunction
         ) {
-            if (svgArea !== undefined) {
+            if (canvasArea !== undefined) {
                 return; // Catch for if treemap has been setup.
             }
-            svgElement = element;
+            canvasElement = element;
             json = jsonObservable;
-            elementStyle = window.getComputedStyle(svgElement);
-            svgWidth = parseInt(elementStyle.width, 10);
-            svgHeight = parseInt(elementStyle.height, 10);
-            x = d3.scale.linear().range([0, svgWidth]);
-            y = d3.scale.linear().range([0, svgHeight]);
+            canvasWidth = width;
+            canvasHeight = height;
+            x = d3.scale.linear().range([0, canvasWidth]);
+            y = d3.scale.linear().range([0, canvasHeight]);
             selectZoom = selectZoomFunction;
 
             // Define temp vars:
@@ -152,62 +151,60 @@ define([
             // Setup treemap and SVG:
             treemapLayout = d3.layout.treemap()
                             .round(false)
-                            .size([svgWidth, svgHeight])
+                            .size([canvasWidth, canvasHeight])
                             .sticky(false)
                             .mode('squarify')
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
-            svgArea = d3.select(svgElement)
-                      .style('overflow', 'hidden')
-                      .append("g")
-                        .attr("transform", "translate(.5,.5)");
+
+            canvasArea = canvasElement;
 
             // Filter out nodes with children:
             nodes = treemapLayout.nodes(root)
                     .filter(function (d) { return !d.children; });
 
             // Join data with selection:
-            celSel = svgArea.selectAll("g")
+            celSel = canvasArea.selectAll("group")
                     .data(nodes, function (d) { return d.name; });
 
-            // Add nodes to SVG:
-            cell = celSel.enter().append("svg:g")
-                    .attr("class", "cell")
-                    .attr("transform", function (d) { return "translate(" + d.x + "," + d.y + ")"; })
-                    .on("click", selectZoom);
+            // Add nodes to Canvas:
+            cell = celSel.enter().append("group")
+                    .classed("cell", true)
+                    .attr("originX", "center")
+                    .attr("originY", "center")
+                    .attr("left", function (d) { return d.x; })
+                    .attr("top", function (d) { return d.y; })
+                    .on("mousedown", selectZoom);
 
             // Add rectangle to each node:
-            cell.append("svg:rect")
+            cell.append("rect")
                 .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
                 .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                .style("fill", function (d) { return d.color; });
+                .attr("fill", function (d) { return d.color; });
 
             // Add title to each node:
-            cell.append("svg:text")
-                .attr("x", function (d) { return d.dx / 2; })
-                .attr("y", function (d) { return d.dy / 2; })
-                .attr("dy", ".35em")
-                .attr("text-anchor", "middle")
+            cell.append("text")
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", function (d) { return d.dx / 2; })
+                .attr("top", function (d) { return d.dy / 2; })
+                .attr("fontSize", 11)
                 .text(function (d) { return d.name; })
-                .style("opacity", function (d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+                .attr("opacity", function (d) { d.w = this.getWidth(); return d.dx > d.w ? 1 : 0; });
         }
 
-        function resize() {
-            elementStyle = window.getComputedStyle(svgElement);
-            svgWidth = parseInt(elementStyle.width, 10);
-            svgHeight = parseInt(elementStyle.height, 10);
+        function resize(width, height) {
+            canvasWidth = width;
+            canvasHeight = height;
 
-            x.range([0, svgWidth]);
-            y.range([0, svgHeight]);
-
-            svgArea.attr('width', svgWidth);
-            svgArea.attr('height', svgHeight);
+            x.range([0, canvasWidth]);
+            y.range([0, canvasHeight]);
         }
 
         function remove() {
-            if (svgArea !== undefined) {
-                svgArea.remove();
-                svgArea = undefined;
+            if (canvasArea !== undefined) {
+                canvasArea.selectAll("group").remove();
+                canvasArea = undefined;
             }
         }
 
