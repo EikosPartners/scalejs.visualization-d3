@@ -1,4 +1,5 @@
 ﻿/*global define*/
+/*jslint devel: true */
 /*jslint browser: true */
 define([
     'scalejs!core',
@@ -6,32 +7,59 @@ define([
     'd3',
     'd3.colorbrewer',
     'scalejs.visualization-d3/treemap',
-    'scalejs.visualization-d3/sunburst'
+    'scalejs.visualization-d3/sunburst',
+    'scalejs.visualization-d3/voronoi'
 ], function (
     core,
     ko,
     d3,
     colorbrewer,
     treemap,
-    sunburst
+    sunburst,
+    voronoi
 ) {
     "use strict";
     var //imports
         unwrap = ko.utils.unwrapObservable,
-        isObservable = ko.isObservable;
+        isObservable = ko.isObservable,
+        visualizations = {
+            treemap: treemap,
+            sunburst: sunburst,
+            voronoi: voronoi
+        };
+
+    function blankVisualization(type) {
+        // Generate general error:
+        var strError = "Visualization ";
+        if (type !== undefined) {
+            strError += "(" + type + ") ";
+        }
+        strError += "doesn't exist!";
+
+        // Generate error function:
+        function visualizationError(func) {
+            var strFuncError = "Calling " + func + " function of undefined visualization. " + strError;
+            return function () {
+                console.error(strFuncError);
+            };
+        }
+
+        // Return blank visualization with errors as functions:
+        return {
+            init: visualizationError("init"),
+            update: visualizationError("update"),
+            zoom: visualizationError("zoom"),
+            resize: visualizationError("resize"),
+            remove: visualizationError("remove")
+        };
+    }
 
     function init(
         element,
         valueAccessor
     ) {
         var parameters = valueAccessor(),
-            visualization = {
-                init: function () { },
-                update: function () { },
-                zoom: function () { },
-                resize: function () { },
-                remove: function () { }
-            },
+            visualization,
             visualizationType,
             visualizationTypeObservable,
             json,
@@ -52,6 +80,7 @@ define([
             canvasHeight,
             root,
             nodeSelected,
+            zooms,
             zoomEnabled = true; // Temporary fix to errors with NaN widths during adding/removing nodes.
 
         // Get element's width and height:
@@ -343,21 +372,13 @@ define([
         });
         visualizationType = visualizationTypeObservable();
 
-        if (visualizationType === 'treemap') {
-            visualization = treemap();
-        } else if (visualizationType === 'sunburst') {
-            visualization = sunburst();
+        if (visualizations[visualizationType] !== undefined) {
+            visualization = visualizations[visualizationType]();
         } else {
-            visualization = {
-                init: function () { },
-                update: function () { },
-                zoom: function () { },
-                resize: function () { },
-                remove: function () { }
-            };
+            visualization = blankVisualization(visualizationType);
         }
         // Run visualization's initialize code:
-        visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom);
+        visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
         // Start rendering the canvas
         canvas.startRender();
 
@@ -366,18 +387,10 @@ define([
             visualization.remove();
             visualizationType = visualizationTypeObservable();
 
-            if (visualizationType === 'treemap') {
-                visualization = treemap();
-            } else if (visualizationType === 'sunburst') {
-                visualization = sunburst();
+            if (visualizations[visualizationType] !== undefined) {
+                visualization = visualizations[visualizationType]();
             } else {
-                visualization = {
-                    init: function () { },
-                    update: function () { },
-                    zoom: function () { },
-                    resize: function () { },
-                    remove: function () { }
-                };
+                visualization = blankVisualization(visualizationType);
             }
 
             // Set selected node to the root of the treemap:
@@ -388,7 +401,7 @@ define([
             }
 
             // Run visualization's initialize code:
-            visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom);
+            visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
             // Start rendering the canvas
             canvas.startRender();
         });
@@ -429,6 +442,15 @@ define([
                 visualization.update();
             });
         }
+
+        // TEMPORARY:
+        /*zoomObservable = ko.computed(function () {
+            zooms = parameters.zoom || ko.observable(1);
+            return unwrap(zooms);
+        });
+        zoomObservable.subscribe(function(val){
+            visualization.scale(val);
+        });*/
     }
 
     return {

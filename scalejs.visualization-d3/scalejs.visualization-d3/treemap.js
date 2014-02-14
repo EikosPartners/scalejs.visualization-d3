@@ -1,12 +1,7 @@
 ﻿/*global define*/
-/*jslint browser: true */
 define([
-    //'scalejs!core',
-    //'knockout',
     'd3'
 ], function (
-    //core,
-    //ko,
     d3
 ) {
     "use strict";
@@ -47,12 +42,61 @@ define([
             t.select("text")
                 .attr("left", function (d) { return kx * d.dx / 2; })
                 .attr("top", function (d) { return ky * d.dy / 2; })
-                .attr("opacity", function (d) { return kx * d.dx > d.w ? 1 : 0; });
+                .attr("opacity", function (d) {
+                    d.w = this.getWidth();
+                    d.h = this.getHeight();
+                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
+                    return (kx * (d.dx - padding) >= d.w) && (ky * (d.dy - 2) >= d.h) ? 1 : 0;
+                });
 
             // Prevent event from firing more than once:
             if (d3.event) {
                 d3.event.stopPropagation();
             }
+        }
+
+        /*function scale(val) {
+            if (canvasArea === undefined) {
+                return; // Catch for if treemap hasn't been setup.
+            }
+            canvasArea.selectAll("group.cell").transition()
+                .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
+                .attr("left", function (d) { return x(d.x * val); })
+                .attr("top", function (d) { return y(d.y * val); })
+                .attr("scaleX", val)
+                .attr("scaleY", val);
+        }*/
+
+        function addNodes(celSel) {
+            // Add nodes to Canvas:
+            var cell = celSel.enter().append("group")
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", function (d) { return d.x; })
+                .attr("top", function (d) { return d.y; })
+                .classed("cell", true)
+                .on("mousedown", selectZoom);
+
+            // Add rectangle to each node:
+            cell.append("rect")
+                .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
+                .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
+                .attr("fill", function (d) { return d.color; });
+
+            // Add title to each node:
+            cell.append("text")
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", function (d) { return d.dx / 2; })
+                .attr("top", function (d) { return d.dy / 2; })
+                .attr("fontSize", 11)
+                .text(function (d) { return d.name; })
+                .attr("opacity", function (d) {
+                    d.w = this.getWidth();
+                    d.h = this.getHeight();
+                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
+                    return (d.dx - padding >= d.w) && (d.dy - 2 >= d.h) ? 1 : 0;
+                });
         }
 
         function update() {
@@ -92,32 +136,15 @@ define([
                 .attr("left", function (d) { return d.dx / 2; })
                 .attr("top", function (d) { return d.dy / 2; })
                 .text(function (d) { return d.name; })
-                .attr("opacity", function (d) { d.w = this.getWidth(); return d.dx > d.w ? 1 : 0; });
+                .attr("opacity", function (d) {
+                    d.w = this.getWidth();
+                    d.h = this.getHeight();
+                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
+                    return (d.dx - padding >= d.w) && (d.dy - 2 >= d.h) ? 1 : 0;
+                });
 
             // Add new nodes to Canvas:
-            cell = celSel.enter().append("group")
-                .classed("cell", true)
-                .attr("originX", "center")
-                .attr("originY", "center")
-                .attr("left", function (d) { return d.x; })
-                .attr("top", function (d) { return d.y; })
-                .on("mousedown", selectZoom);
-
-            // Add rectangle to each new node on Canvas:
-            cell.append("rect")
-                .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
-                .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                .attr("fill", function (d) { return d.color; });
-
-            // Add title to each new node on Canvas:
-            cell.append("text")
-                .attr("originX", "center")
-                .attr("originY", "center")
-                .attr("left", function (d) { return d.dx / 2; })
-                .attr("top", function (d) { return d.dy / 2; })
-                .attr("fontSize", 11)
-                .text(function (d) { return d.name; })
-                .attr("opacity", function (d) { d.w = this.getWidth(); return d.dx > d.w ? 1 : 0; });
+            addNodes(celSel);
 
             // Remove nodes from Canvas:
             cell = celSel.exit().remove();
@@ -142,7 +169,7 @@ define([
             selectZoom = selectZoomFunction;
 
             // Define temp vars:
-            var celSel, cell, nodes;
+            var celSel, nodes;
 
             // Get treemap data:
             root = json();
@@ -168,29 +195,7 @@ define([
                     .data(nodes, function (d) { return d.name; });
 
             // Add nodes to Canvas:
-            cell = celSel.enter().append("group")
-                    .classed("cell", true)
-                    .attr("originX", "center")
-                    .attr("originY", "center")
-                    .attr("left", function (d) { return d.x; })
-                    .attr("top", function (d) { return d.y; })
-                    .on("mousedown", selectZoom);
-
-            // Add rectangle to each node:
-            cell.append("rect")
-                .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
-                .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                .attr("fill", function (d) { return d.color; });
-
-            // Add title to each node:
-            cell.append("text")
-                .attr("originX", "center")
-                .attr("originY", "center")
-                .attr("left", function (d) { return d.dx / 2; })
-                .attr("top", function (d) { return d.dy / 2; })
-                .attr("fontSize", 11)
-                .text(function (d) { return d.name; })
-                .attr("opacity", function (d) { d.w = this.getWidth(); return d.dx > d.w ? 1 : 0; });
+            addNodes(celSel);
         }
 
         function resize(width, height) {
@@ -213,6 +218,7 @@ define([
             init: init,
             update: update,
             zoom: zoom,
+            //scale: scale,
             resize: resize,
             remove: remove
         };

@@ -1,4 +1,5 @@
 /*global define*/
+/*jslint devel: true */
 define([
     //'scalejs!core',
     'knockout',
@@ -15,6 +16,10 @@ define([
     d3fabric
 ) {
     'use strict';
+    if (ko.bindingHandlers.d3) {
+        console.error("visualization-d3 is already setup");
+        return false;
+    }
     d3fabric(d3original, fabric);   // Returns true if initialized, else returns false.
 
     ko.bindingHandlers.d3 = d3;

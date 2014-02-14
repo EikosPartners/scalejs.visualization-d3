@@ -1,10 +1,7 @@
 ﻿/*global define*/
-/*jslint browser: true */
 define([
-    //'scalejs!core',
     'd3'
 ], function (
-    //core,
     d3
 ) {
     "use strict";
@@ -36,9 +33,7 @@ define([
             return false;
         }
         function canvasArc(d) {
-            var patt1 = /(\d+\.\d+e\-\d+)/g,
-                res = arc(d).replace(patt1, "0");
-            return res;
+            return arc(d).replace(/(\d+\.\d+e\-\d+)/g, "0");
         }
         function pathTween(p) {
             return function (d) {
@@ -149,6 +144,66 @@ define([
             }
         }
 
+        function addNodes(celSel) {
+            // Add nodes to Canvas:
+            var cell = celSel.enter().append("group")
+                .attr("originX", "center")
+                .attr("originY", "center")
+                .attr("left", canvasWidth / 2)
+                .attr("top", canvasHeight / 2)
+                .classed("cell", true)
+                .property("perPixelTargetFind", true)
+                .on("mousedown", selectZoom);
+
+            // Add arc to nodes:
+            cell.append("path")
+                .attr("d", canvasArc)
+                .attr("fill", function (d) { return d.color; })
+                .each(function (d) {
+                    this.old = {
+                        x: d.x,
+                        y: d.y,
+                        dx: d.dx,
+                        dy: d.dy,
+                        xd: x.domain(),
+                        yd: y.domain(),
+                        yr: y.range()
+                    };
+                });
+
+            // Add text to nodes:
+            cell.append("text")
+                .attr("originX", function (d) { return (x(d.x + d.dx / 2) > Math.PI) ? "right" : "left"; })
+                .attr("originY", "center")
+                .text(function (d) { return d.name; })
+                .attr("fontSize", 11)
+                .attr("opacity", function (d) {
+                    d.w = this.getWidth();
+                    d.bw = y(d.y + d.dy) - y(d.y);
+                    d.h = this.getHeight();
+                    d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
+                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
+                    return (d.bw - padding >= d.w) && ((d.bh - 2 >= d.h) || y(d.y) < 1) ? 1 : 0;
+                })
+                .attr("angle", function (d) {
+                    var ang = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
+                    if (ang > 90) {
+                        ang = (ang + 180) % 360;
+                    }
+                    return ang;
+                })
+                .attr("left", function (d) { return (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2); })
+                .attr("top", function (d) { return (y(d.y) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2); })
+                .each(function (d) {
+                    this.old = {
+                        x: d.x,
+                        y: d.y,
+                        dx: d.dx,
+                        dy: d.dy
+                    };
+                });
+        }
+
         function update() {
             if (canvasArea === undefined) {
                 return; // Catch for if sunburst hasn't been setup.
@@ -183,62 +238,7 @@ define([
                 .tween("textTween", textTween(nodes[0]));   // Sunburst Text Tween animation, zoom to root (node0)
 
             // Add nodes to Canvas:
-            cell = celSel.enter().append("group")
-                .attr("originX", "center")
-                .attr("originY", "center")
-                .attr("left", canvasWidth / 2)
-                .attr("top", canvasHeight / 2)
-                .classed("cell", true)
-                .property("perPixelTargetFind", true)
-                .on("mousedown", selectZoom);
-
-            // Add arc to nodes:
-            cell.append("path")
-                .attr("d", canvasArc)
-                .attr("fill", function (d) { return d.color; })
-                .each(function (d) {
-                    this.old = {
-                        x: d.x,
-                        y: d.y,
-                        dx: d.dx,
-                        dy: d.dy,
-                        xd: x.domain(),
-                        yd: y.domain(),
-                        yr: y.range()
-                    };
-                });
-
-            // Add text to nodes:
-            cell.append("text")
-                .attr("originX", function (d) { return (x(d.x + d.dx / 2) > Math.PI) ? "right" : "left"; })
-                .attr("originY", "center")
-                .text(function (d) { return d.name; })
-                .attr("fontSize", 11)
-                .attr("opacity", function (d) {
-                    d.w = this.getWidth();
-                    d.bw = y(d.y + d.dy) - y(d.y);
-                    d.h = this.getHeight();
-                    d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
-                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
-                    return (d.bw - padding >= d.w) && ((d.bh - 2 >= d.h) || y(d.y) < 1) ? 1 : 0;
-                })
-                .attr("angle", function (d) {
-                    var ang = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
-                    if (ang > 90) {
-                        ang = (ang + 180) % 360;
-                    }
-                    return ang;
-                })
-                .attr("left", function (d) { return (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2); })
-                .attr("top", function (d) { return (y(d.y) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2); })
-                .each(function (d) {
-                    this.old = {
-                        x: d.x,
-                        y: d.y,
-                        dx: d.dx,
-                        dy: d.dy
-                    };
-                });
+            addNodes(celSel);
 
             // Remove nodes from Canvas:
             cell = celSel.exit().remove();
@@ -264,7 +264,7 @@ define([
             selectZoom = selectZoomFunction;
 
             // Define temp vars:
-            var celSel, cell, nodes;
+            var celSel, nodes;
 
             // Get sunburst data:
             root = json();
@@ -292,62 +292,7 @@ define([
                 .data(nodes, function (d) { return d.name; });
 
             // Add nodes to Canvas:
-            cell = celSel.enter().append("group")
-                .attr("originX", "center")
-                .attr("originY", "center")
-                .attr("left", canvasWidth / 2)
-                .attr("top", canvasHeight / 2)
-                .classed("cell", true)
-                .property("perPixelTargetFind", true)
-                .on("mousedown", selectZoom);
-
-            // Add arc to nodes:
-            cell.append("path")
-                .attr("d", canvasArc)
-                .attr("fill", function (d) { return d.color; })
-                .each(function (d) {
-                    this.old = {
-                        x: d.x,
-                        y: d.y,
-                        dx: d.dx,
-                        dy: d.dy,
-                        xd: x.domain(),
-                        yd: y.domain(),
-                        yr: y.range()
-                    };
-                });
-
-            // Add text to nodes:
-            cell.append("text")
-                .attr("originX", function (d) { return (x(d.x + d.dx / 2) > Math.PI) ? "right" : "left"; })
-                .attr("originY", "center")
-                .text(function (d) { return d.name; })
-                .attr("fontSize", 11)
-                .attr("opacity", function (d) {
-                    d.w = this.getWidth();
-                    d.bw = y(d.y + d.dy) - y(d.y);
-                    d.h = this.getHeight();
-                    d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
-                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
-                    return (d.bw - padding >= d.w) && ((d.bh - 2 >= d.h) || y(d.y) < 1) ? 1 : 0;
-                })
-                .attr("angle", function (d) {
-                    var ang = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
-                    if (ang > 90) {
-                        ang = (ang + 180) % 360;
-                    }
-                    return ang;
-                })
-                .attr("left", function (d) { return (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2); })
-                .attr("top", function (d) { return (y(d.y) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2); })
-                .each(function (d) {
-                    this.old = {
-                        x: d.x,
-                        y: d.y,
-                        dx: d.dx,
-                        dy: d.dy
-                    };
-                });
+            addNodes(celSel);
         }
 
         function resize(width, height) {
