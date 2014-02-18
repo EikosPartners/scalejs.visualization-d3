@@ -21,7 +21,9 @@ define([
             hammertime,
             left = 50,
             top = 50,
-            rotateVal = 0;
+            rotateStart = 0,
+            rotateVal = 0,
+            scaleStart = 1,
             scaleVal = 1;
 
         // Zoom after click:
@@ -40,16 +42,18 @@ define([
             if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
+            scaleVal = val;
             canvasArea.select("group")
-                .attr("scaleX", scaleVal * val)
-                .attr("scaleY", scaleVal * val);
+                .attr("scaleX", scaleVal)
+                .attr("scaleY", scaleVal);
         }
         function rotate(ang) {
             if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
+            rotateVal = ang;
             canvasArea.select("group")
-                .attr("angle", rotateVal + ang);
+                .attr("angle", rotateVal);
         }
         function pan(dx, dy) {
             if (canvasArea === undefined) {
@@ -66,16 +70,25 @@ define([
             }
             event.gesture.preventDefault();
 
-            // Pinch and Zoom
-            if (event.type === "pinch") {
-                scale(event.gesture.scale);
-            }
-            if (event.type === "transformend") {
+            if (event.type === "transformstart") {
+                scaleStart = scaleVal;
+                rotateStart = rotateVal;
             }
 
+            // Pinch and Zoom
+            if (event.type === "pinch") {
+                scale(scaleStart * event.gesture.scale);
+            }
             // Rotate
             if (event.type === "rotate") {
-                rotate(event.gesture.rotation);
+                rotate((rotateStart + event.gesture.rotation) % 360);
+            }
+
+            if (event.type === "transformend") {
+                scaleStart = scaleVal;
+                rotateStart = rotateVal;
+                rotate(rotateVal);
+                scale(scaleVal);
             }
 
             // Pan
@@ -86,13 +99,10 @@ define([
                 left += event.gesture.deltaX;
                 top += event.gesture.deltaY;
                 pan(0, 0);
-
-                rotateVal = (rotateVal + event.gesture.rotation) % 360;
-                rotate(0);
-
-                scaleVal *= event.gesture.scale;
-                scale(1);
             }
+
+            // Render updates (temp fix)
+            canvasElement.pumpRender();
         }
 
         function addNodes(celSel) {
@@ -170,7 +180,7 @@ define([
 
             hammertime = hammer(canvasArea[0].parentNode, {
                 prevent_default: true
-            }).on("release drag transformend rotate pinch", testHammer);
+            }).on("release drag transformstart transformend rotate pinch", testHammer);
 
             celSel = canvasArea.append("group")
                 .attr("left", left)
@@ -191,7 +201,7 @@ define([
             if (canvasArea !== undefined) {
                 canvasArea.selectAll("group").remove();
                 canvasArea = undefined;
-                hammertime.off("release drag transformend rotate pinch", testHammer);
+                hammertime.off("release drag transformstart transformend rotate pinch", testHammer);
                 hammertime.enable(false);
                 hammertime = undefined;
             }

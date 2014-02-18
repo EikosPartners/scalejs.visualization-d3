@@ -7,6 +7,15 @@ var require = {
         "d3.colorbrewer": "empty:",
         "fabric": "empty:",
         "hammer": "empty:",
-        "scalejs.d3-fabric": "empty:"
+        "scalejs.d3-fabric": "empty:",
+        "tweenLite": "empty:"
+    },
+    "shim": {
+        "fabric": {
+            "exports": "fabric"
+        },
+        "tweenLite": {
+            "exports": "TweenLite"
+        }
     }
 };

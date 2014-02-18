@@ -36,6 +36,7 @@
   <ItemGroup>
     <None Include="JSLintNet.json" />
     <None Include="packages.config" />
+    <Content Include="Scripts\TweenLite-1.11.4.js" />
   </ItemGroup>
   <PropertyGroup>
     <ScalejsProjectType>Extension</ScalejsProjectType>

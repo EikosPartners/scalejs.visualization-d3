@@ -389,6 +389,7 @@ define([
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
             visualization.remove();
+            //canvas.pumpRender();
             visualizationType = visualizationTypeObservable();
 
             if (visualizations[visualizationType] !== undefined) {
@@ -408,6 +409,7 @@ define([
             visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
             // Start rendering the canvas
             canvas.startRender();
+            canvas.pumpRender();
         });
 
         function update() {
@@ -423,6 +425,7 @@ define([
 
             // Update visualization:
             visualization.update();
+            //canvas.pumpRender();
         }
 
         // Subscribe to data changes:
@@ -444,6 +447,7 @@ define([
                 visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
                 visualization.update();
+                canvas.pumpRender();
             });
         }
 

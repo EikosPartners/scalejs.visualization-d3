@@ -7,7 +7,8 @@ $project |
 		'fabric' : 'Scripts/fabric-1.4.0',
 		'hammer' : 'Scripts/hammer',
 		'scalejs.d3-fabric' : 'Scripts/scalejs.d3-fabric',
-		'scalejs.visualization-d3' : 'Scripts/scalejs.visualization-d3-$($package.Version)'
+		'scalejs.visualization-d3' : 'Scripts/scalejs.visualization-d3-$($package.Version)',
+        'tweenLite' : 'Scripts/TweenLite-1.11.4'
 	}" |
 	Add-ScalejsExtension 'scalejs.visualization-d3' |
 	Out-Null

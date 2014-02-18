@@ -4,7 +4,7 @@ define(function () {
 
     var d3fabricAPI = { version: "1.0.0" };
 
-    return function (d3, fabric) {
+    return function (d3, fabric, gsap) {
         if (!d3 || !fabric) {
             return false;
         }
@@ -99,95 +99,79 @@ define(function () {
             return groups;
         }
 
-        //function overrides
-        function addCanvas(func, args) {
-            var name = args.length ? args[0] : null;
-            if (typeof name !== "function" && name.indexOf("fabric:") === 0) {
-                var fabricName = name.slice(7);
-                if (fabricName === "canvas" || fabricName === "staticcanvas") {
-                    function FabricCanvas(c) {
-                        return new fabric.Canvas(c);
-                    }
-                    function FabricStaticCanvas(c) {
-                        return new fabric.StaticCanvas(c);
-                    }
-                    var canvasGen = fabricName === "canvas" ? FabricCanvas : FabricStaticCanvas;
-                    if (!args.length) args = new Array(1);
-                    args[0] = function () {
-                        var can = this.ownerDocument.createElement("canvas");
-                        can._fabricCanvas = {
-                            transitionItems: new Array(),
-                            canvas: null,
-                            renderRunning: false,
-                            time: Date.now(),
-                            render: function () {
-                                var t = Date.now();
-                                if (t > can._fabricCanvas.time) {
-                                    d3_fabric_transition_process.call(can._fabricCanvas, can._fabricCanvas.transitionItems, t - can._fabricCanvas.time);
-                                    can._fabricCanvas.time = t;
-                                }
-                                if (can._fabricCanvas.renderRunning) {
-                                    fabric.util.requestAnimFrame(can._fabricCanvas.render, can);
-                                    can._fabricCanvas.canvas.renderAll();
+        //GSAP plugin
+        var d3_fabric_use_GSAP = gsap && parseVersion(gsap.version).atLeast(1, 11, 4);
+        if (d3_fabric_use_GSAP) {
+            /*!
+             * VERSION: 1.0.0
+             * DATE: 2014-02-14
+             * UPDATES AND DOCS AT: http://www.greensock.com
+             * 
+             * @license Copyright (c) 2008-2014, GreenSock. All rights reserved.
+             * This work is subject to the terms at http://www.greensock.com/terms_of_use.html or for
+             * Club GreenSock members, the software agreement that was issued with your membership.
+             * 
+             * @author: Vincent Simonetti, rcmaniac25@hotmail.com
+             **/
+            (window._gsQueue || (window._gsQueue = [])).push(function () {
+
+                var _drawCalls = [],
+                    _ticker, _listening,
+                    _onTick = function () {
+                        if (_drawCalls.length) {
+                            _drawCalls.forEach(function (draw) {
+                                draw.render.apply(draw.scope);
+                                draw.render._addedDraw = false;
+                            });
+                            _drawCalls.length = 0;
+                        } else {
+                            _ticker.removeEventListener("tick", _onTick);
+                            _listening = false;
+                        }
+                    };
+
+                window._gsDefine.plugin({
+                    propName: "d3fabric",
+                    API: 2,
+                    version: "1.0.0",
+
+                    init: function (target, value, tween) {
+                        this._target = target;
+
+                        this._fbTween = value.tween.call(target, target.__data__, value.tweenIndex);
+
+                        this._fbCanvasRender = value.canvasRender;
+                        this._fbCanvasRenderScope = value.canvasRenderScope
+                        if (!_ticker && this._fbCanvasRender) {
+                            _ticker = tween.constructor.ticker;
+                        }
+
+                        return true;
+                    },
+
+                    set: function (ratio) {
+                        this._super.setRatio.call(this, ratio);
+
+                        if (this._fbTween) {
+                            this._fbTween.call(this._target, ratio);
+                            if (this._fbCanvasRender && !this._fbCanvasRender._addedDraw) {
+                                _drawCalls.push({
+                                    scope: this._fbCanvasRenderScope || null,
+                                    render: this._fbCanvasRender
+                                });
+                                this._fbCanvasRender._addedDraw = true;
+                                if (!_listening) {
+                                    _ticker.addEventListener("tick", _onTick);
+                                    _listening = true;
                                 }
                             }
-                        };
-                        return can;
-                    };
-                    var sel = func.apply(this, args);
+                        }
+                    }
 
-                    /* Bit of hackery to make sure everything is setup correctly:
-                     * - Fabric canvas creation must be donw after being appended to the DOM structure since Fabric modifies the DOM structure based on what type of canvas is used
-                     * - A circular reference is setup so that during transitions, the elements can be accessed
-                     * - The group's parent node is changed to be the "actual" parent node
-                     */
-                    var can = sel.node();
-                    can._fabricCanvas.canvas = canvasGen(can);
-                    can._fabricCanvas.canvas._fabricCanvasDomRef = can;
-                    sel[0].parentNode = this.node();
+                });
 
-                    return d3_fabric_selection(sel);
-                }
-            }
-            return func.apply(this, args);
+            }); if (window._gsDefine) { window._gsQueue.pop()(); }
         }
-
-        d3.selection.prototype.append = function () {
-            return addCanvas.call(this, d3_selection_append, arguments);
-        };
-
-        d3.selection.prototype.insert = function () {
-            return addCanvas.call(this, d3_selection_insert, arguments);
-        }
-
-        d3.select = function (node) {
-            var sel = d3_select.call(this, node),
-                node = sel.empty() ? null : sel.node();
-            if (node !== null && node._fabricCanvas !== undefined) {
-                return d3_fabric_selection(sel);
-            }
-            return sel;
-        };
-
-        d3.selectAll = function (nodes) {
-            var sel = d3_selectAll.call(this, nodes),
-                allFabric = true;
-            sel.each(function () {
-                if (allFabric && this._fabricCanvas === undefined) {
-                    allFabric = false;
-                }
-            });
-            if (allFabric) {
-                return d3_fabric_selection(sel);
-            }
-            return sel;
-        };
-
-        d3.transition = function (selection) {
-            return arguments.length && (d3_fabric_selection_proto.isPrototypeOf(selection) || d3_fabric_transition_proto.isPrototypeOf(selection)) ?
-                d3_fabric_transitionInheritId ? selection.transition() : selection :
-                d3_transition.apply(this, arguments);
-        };
 
         //fabric objects
         var fabric_object_private_set = [],
@@ -245,6 +229,104 @@ define(function () {
                 }
             });
         })();
+
+        //function overrides
+        function addCanvas(func, args) {
+            var name = args.length ? args[0] : null;
+            if (typeof name !== "function" && name.indexOf("fabric:") === 0) {
+                var fabricName = name.slice(7);
+                if (fabricName === "canvas" || fabricName === "staticcanvas") {
+
+                    function FabricCanvas(c) {
+                        return new fabric.Canvas(c);
+                    }
+                    function FabricStaticCanvas(c) {
+                        return new fabric.StaticCanvas(c);
+                    }
+
+                    var canvasGen = fabricName === "canvas" ? FabricCanvas : FabricStaticCanvas;
+                    if (!args.length) args = new Array(1);
+                    args[0] = function () {
+                        var can = this.ownerDocument.createElement("canvas");
+
+                        function GSAPRender() {
+                            can._fabricCanvas.canvas.renderAll();
+                        }
+                        function NormalRender() {
+                            var t = Date.now();
+                            if (t > can._fabricCanvas.time) {
+                                d3_fabric_transition_process.call(can._fabricCanvas, can._fabricCanvas.transitionItems, t - can._fabricCanvas.time);
+                                can._fabricCanvas.time = t;
+                            }
+                            if (can._fabricCanvas.renderRunning) {
+                                fabric.util.requestAnimFrame(can._fabricCanvas.render, can);
+                                can._fabricCanvas.canvas.renderAll();
+                            }
+                        }
+
+                        can._fabricCanvas = {
+                            transitionItems: new Array(),
+                            canvas: null,
+                            renderRunning: false,
+                            time: Date.now(),
+                            render: d3_fabric_use_GSAP ? GSAPRender : NormalRender
+                        };
+                        return can;
+                    };
+                    var sel = func.apply(this, args);
+
+                    /* Bit of hackery to make sure everything is setup correctly:
+                     * - Fabric canvas creation must be donw after being appended to the DOM structure since Fabric modifies the DOM structure based on what type of canvas is used
+                     * - A circular reference is setup so that during transitions, the elements can be accessed
+                     * - The group's parent node is changed to be the "actual" parent node
+                     */
+                    var can = sel.node();
+                    can._fabricCanvas.canvas = canvasGen(can);
+                    can._fabricCanvas.canvas._fabricCanvasDomRef = can;
+                    sel[0].parentNode = this.node();
+
+                    return d3_fabric_selection(sel);
+                }
+            }
+            return func.apply(this, args);
+        }
+
+        d3.selection.prototype.append = function () {
+            return addCanvas.call(this, d3_selection_append, arguments);
+        };
+
+        d3.selection.prototype.insert = function () {
+            return addCanvas.call(this, d3_selection_insert, arguments);
+        }
+
+        d3.select = function (node) {
+            var sel = d3_select.call(this, node),
+                node = sel.empty() ? null : sel.node();
+            if (node !== null && node._fabricCanvas !== undefined) {
+                return d3_fabric_selection(sel);
+            }
+            return sel;
+        };
+
+        d3.selectAll = function (nodes) {
+            var sel = d3_selectAll.call(this, nodes),
+                allFabric = true;
+            sel.each(function () {
+                if (allFabric && this._fabricCanvas === undefined) {
+                    allFabric = false;
+                }
+            });
+            if (allFabric) {
+                return d3_fabric_selection(sel);
+            }
+            return sel;
+        };
+
+        d3.transition = function (selection) {
+            return arguments.length && (d3_fabric_selection_proto.isPrototypeOf(selection) || d3_fabric_transition_proto.isPrototypeOf(selection)) ?
+                d3_fabric_transitionInheritId ? selection.transition() : selection :
+                d3_transition.apply(this, arguments);
+        };
 
         //fabric canvas
         d3.fabric.selection = d3_fabric_selection_proto;
@@ -761,13 +843,17 @@ define(function () {
         }
         //-transition
         d3_fabric_selection_proto.transition = function () {
-            var id = d3_fabric_transitionInheritId || ++d3_fabric_transitionId, subgroups = [], subgroup, node, transition = d3_fabric_transitionInherit || {
-                time: Date.now(),
-                ease: d3.ease("cubic-in-out"),
-                delay: 0,
-                duration: 250,
-                fabricCanvas: null
-            };
+            var id = d3_fabric_transitionInheritId || ++d3_fabric_transitionId,
+                subgroups = [],
+                subgroup,
+                node,
+                transition = d3_fabric_transitionInherit || {
+                    time: Date.now(),
+                    ease: d3_fabric_use_GSAP ? Cubic.easeInOut : d3.ease("cubic-in-out"),
+                    delay: 0,
+                    duration: 250,
+                    fabricCanvas: null
+                };
             for (var j = -1, m = this.length; ++j < m;) {
                 subgroups.push(subgroup = []);
                 for (var group = this[j], i = -1, n = group.length; ++i < n;) {
@@ -825,7 +911,7 @@ define(function () {
         //-pumpRender
         d3_fabric_selection_proto.pumpRender = function () {
             return this.each(function () {
-                if (this._fabricCanvas !== undefined && !this._fabricCanvas.renderRunning) {
+                if (this._fabricCanvas !== undefined) {
                     this._fabricCanvas.render.call(this);
                 }
             });
@@ -984,64 +1070,67 @@ define(function () {
             if (!transition) {
                 var time = inherit.time;
                 transition = lock[id] = {
-                    tween: d3.map(),
                     time: time,
                     ease: inherit.ease,
                     delay: inherit.delay,
                     duration: inherit.duration,
-                    fabricCanvas: inherit.fabricCanvas
+                    fabricCanvas: inherit.fabricCanvas,
+                    canvasElement: inherit.canvasElement
                 };
                 ++lock.count;
+                if (!d3_fabric_use_GSAP) {
+                    transition.tween = d3.map();
 
-                //more or less a straight copy of d3's code, with some minor changes
-                d3_fabric_timer_call(transition.fabricCanvas, function (elapsed) {
-                    var d = node.__data__,
-                        ease = transition.ease,
-                        delay = transition.delay,
-                        duration = transition.duration,
-                        tweened = [];
+                    //more or less a straight copy of d3's code, with some minor changes
+                    d3_fabric_timer_call(transition.fabricCanvas, function (elapsed) {
+                        var d = node.__data__,
+                            ease = transition.ease,
+                            delay = transition.delay,
+                            duration = transition.duration,
+                            tweened = [];
 
-                    if (delay <= elapsed) return start(elapsed - delay);
-                    return true;
-
-                    function start(elapsed) {
-                        if (lock.active > id) return stop();
-                        lock.active = id;
-                        transition.event && transition.event.start.call(node, d, i);
-
-                        transition.tween.forEach(function (key, value) {
-                            if (value = value.call(node, d, i)) {
-                                tweened.push(value);
-                            }
-                        });
-                        if (tweened.length == 0) return stop();
-                        d3_fabric_timer_call(transition.fabricCanvas, tick);
-                        return false;
-                    }
-
-                    function tick(elapsed) {
-                        if (lock.active !== id) return stop();
-
-                        var t = elapsed / duration,
-                            e = ease(t),
-                            n = tweened.length;
-
-                        while (n > 0) {
-                            tweened[--n].call(node, e);
-                        }
-                        if (t >= 1) {
-                            transition.event && transition.event.end.call(node, d, i);
-                            return stop();
-                        }
+                        if (delay <= elapsed) return start(elapsed - delay);
                         return true;
-                    }
 
-                    function stop() {
-                        if (--lock.count) delete lock[id];
-                        else delete node.__transition__;
-                        return false;
-                    }
-                });
+                        function start(elapsed) {
+                            if (lock.active > id) return stop();
+                            lock.active = id;
+                            transition.event && transition.event.start.call(node, d, i);
+
+                            transition.tween.forEach(function (key, value) {
+                                if (value = value.call(node, d, i)) {
+                                    tweened.push(value);
+                                }
+                            });
+                            if (tweened.length == 0) return stop();
+                            d3_fabric_timer_call(transition.fabricCanvas, tick);
+                            return false;
+                        }
+
+                        function tick(elapsed) {
+                            if (lock.active !== id) return stop();
+
+                            var t = elapsed / duration,
+                                e = ease(t),
+                                n = tweened.length;
+
+                            while (n > 0) {
+                                tweened[--n].call(node, e);
+                            }
+                            if (t >= 1) {
+                                transition.event && transition.event.end.call(node, d, i);
+                                return stop();
+                            }
+                            return true;
+                        }
+
+                        function stop() {
+                            if (--lock.count) delete lock[id];
+                            else delete node.__transition__;
+                            return false;
+                        }
+                    });
+                }
             }
         }
         function d3_fabric_transition_process(transitionItems, delta) {
@@ -1075,7 +1164,7 @@ define(function () {
         d3_fabric_transition_proto.ease = function (value) {
             var id = this.fabricAniId;
             if (arguments.length < 1) return this.node().__transition__[id].ease;
-            if (typeof value !== "function") value = d3.ease.apply(d3, arguments);
+            if (typeof value !== "function") value = d3_fabric_use_GSAP ? EaseLookup.find(value) : d3.ease.apply(d3, arguments);
             return d3_fabric_selection_proto.each.call(this, function () {
                 this.__transition__[id].ease = value;
             });
@@ -1205,20 +1294,54 @@ define(function () {
             var id = this.fabricAniId;
             if (arguments.length < 2) return this.node().__transition__[id].tween.get(name);
             return d3_fabric_selection_proto.each.call(this, tween == null ? function () {
-                this.__transition__[id].tween.remove(name);
-            } : function () {
-                this.__transition__[id].tween.set(name, tween);
+                if (!d3_fabric_use_GSAP) this.__transition__[id].tween.remove(name);
+            } : function (d, i) {
+                d3_fabric_transition_tween_direct(this, name, tween, id, i);
             });
         };
         function d3_fabric_transition_tween(groups, name, value, tween) {
             var id = groups.fabricAniId;
             return d3_fabric_selection_proto.each.call(groups, typeof value === "function"
                 ? function (d, i, j) {
-                    this.__transition__[id].tween.set(name, tween(value.call(this, d, i, j)));
+                    d3_fabric_transition_tween_direct(this, name, tween(value.call(this, d, i, j)), id, i);
                 }
-                : (value = tween(value), function () {
-                    this.__transition__[id].tween.set(name, value);
+                : (value = tween(value), function (d, i) {
+                    d3_fabric_transition_tween_direct(this, name, value, id, i);
                 }));
+        }
+        function d3_fabric_transition_tween_direct(node, name, value, id, i) {
+            if (d3_fabric_use_GSAP) {
+                function startAni(trans, d, i) {
+                    trans.event && trans.event.start.call(this, d, i);
+                }
+                function endAni(trans, lock, id, d, i) {
+                    trans.event && trans.event.end.call(this, d, i);
+
+                    if (--lock.count) delete lock[id];
+                    else delete this.__transition__;
+                }
+                var lock = node.__transition__,
+                    trans = lock[id],
+                    fbCanvas = trans.fabricCanvas ? trans.fabricCanvas.render : null;
+                var args = {
+                    ease: trans.ease,
+                    delay: trans.delay / 1000.0,
+                    /*onStart: startAni,
+                    onStartParams: [trans, d, i],
+                    onStartScope: this,
+                    onComplete: endAni,
+                    onCompleteParams: [trans, lock, id, d, i],
+                    onCompleteScope: this,*/
+                    d3fabric: {
+                        canvasRender: fbCanvas,
+                        tween: value,
+                        tweenIndex: i
+                    }
+                };
+                TweenLite.to(node, trans.duration / 1000.0, args);
+            } else {
+                node.__transition__[id].tween.set(name, value);
+            }
         }
         //-select
         d3_fabric_transition_proto.select = function (selector) {
