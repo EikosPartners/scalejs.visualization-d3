@@ -55,7 +55,7 @@ define([
             }
         }
 
-        /*function scale(val) {
+        function scale(val) {
             if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
@@ -65,7 +65,7 @@ define([
                 .attr("top", function (d) { return y(d.y * val); })
                 .attr("scaleX", val)
                 .attr("scaleY", val);
-        }*/
+        }
 
         function addNodes(celSel) {
             // Add nodes to Canvas:
@@ -218,7 +218,7 @@ define([
             init: init,
             update: update,
             zoom: zoom,
-            //scale: scale,
+            scale: scale,
             resize: resize,
             remove: remove
         };

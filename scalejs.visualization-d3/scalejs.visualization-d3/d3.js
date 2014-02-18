@@ -81,6 +81,7 @@ define([
             root,
             nodeSelected,
             zooms,
+            zoomObservable,
             zoomEnabled = true; // Temporary fix to errors with NaN widths during adding/removing nodes.
 
         // Get element's width and height:
@@ -444,13 +445,13 @@ define([
         }
 
         // TEMPORARY:
-        /*zoomObservable = ko.computed(function () {
-            zooms = parameters.zoom || ko.observable(1);
+        zoomObservable = ko.computed(function () {
+            zooms = parameters.scale || ko.observable(1);
             return unwrap(zooms);
         });
         zoomObservable.subscribe(function(val){
             visualization.scale(val);
-        });*/
+        });
     }
 
     return {
