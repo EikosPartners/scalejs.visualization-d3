@@ -15,6 +15,7 @@
     </Content>
     <Content Include="scalejs.visualization-d3.js" />
     <Content Include="scalejs.visualization-d3\sunburst.js" />
+    <Content Include="scalejs.visualization-d3\zoom.js" />
     <Content Include="scalejs.visualization-d3\voronoi.js" />
     <Content Include="Scripts\d3.colorbrewer.js" />
     <Content Include="scalejs.visualization-d3\treemap.js" />
@@ -22,6 +23,7 @@
     <Content Include="Scripts\d3.v3.js" />
     <Content Include="Scripts\d3.v3.min.js" />
     <Content Include="Scripts\fabric-1.4.0.js" />
+    <Content Include="Scripts\hammer.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
     <Content Include="Scripts\scalejs.d3-fabric.js" />

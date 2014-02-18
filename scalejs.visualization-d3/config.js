@@ -6,6 +6,7 @@ var require = {
         "d3": "empty:",
         "d3.colorbrewer": "empty:",
         "fabric": "empty:",
+        "hammer": "empty:",
         "scalejs.d3-fabric": "empty:"
     }
 };

@@ -8,7 +8,8 @@ define([
     'd3.colorbrewer',
     'scalejs.visualization-d3/treemap',
     'scalejs.visualization-d3/sunburst',
-    'scalejs.visualization-d3/voronoi'
+    'scalejs.visualization-d3/voronoi',
+    'scalejs.visualization-d3/zoom'
 ], function (
     core,
     ko,
@@ -16,7 +17,8 @@ define([
     colorbrewer,
     treemap,
     sunburst,
-    voronoi
+    voronoi,
+    zoom
 ) {
     "use strict";
     var //imports
@@ -25,7 +27,8 @@ define([
         visualizations = {
             treemap: treemap,
             sunburst: sunburst,
-            voronoi: voronoi
+            voronoi: voronoi,
+            zoom: zoom
         };
 
     function blankVisualization(type) {
