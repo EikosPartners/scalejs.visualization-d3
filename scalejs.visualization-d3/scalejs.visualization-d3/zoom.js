@@ -21,8 +21,8 @@ define([
             treemapLayout,
             canvasArea,
             hammertime,
-            left = 50,
-            top = 50,
+            left = 250,
+            top = 250,
             rotateStart = 0,
             rotateVal = 0,
             scaleStart = 1,
@@ -88,9 +88,14 @@ define([
             }
 
             // Pinch and Zoom && Rotate (rotate event isn't listened to for now, but pinch does its operations)
-            if (event.type === "pinch") {// || event.type === "rotate") {
-                scale(scaleStart * event.gesture.scale);
-                rotate((rotateStart + event.gesture.rotation) % 360);
+            if (event.type === "pinch" || event.type === "transformend") {// || event.type === "rotate") {
+                if (event.type === "transformend") {
+                    scale(scaleVal);
+                    rotate(rotateVal);
+                } else {
+                    scale(scaleStart * event.gesture.scale);
+                    rotate((rotateStart + event.gesture.rotation) % 360);
+                }
                 //console.log(event);
                 pagePos = event.currentTarget.getBoundingClientRect();
                 pos = { left: left, top: top };
@@ -117,47 +122,18 @@ define([
 
                 pan(scalePos.x, scalePos.y);
 
+                if (event.type === "transformend") {
+                    scaleStart = scaleVal;
+                    rotateStart = rotateVal;
+                    left += scalePos.x;
+                    top += scalePos.y;
+                }
+
                 //a, b, c, d, tx, ty (Doesn't work on groups)
                 /*translateMatrix = [1, 0, 0, 1, left, top];
                 rotateMatrix = [cos, sin, -sin, cos, 0, 0];
                 scaleMatrix = [event.gesture.scale, 0, 0, event.gesture.scale, 0, 0];
                 matrix = fabric.util.multiplyTransformMatrices(rotateMatrix, scaleMatrix);*/
-            }
-
-            if (event.type === "transformend") {
-                diffRot = rotateVal - rotateStart;
-                pagePos = event.currentTarget.getBoundingClientRect();
-                pos = { left: left, top: top };
-                elementPos = event.gesture.center;
-                groupPos = {};
-                rotatePos = {};
-                scalePos = {};
-                sin = Math.sin(event.gesture.rotation / 180 * Math.PI);
-                cos = Math.cos(event.gesture.rotation / 180 * Math.PI);
-                elementPos.pageX -= pagePos.left;
-                elementPos.pageY -= pagePos.top;
-
-                //Update transform variables:
-                scaleStart = scaleVal;
-                rotateStart = rotateVal;
-                scale(scaleVal);
-                rotate(rotateVal);
-
-                // translate point back to origin:
-                groupPos.x = left - elementPos.pageX;
-                groupPos.y = top - elementPos.pageY;
-
-                // rotate point
-                rotatePos.x = groupPos.x * cos - groupPos.y * sin + elementPos.pageX;
-                rotatePos.y = groupPos.x * sin + groupPos.y * cos + elementPos.pageY;
-
-                // scale to point
-                scalePos.x = event.gesture.scale * (rotatePos.x - elementPos.pageX) + elementPos.pageX - left;
-                scalePos.y = event.gesture.scale * (rotatePos.y - elementPos.pageY) + elementPos.pageY - top;
-
-                pan(scalePos.x, scalePos.y);
-                left += scalePos.x;
-                top += scalePos.y;
             }
 
             // Pan
@@ -258,9 +234,9 @@ define([
                 .attr("originY", "center");
 
             // Add nodes to Canvas:
-            for (var i = 0; i < 30; i += 1) {
-                addNodes(celSel);
-            }
+            //for (var i = 0; i < 30; i += 1) {
+            addNodes(celSel);
+            //}
         }
 
         function resize(width, height) {

@@ -357,10 +357,13 @@ define(function () {
                 getterName = "get" + capitalizedPropName,
                 ele = this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this,
                 proto = d3_fabric_proto(ele),
-                isPathSet = ele instanceof fabric.Path && name === "d";
-            if (isPathSet || proto[getterName]) {
+                isPathSet = ele instanceof fabric.Path && name === "d",
+                isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points";
+            if (isPathSet || isPolySet || proto[getterName]) {
                 if (isPathSet) {
                     return ele.d3fabricOrgPath;
+                } else if (isPolySet) {
+                    return ele.d3fabricOrgPoints;
                 }
                 return proto[getterName].call(ele);
             } else if (proto.getAttribute) {
@@ -391,8 +394,9 @@ define(function () {
             var capitalizedPropName = name.charAt(0).toUpperCase() + name.slice(1),
                     setterName = "set" + capitalizedPropName,
                     proto = d3_fabric_proto(ele),
-                    isPathSet = ele instanceof fabric.Path && name === "d";
-            if (isPathSet || proto[setterName]) {
+                    isPathSet = ele instanceof fabric.Path && name === "d",
+                    isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points";
+            if (isPathSet || isPolySet || proto[setterName]) {
                 if (isPathSet) {
                     // Set the path
                     ele.initialize(value, {
@@ -409,6 +413,44 @@ define(function () {
                     delete dim.left;
                     delete dim.top;
                     ele.set(dim);
+                    ele.setCoords();
+                } else if (isPolySet) {
+                    // Process the points
+                    var polyValue = value;
+                    if (typeof polyValue === "string") {
+                        polyValue = [];
+
+                        var re = /([-+]?((\d+\.\d+)|((\d+)|(\.\d+)))(?:e[-+]?\d+)?)/ig,
+                            match,
+                            point = null;
+
+                        while ((match = re.exec(value))) {
+                            if (point) {
+                                point.y = match[0];
+                                polyValue.push(point);
+                                point = null;
+                            } else {
+                                point = { x: match[0] };
+                            }
+                            coords.push(match[0]);
+                        }
+                        if (point) {
+                            point.y = "0";
+                            polyValue.push(point);
+                        }
+
+                        polyValue.forEach(function (p) {
+                            p.x = parseFloat(p.x);
+                            if (isNaN(p.x)) p.x = 0;
+                            p.y = parseFloat(p.y);
+                            if (isNaN(p.y)) p.y = 0;
+                        });
+                    }
+
+                    // Set the points
+                    ele.initialize(polyValue, {
+                        d3fabricOrgPoints: value
+                    }, true);
                     ele.setCoords();
                 } else {
                     proto[setterName].call(ele, value);
@@ -666,14 +708,17 @@ define(function () {
         function d3_fabric_selection_append(name) {
             return typeof name === "function" ? name : function () {
                 var obj = null,
-                    ln = name.toLowerCase();
+                    ln = name.toLowerCase(),
+                    isText = ln === "text" || ln === "itext",
+                    isPoly = ln === "polygon" || ln === "polyline",
+                    isPath = ln === "path" || isPoly;
                 if (ln === "image") return null; //requires DOM element...
                 for (var i = 0, s = fabric_object_private_set.length; i < s; i++) {
                     if (fabric_object_private_set[i].typeName.toLowerCase() === ln) {
-                        if (ln === "text" || ln === "itext") {
+                        if (isText) {
                             obj = new fabric_object_private_set[i].type("");
-                        } else if (ln === "path") {
-                            obj = new fabric_object_private_set[i].type([]);
+                        } else if (isPath) {
+                            obj = new fabric_object_private_set[i].type([], null, isPoly);
                         } else {
                             obj = new fabric_object_private_set[i].type();
                         }
