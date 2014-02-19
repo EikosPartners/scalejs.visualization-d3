@@ -1,10 +1,12 @@
 ﻿/*global define*/
 define([
     'd3',
-    'hammer'
+    'hammer',
+    'fabric'
 ], function (
     d3,
-    hammer
+    hammer,
+    fabric
 ) {
     "use strict";
 
@@ -70,25 +72,92 @@ define([
             }
             event.gesture.preventDefault();
 
+            var diffRot,
+                pagePos,
+                pos,
+                elementPos,
+                groupPos,
+                rotatePos,
+                scalePos,
+                sin,
+                cos;
+
             if (event.type === "transformstart") {
                 scaleStart = scaleVal;
                 rotateStart = rotateVal;
             }
 
-            // Pinch and Zoom
-            if (event.type === "pinch") {
+            // Pinch and Zoom && Rotate (rotate event isn't listened to for now, but pinch does its operations)
+            if (event.type === "pinch") {// || event.type === "rotate") {
                 scale(scaleStart * event.gesture.scale);
-            }
-            // Rotate
-            if (event.type === "rotate") {
                 rotate((rotateStart + event.gesture.rotation) % 360);
+                //console.log(event);
+                pagePos = event.currentTarget.getBoundingClientRect();
+                pos = { left: left, top: top };
+                elementPos = event.gesture.center;
+                groupPos = {};
+                rotatePos = {};
+                scalePos = {};
+                sin = Math.sin(event.gesture.rotation / 180 * Math.PI);
+                cos = Math.cos(event.gesture.rotation / 180 * Math.PI);
+                elementPos.pageX -= pagePos.left;
+                elementPos.pageY -= pagePos.top;
+
+                // translate point back to origin:
+                groupPos.x = left - elementPos.pageX;
+                groupPos.y = top - elementPos.pageY;
+
+                // rotate point
+                rotatePos.x = groupPos.x * cos - groupPos.y * sin + elementPos.pageX;
+                rotatePos.y = groupPos.x * sin + groupPos.y * cos + elementPos.pageY;
+
+                // scale to point
+                scalePos.x = event.gesture.scale * (rotatePos.x - elementPos.pageX) + elementPos.pageX - left;
+                scalePos.y = event.gesture.scale * (rotatePos.y - elementPos.pageY) + elementPos.pageY - top;
+
+                pan(scalePos.x, scalePos.y);
+
+                //a, b, c, d, tx, ty (Doesn't work on groups)
+                /*translateMatrix = [1, 0, 0, 1, left, top];
+                rotateMatrix = [cos, sin, -sin, cos, 0, 0];
+                scaleMatrix = [event.gesture.scale, 0, 0, event.gesture.scale, 0, 0];
+                matrix = fabric.util.multiplyTransformMatrices(rotateMatrix, scaleMatrix);*/
             }
 
             if (event.type === "transformend") {
+                diffRot = rotateVal - rotateStart;
+                pagePos = event.currentTarget.getBoundingClientRect();
+                pos = { left: left, top: top };
+                elementPos = event.gesture.center;
+                groupPos = {};
+                rotatePos = {};
+                scalePos = {};
+                sin = Math.sin(event.gesture.rotation / 180 * Math.PI);
+                cos = Math.cos(event.gesture.rotation / 180 * Math.PI);
+                elementPos.pageX -= pagePos.left;
+                elementPos.pageY -= pagePos.top;
+
+                //Update transform variables:
                 scaleStart = scaleVal;
                 rotateStart = rotateVal;
-                rotate(rotateVal);
                 scale(scaleVal);
+                rotate(rotateVal);
+
+                // translate point back to origin:
+                groupPos.x = left - elementPos.pageX;
+                groupPos.y = top - elementPos.pageY;
+
+                // rotate point
+                rotatePos.x = groupPos.x * cos - groupPos.y * sin + elementPos.pageX;
+                rotatePos.y = groupPos.x * sin + groupPos.y * cos + elementPos.pageY;
+
+                // scale to point
+                scalePos.x = event.gesture.scale * (rotatePos.x - elementPos.pageX) + elementPos.pageX - left;
+                scalePos.y = event.gesture.scale * (rotatePos.y - elementPos.pageY) + elementPos.pageY - top;
+
+                pan(scalePos.x, scalePos.y);
+                left += scalePos.x;
+                top += scalePos.y;
             }
 
             // Pan
@@ -180,7 +249,7 @@ define([
 
             hammertime = hammer(canvasArea[0].parentNode, {
                 prevent_default: true
-            }).on("release drag transformstart transformend rotate pinch", testHammer);
+            }).on("release drag transformstart transformend rotate pinch", testHammer); // Missing event before drag after touch
 
             celSel = canvasArea.append("group")
                 .attr("left", left)
@@ -189,7 +258,9 @@ define([
                 .attr("originY", "center");
 
             // Add nodes to Canvas:
-            addNodes(celSel);
+            for (var i = 0; i < 30; i += 1) {
+                addNodes(celSel);
+            }
         }
 
         function resize(width, height) {

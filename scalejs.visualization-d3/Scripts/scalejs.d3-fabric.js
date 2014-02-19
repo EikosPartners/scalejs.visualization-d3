@@ -12,18 +12,18 @@ define(function () {
             var res = {
                 major: 0,
                 minor: 0,
-                build: 0
+                build: 0,
+                revision: 0
             },
                 results;
             if (ver) {
-                results = /([0-9]*)\.([0-9]*)\.([0-9]*)/i.exec(ver);
-                if (results) {
-                    res.major = results.length > 1 ? parseInt(results[1], 10) : 0;
-                    res.minor = results.length > 2 ? parseInt(results[2], 10) : 0;
-                    res.build = results.length > 3 ? parseInt(results[3], 10) : 0;
-                }
+                results = ver.split(".");
+                res.major = results.length > 0 ? parseInt(results[0], 10) : 0;
+                res.minor = results.length > 1 ? parseInt(results[1], 10) : 0;
+                res.build = results.length > 2 ? parseInt(results[2], 10) : 0;
+                res.revision = results.length > 3 ? parseInt(results[3], 10) : 0;
             }
-            res.atLeast = function (major, minor, build) {
+            res.atLeast = function (major, minor, build, revision) {
                 if (!major || res.major < major) {
                     return false;
                 }
@@ -33,16 +33,19 @@ define(function () {
                 if (build && res.build < build) {
                     return false;
                 }
+                if (revision && res.revision < revision) {
+                    return false;
+                }
                 return true;
             };
             return res;
         }
-        if (!parseVersion(d3.version).atLeast(3, 4, 1)) {
-            console.error("Unsupported d3.js version. Need at least 3.4.1 or higher");
+        if (!parseVersion(d3.version).atLeast(3, 4)) {
+            console.error("Unsupported d3.js version. Need at least 3.4.0 or higher");
             return false;
         }
-        if (!parseVersion(fabric.version).atLeast(1, 4)) {
-            console.error("Unsupported FabricJS version. Need at least 1.4.0 or higher");
+        if (!parseVersion(fabric.version).atLeast(1, 4, 2)) {
+            console.error("Unsupported FabricJS version. Need at least 1.4.2 or higher");
             return false;
         }
         if (d3.fabric) {
@@ -100,7 +103,7 @@ define(function () {
         }
 
         //GSAP plugin
-        var d3_fabric_use_GSAP = gsap && parseVersion(gsap.version).atLeast(1, 11, 4);
+        var d3_fabric_use_GSAP = gsap && parseVersion(gsap.version).atLeast(1, 11);
         if (d3_fabric_use_GSAP) {
             /*!
              * VERSION: 1.0.0
@@ -250,7 +253,7 @@ define(function () {
                         var can = this.ownerDocument.createElement("canvas");
 
                         function GSAPRender() {
-                            can._fabricCanvas.canvas.renderAll();
+                            if (can._fabricCanvas.renderRunning) can._fabricCanvas.canvas.renderAll();
                         }
                         function NormalRender() {
                             var t = Date.now();
@@ -353,8 +356,12 @@ define(function () {
             var capitalizedPropName = name.charAt(0).toUpperCase() + name.slice(1),
                 getterName = "get" + capitalizedPropName,
                 ele = this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this,
-                proto = d3_fabric_proto(ele);
-            if (proto[getterName]) {
+                proto = d3_fabric_proto(ele),
+                isPathSet = ele instanceof fabric.Path && name === "d";
+            if (isPathSet || proto[getterName]) {
+                if (isPathSet) {
+                    return ele.d3fabricOrgPath;
+                }
                 return proto[getterName].call(ele);
             } else if (proto.getAttribute) {
                 if (nameNS) {
@@ -392,14 +399,15 @@ define(function () {
                         left: ele.getLeft() || 0,
                         top: ele.getTop() || 0,
                         width: ele.getWidth() || 0,
-                        height: ele.getHeight() || 0
+                        height: ele.getHeight() || 0,
+                        pathOffset: { x: 0, y: 0 },
+                        d3fabricOrgPath: value
                     });
 
                     // Resize width and height
                     var dim = ele._parseDimensions();
                     delete dim.left;
                     delete dim.top;
-                    dim.pathOffset = { x: 0, y: 0 };
                     ele.set(dim);
                     ele.setCoords();
                 } else {
@@ -911,9 +919,7 @@ define(function () {
         //-pumpRender
         d3_fabric_selection_proto.pumpRender = function () {
             return this.each(function () {
-                if (this._fabricCanvas !== undefined) {
-                    this._fabricCanvas.render.call(this);
-                }
+                if (this._fabricCanvas !== undefined && (d3_fabric_use_GSAP || !this._fabricCanvas.renderRunning)) this._fabricCanvas.render.call(this);
             });
         };
         //-size

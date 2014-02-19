@@ -32,9 +32,7 @@ define([
             }
             return false;
         }
-        function canvasArc(d) {
-            return arc(d).replace(/(\d+\.\d+e\-\d+)/g, "0");
-        }
+
         function pathTween(p) {
             return function (d) {
                 // Create interpolations used for a nice slide around the parent:
@@ -60,7 +58,7 @@ define([
                     };
                     x.domain(pathElement.old.xd);
                     y.domain(pathElement.old.yd).range(pathElement.old.yr);
-                    return canvasArc({
+                    return arc({
                         x: pathElement.old.x,
                         y: pathElement.old.y,
                         dx: pathElement.old.dx,
@@ -157,7 +155,7 @@ define([
 
             // Add arc to nodes:
             cell.append("path")
-                .attr("d", canvasArc)
+                .attr("d", arc)
                 .attr("fill", function (d) { return d.color; })
                 .each(function (d) {
                     this.old = {
