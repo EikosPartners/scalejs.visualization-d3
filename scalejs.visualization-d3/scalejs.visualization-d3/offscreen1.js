@@ -33,7 +33,9 @@ define([
             rotateVal = 0,
             scaleStart = 1,
             scaleVal = 1,
-            inZoom = false;
+            inZoom = false,
+            mg,
+                objnum = 10;
 
         function renderFront() {
             context.setTransform(1, 0, 0, 1, 0, 0);
@@ -112,7 +114,28 @@ define([
 
         // Zoom after click:
         function zoom(d) {
-            if (canvasArea !== undefined || inZoom) {
+            if (canvasArea !== undefined && !inZoom) {
+                left = Math.random() * 500 + 250;
+                top = 250;
+                leftVal = 250;
+                topVal = 250;
+                rotateStart = 0;
+                rotateVal = 0;
+                scaleStart = 1;
+                scaleVal = 1;
+
+                canvasArea.select("group")
+                    .transition().duration(1000)
+                    .attr("top", top)
+                    .attr("left", left)
+                    .attr("scaleX", scaleVal)
+                    .attr("scaleY", scaleVal)
+                    .attr("angle", rotateVal)
+                    .tween("test", function (d) {
+                        return function (t) {
+                            renderFront();
+                        }
+                    });
             }
 
             // Prevent event from firing more than once:
@@ -126,17 +149,17 @@ define([
                 return; // Catch for if treemap hasn't been setup.
             }
             scaleVal = val;
-            /*canvasArea.select("group")
+            canvasArea.select("group")
                 .attr("scaleX", scaleVal)
-                .attr("scaleY", scaleVal);*/
+                .attr("scaleY", scaleVal);
         }
         function rotate(ang) {
             if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
             rotateVal = ang;
-            /*canvasArea.select("group")
-                .attr("angle", rotateVal);*/
+            canvasArea.select("group")
+                .attr("angle", rotateVal);
         }
         function pan(dx, dy) {
             if (canvasArea === undefined) {
@@ -144,9 +167,9 @@ define([
             }
             leftVal = left + dx;
             topVal = top + dy;
-            /*canvasArea.select("group")
+            canvasArea.select("group")
                 .attr("left", leftVal)
-                .attr("top", topVal);*/
+                .attr("top", topVal);
         }
         function testHammer(event) {
             //console.log(event);
@@ -250,16 +273,16 @@ define([
             }
 
             // Render updates (temp fix)
-            //canvasElement.pumpRender();
-            //renderFront();
-            context.setTransform(1, 0, 0, 1, 0, 0);
+            canvasElement.pumpRender();
+            renderFront();
+            /*context.setTransform(1, 0, 0, 1, 0, 0);
             context.clearRect(0, 0, canvasWidth, canvasHeight);
             context.translate(250, 250);
             //context.scale(scaleVal, scaleVal);
             context.rotate(rotateVal / 180 * Math.PI);
             context.translate(-250, -250);
             context.drawImage(canvasRender, 0, 0);//leftVal, topVal);
-            context.setTransform(1, 0, 0, 1, 0, 0);
+            context.setTransform(1, 0, 0, 1, 0, 0);*/
             //canvas.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
         }
 
@@ -306,7 +329,11 @@ define([
             celSel = canvasArea.select("group");
 
             // Add new nodes to Canvas:
-            addNodes(celSel);
+            for (var i = 0; i < 10; i += 1) {
+                addNodes(celSel);
+            }
+            objnum+=10;
+            celSel.select("text").text("Objects: " + objnum);
 
             // Remove nodes from Canvas:
             //cell = celSel.exit().remove();
@@ -338,7 +365,7 @@ define([
             canvasArea = canvasElement;
 
             canvas = canvasArea.domNode()[0][0];
-            canvasShow = d3.select(canvasArea[0][0].parentNode)
+            canvasShow = d3.select(canvasArea[0][0].parentNode.parentNode)
                 .append("canvas")
                     .style("position", "absolute")
                     .style("left", 0)
@@ -349,6 +376,8 @@ define([
             canvasRender = document.createElement("canvas");
             canvasRender.width = 500;
             canvasRender.height = 500;
+
+            canvasElement.remove();
 
             hammer.plugins.showTouches();
             hammer.plugins.fakeMultitouch();
@@ -362,11 +391,17 @@ define([
                 .attr("top", top)
                 .attr("originX", "center")
                 .attr("originY", "center");
+            celSel.append("text")
+                .attr("left", 0)
+                .attr("top", 250+5)
+                .attr("originY", "top")
+                .attr("originX", "center")
+                .text("Objects: 10");
 
             // Add nodes to Canvas:
-            //for (var i = 0; i < 30; i += 1) {
+            for (var i = 0; i < 10; i += 1) {
             addNodes(celSel);
-            //}
+            }
 
             // Render updates (temp fix)
             canvasElement.pumpRender();
@@ -382,6 +417,7 @@ define([
         }
 
         function remove() {
+            canvasShow[0][0].parentNode.appendChild(canvasArea);    //Temp
             if (canvasArea !== undefined) {
                 canvasArea.selectAll("group").remove();
                 canvasArea = undefined;

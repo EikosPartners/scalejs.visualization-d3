@@ -9,7 +9,9 @@ define([
     'scalejs.visualization-d3/treemap',
     'scalejs.visualization-d3/sunburst',
     'scalejs.visualization-d3/voronoi',
-    'scalejs.visualization-d3/zoom'
+    'scalejs.visualization-d3/zoom',
+    'scalejs.visualization-d3/offscreen1',
+    'scalejs.visualization-d3/offscreen2'
 ], function (
     core,
     ko,
@@ -18,7 +20,9 @@ define([
     treemap,
     sunburst,
     voronoi,
-    zoom
+    zoom,
+    offscreen1,
+    offscreen2
 ) {
     "use strict";
     var //imports
@@ -28,7 +32,9 @@ define([
             treemap: treemap,
             sunburst: sunburst,
             voronoi: voronoi,
-            zoom: zoom
+            zoom: zoom,
+            offscreen1: offscreen1,
+            offscreen2: offscreen2
         };
 
     function blankVisualization(type) {
@@ -78,6 +84,9 @@ define([
             selectedItemPathObservable,
             rootScale = d3.scale.linear(),
             canvas,
+            canvasElement,
+            canvasShow,
+            context,
             elementStyle,
             canvasWidth,
             canvasHeight,
@@ -91,6 +100,9 @@ define([
         elementStyle = window.getComputedStyle(element);
         canvasWidth = parseInt(elementStyle.width, 10);
         canvasHeight = parseInt(elementStyle.height, 10);
+        if (canvasHeight <= 0) {
+            canvasHeight = 1;   // Temp fix for drawImage.
+        }
 
         canvas = d3.select(element)
                 .style('overflow', 'hidden')
@@ -100,6 +112,24 @@ define([
                     .property("targetFindTolerance", 1)
                     .attr("width", canvasWidth)
                     .attr("height", canvasHeight);
+
+
+        /*canvasElement = canvas.domNode()[0][0];
+        canvasShow = d3.select(canvas[0][0].parentNode)
+            .append("canvas")
+                .style("position", "absolute")
+                .style("left", 0)
+                .style("top", 0)
+                .attr("width", canvasWidth)
+                .attr("height", canvasHeight);
+        context = canvasShow[0][0].getContext('2d');
+
+        function renderFront() {
+            context.clearRect(0, 0, canvasWidth, canvasHeight);
+            context.drawImage(canvasElement, 0, 0);
+            canvasElement.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
+        }
+        setTimeout(renderFront, 20);*/
 
         // Loop through levels to determine parameters:
         function createLevelParameters(lvlsParam) {
@@ -338,6 +368,7 @@ define([
                 selectedItemPath(path);
             } else {    // Path is not an observable, so no need to push an update to it.
                 visualization.zoom(d);
+                //renderFront();
             }
 
             // Prevent event from firing more than once:
@@ -366,6 +397,7 @@ define([
                 nodeSelected = d;       // Set nodeSelected to d
                 if (zoomEnabled) {
                     visualization.zoom(d);    // Animate zoom effect
+                    //renderFront();
                 }
             }
         });
@@ -385,6 +417,7 @@ define([
         visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
         // Start rendering the canvas
         canvas.startRender();
+        //renderFront();
 
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
@@ -410,6 +443,7 @@ define([
             // Start rendering the canvas
             canvas.startRender();
             canvas.pumpRender();
+            //renderFront();
         });
 
         function update() {
@@ -425,7 +459,8 @@ define([
 
             // Update visualization:
             visualization.update();
-            //canvas.pumpRender();
+            canvas.pumpRender();
+            //renderFront();
         }
 
         // Subscribe to data changes:
@@ -440,14 +475,20 @@ define([
                 elementStyle = window.getComputedStyle(element);
                 canvasWidth = parseInt(elementStyle.width, 10);
                 canvasHeight = parseInt(elementStyle.height, 10);
+                if (canvasHeight <= 0) {
+                    canvasHeight = 1;   // Temp fix for drawImage.
+                }
                 // Resize canvas:
                 canvas.attr('width', canvasWidth);
                 canvas.attr('height', canvasHeight);
+                //canvasShow.attr('width', canvasWidth);
+                //canvasShow.attr('height', canvasHeight);
                 // Call visualization's resize function to handle resizing internally:
                 visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
                 visualization.update();
                 canvas.pumpRender();
+                //renderFront();
             });
         }
 
@@ -458,6 +499,8 @@ define([
         });
         zoomObservable.subscribe(function(val){
             visualization.scale(val);
+            canvas.pumpRender();
+            renderFront();
         });
     }
 
