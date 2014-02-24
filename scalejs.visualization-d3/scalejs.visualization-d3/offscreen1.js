@@ -434,6 +434,7 @@ define([
             init: init,
             update: update,
             zoom: zoom,
+            renderEnd: function () { },
             scale: scale,
             resize: resize,
             remove: remove

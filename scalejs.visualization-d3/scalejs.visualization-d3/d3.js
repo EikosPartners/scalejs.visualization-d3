@@ -61,6 +61,8 @@ define([
             init: visualizationError("init"),
             update: visualizationError("update"),
             zoom: visualizationError("zoom"),
+            renderEnd: visualizationError("renderEnd"),
+            scale: visualizationError("scale"),
             resize: visualizationError("resize"),
             remove: visualizationError("remove")
         };
@@ -420,6 +422,7 @@ define([
         visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
         // Start rendering the canvas
         canvas.startRender();
+        visualization.renderEnd();
         //renderFront();
 
         // Subscribe to visualization type changes:
@@ -446,6 +449,7 @@ define([
             // Start rendering the canvas
             canvas.startRender();
             canvas.pumpRender();
+            visualization.renderEnd();
             //renderFront();
         });
 
@@ -462,8 +466,8 @@ define([
 
             // Update visualization:
             visualization.update();
-            //canvas.pumpRender();
-            //renderFront();
+            canvas.pumpRender();
+            visualization.renderEnd();
         }
 
         // Subscribe to data changes:
@@ -490,7 +494,8 @@ define([
                 visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
                 visualization.update();
-                //canvas.pumpRender();
+                canvas.pumpRender();
+                visualization.renderEnd();
                 //renderFront();
             });
         }
@@ -503,7 +508,7 @@ define([
         zoomObservable.subscribe(function(val){
             visualization.scale(val);
             canvas.pumpRender();
-            renderFront();
+            visualization.renderEnd();
         });
     }
 

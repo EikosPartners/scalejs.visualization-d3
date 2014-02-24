@@ -317,6 +317,8 @@ define([
             init: init,
             update: update,
             zoom: zoom,
+            renderEnd: function () { },
+            scale: function () { },
             resize: resize,
             remove: remove
         };

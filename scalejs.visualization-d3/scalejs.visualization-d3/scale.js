@@ -33,8 +33,10 @@ define([
             rotateVal = 0,
             scaleStart = 1,
             scaleVal = 1,
-            groupPos = { x: 0, y: 0 },
-            elementPos = { x: 0, y: 0 },
+            lastEvent,
+            lastGesture,
+            lastTouches,
+            lastCenter,
             inZoom = false,
             last,
             objnum = 10;
@@ -47,6 +49,10 @@ define([
             }
             canvasRender.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
             canvasRender.getContext('2d').drawImage(canvas, 0, 0);
+            canvas.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
+        }
+
+        function renderEnd() {
             canvas.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
         }
 
@@ -65,13 +71,13 @@ define([
             if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
-            scaleVal = val;
+            scaleVal = scaleStart * val;
         }
         function rotate(ang) {
             if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
-            rotateVal = ang;
+            rotateVal = rotateStart + ang;
         }
         function pan(dx, dy) {
             if (canvasArea === undefined) {
@@ -79,10 +85,6 @@ define([
             }
             leftVal = left + dx;
             topVal = top + dy;
-        }
-        function refresh() {
-            canvasElement.pumpRender();
-            renderFront(true);
         }
         function updateCan() {
             canvasArea.select("group")
@@ -93,15 +95,6 @@ define([
                     .attr("top", 0);//topVal
             canvasElement.pumpRender();
             renderFront(true);
-
-            last = {
-                left: left,
-                top: top,
-                leftVal: leftVal,
-                topVal: topVal,
-                rotateVal: rotateVal,
-                scaleVal: scaleVal
-            };
 
             canvasArea.select("group")
                 .attr("scaleX", scaleVal)
@@ -133,68 +126,139 @@ define([
             }
             event.gesture.preventDefault();
 
-
-            var diffRot,
+            var gesture = event.gesture,
+                touches = [],
+                center,
+                scaleDiff,
+                rotateDiff,
                 pagePos,
-                pos,
+                elementPos,
+                groupPos,
                 rotatePos,
                 scalePos,
+                transPos,
                 sin,
-                cos;
+                cos,
+                i;
 
-            if (event.type === "transformstart") {
-                scaleStart = scaleVal;
-                rotateStart = rotateVal;
+            // Convert touches to an array (to avoid safari's reuse of touch objects):
+            for (i = 0; i < gesture.touches.length; i += 1) {
+                touches[i] = {
+                    pageX: gesture.touches[i].pageX,
+                    pageY: gesture.touches[i].pageY
+                };
             }
 
-            // Pinch and Zoom && Rotate (rotate event isn't listened to for now, but pinch does its operations)
-            if (event.type === "pinch" || event.type === "transformend") {// || event.type === "rotate") {
-                scale(scaleStart * event.gesture.scale);
-                rotate((rotateStart + event.gesture.rotation) % 360);
-                //console.log(event);
-                pagePos = event.currentTarget.getBoundingClientRect();
-                pos = { left: left, top: top };
-                elementPos = event.gesture.center;
-                groupPos = {};
-                rotatePos = {};
-                scalePos = {};
-                sin = Math.sin(event.gesture.rotation / 180 * Math.PI);
-                cos = Math.cos(event.gesture.rotation / 180 * Math.PI);
-                elementPos.pageX -= pagePos.left;
-                elementPos.pageY -= pagePos.top;
-
-                // translate point back to origin:
-                groupPos.x = left - elementPos.pageX;
-                groupPos.y = top - elementPos.pageY;
-
-                // rotate point
-                rotatePos.x = groupPos.x * cos - groupPos.y * sin + elementPos.pageX;
-                rotatePos.y = groupPos.x * sin + groupPos.y * cos + elementPos.pageY;
-
-                // scale to point
-                scalePos.x = event.gesture.scale * (rotatePos.x - elementPos.pageX) + elementPos.pageX - left;
-                scalePos.y = event.gesture.scale * (rotatePos.y - elementPos.pageY) + elementPos.pageY - top;
-
-                pan(scalePos.x, scalePos.y);
-
-                if (event.type === "transformend") {
-                    scaleStart = scaleVal;
-                    rotateStart = rotateVal;
-                    left += scalePos.x;
-                    top += scalePos.y;
-                }
+            function distance(p1, p2) { // Get distance between two points:
+                var x = p1.pageX - p2.pageX,
+                    y = p1.pageY - p2.pageY;
+                return Math.sqrt(x * x + y * y);
             }
 
-            // Pan
-            if (event.type === "drag") {
-                pan(event.gesture.deltaX, event.gesture.deltaY);
-            }
             if (event.type === "release") {
-                left += event.gesture.deltaX;
-                top += event.gesture.deltaY;
-                pan(0, 0);
+                // Reset all last* variables, and update fabric canvas to get crisper image:
+                lastEvent = undefined;
+                lastGesture = undefined;
+                lastTouches = undefined;
+                lastCenter = undefined;
                 updateCan();
             } else {
+                // Last action was a release, so fix lastTouches:
+                if (lastTouches === undefined) {
+                    lastTouches = touches;
+                }
+                if (touches.length === 1) {
+                    // Starting action, so reset lastTouches:
+                    if (lastTouches.length !== 1) {
+                        lastTouches = touches;
+                        lastCenter = undefined; // Prevent rotating when removing finger.
+                    }
+
+                    // Calculate Center:
+                    center = {
+                        x: touches[0].pageX,
+                        y: touches[0].pageY
+                    };
+
+                    // Translate:
+                    left += touches[0].pageX - lastTouches[0].pageX;
+                    top += touches[0].pageY - lastTouches[0].pageY;
+                    pan(0, 0);
+                } else if (touches.length === 2) {
+                    // Starting action, so reset lastTouches:
+                    if (lastTouches.length !== 2) {
+                        lastTouches = touches;
+                        lastCenter = undefined; // Prevent rotating when adding finger.
+                    }
+
+                    // Calculate Center:
+                    center = {
+                        x: (touches[0].pageX - touches[1].pageX) / 2 + touches[1].pageX,
+                        y: (touches[0].pageY - touches[1].pageY) / 2 + touches[1].pageY
+                    };
+                    if (lastCenter === undefined) {
+                        lastCenter = center;
+                    }
+
+                    // Calculate Scale:
+                    scaleDiff = distance(touches[0], touches[1]) / distance(lastTouches[0], lastTouches[1]);
+
+                    // Calculate Rotation:
+                    rotateDiff = Math.atan2(lastTouches[0].pageX - lastCenter.x, lastTouches[0].pageY - lastCenter.y) - Math.atan2(touches[0].pageX - center.x, touches[0].pageY - center.y);
+                    // Get sin and cos of angle in radians (for later):
+                    sin = Math.sin(rotateDiff);
+                    cos = Math.cos(rotateDiff);
+                    // Convert to degrees for fabric:
+                    rotateDiff *= 180 / Math.PI;
+
+                    // Apply Scale:
+                    scaleStart *= scaleDiff;
+                    scale(1);
+
+                    // Apply Rotation:
+                    rotateStart += rotateDiff;
+                    rotate(0);
+
+                    // Get canvas position:
+                    pagePos = event.currentTarget.getBoundingClientRect();
+                    // Convert page coords to canvas coords:
+                    elementPos = {
+                        pageX: center.x,
+                        pageY: center.y
+                    };
+                    elementPos.pageX -= pagePos.left;
+                    elementPos.pageY -= pagePos.top;
+
+                    // Get difference between center position and group:
+                    groupPos = {
+                        x: left - elementPos.pageX,
+                        y: top - elementPos.pageY
+                    };
+
+                    // Rotate around point:
+                    rotatePos = {
+                        x: groupPos.x * cos - groupPos.y * sin + elementPos.pageX,
+                        y: groupPos.x * sin + groupPos.y * cos + elementPos.pageY
+                    };
+
+                    // Scale relative to center point:
+                    scalePos = {
+                        x: scaleDiff * (rotatePos.x - elementPos.pageX) + elementPos.pageX - left,
+                        y: scaleDiff * (rotatePos.y - elementPos.pageY) + elementPos.pageY - top
+                    };
+
+                    // Translate delta in center position:
+                    transPos = {
+                        x: scalePos.x + (center.x - lastCenter.x),
+                        y: scalePos.y + (center.y - lastCenter.y)
+                    };
+
+                    // Apply Translate:
+                    left += transPos.x;
+                    top += transPos.y;
+                    pan(0, 0);
+                }
+
                 context.setTransform(1, 0, 0, 1, 0, 0);
                 context.clearRect(0, 0, canvasWidth, canvasHeight);
                 context.translate(leftVal, topVal);
@@ -203,14 +267,19 @@ define([
                 context.translate(-leftVal, -topVal);
                 context.drawImage(canvasRender, leftVal, topVal);
                 context.setTransform(1, 0, 0, 1, 0, 0);
+
+                lastEvent = event;
+                lastGesture = gesture;
+                lastTouches = touches;
+                lastCenter = center;
             }
         }
 
         function addNodes(celSel) {
             // Add nodes to Canvas:
             var cell = celSel.append("group")
-                .attr("left", Math.random() * Math.max(canvasWidth-60, 0) + 30)
-                .attr("top", Math.random() * Math.max(canvasHeight-80, 0) + 50)
+                .attr("left", Math.random() * Math.max(canvasWidth - 60, 0) + 30)
+                .attr("top", Math.random() * Math.max(canvasHeight - 80, 0) + 50)
                 .attr("originX", "center")
                 .attr("originY", "center");
 
@@ -258,9 +327,7 @@ define([
             // Remove nodes from Canvas:
             //cell = celSel.exit().remove();
 
-            // Render updates (temp fix)
-            /*canvasElement.pumpRender();
-            renderFront();*/
+            // Render updates (temp fix):
             updateCan();
         }
 
@@ -303,7 +370,7 @@ define([
 
             hammertime = hammer(canvasArea[0].parentNode, {
                 prevent_default: true
-            }).on("release drag pinch transformend", testHammer);//release drag transformstart transformend rotate pinch", testHammer); // Missing event before drag after touch
+            }).on("release drag pinch transformstart transformend", testHammer);//release drag transformstart transformend rotate pinch", testHammer); // Missing event before drag after touch
 
             celSel = canvasArea.append("group")
                 .attr("left", left)
@@ -323,9 +390,7 @@ define([
                 addNodes(celSel);
             }
 
-            // Render updates (temp fix)
-            /*canvasElement.pumpRender();
-            renderFront();*/
+            // Render updates (temp fix):
             updateCan();
         }
 
@@ -339,8 +404,7 @@ define([
             canvasRender.width = canvasWidth;
             canvasRender.height = canvasHeight;
 
-            canvasElement.pumpRender();
-            renderFront();
+            updateCan();
         }
 
         function remove() {
@@ -349,7 +413,9 @@ define([
                 canvasArea = undefined;
                 canvasShow.remove();
                 canvasShow = undefined;
-                hammertime.off("release drag pinch transformend", testHammer);
+                canvasRender.remove();
+                canvasRender = undefined;
+                hammertime.off("release drag pinch transformstart transformend", testHammer);
                 hammertime.enable(false);
                 hammertime = undefined;
             }
@@ -360,6 +426,7 @@ define([
             init: init,
             update: update,
             zoom: zoom,
+            renderEnd: renderEnd,
             scale: scale,
             resize: resize,
             remove: remove

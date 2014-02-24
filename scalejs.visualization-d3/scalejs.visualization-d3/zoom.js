@@ -33,6 +33,7 @@ define([
             rotateVal = 0,
             scaleStart = 1,
             scaleVal = 1,
+            transStart,
             inZoom = false,
             objnum = 10;
 
@@ -83,7 +84,7 @@ define([
             if (val < 0) { return -1; }
             if (val > 0) { return 1; }
             return 0;
-        };
+        }
         function getScaleX(mat) {
             return sign(mat[0]) * Math.sqrt(mat[0] * mat[0] + mat[1] * mat[1]);
         }
@@ -155,12 +156,14 @@ define([
                 groupPos,
                 rotatePos,
                 scalePos,
+                transPos,
                 sin,
                 cos;
 
             if (event.type === "transformstart") {
                 scaleStart = scaleVal;
                 rotateStart = rotateVal;
+                //transStart = event.gesture.center;
             }
 
             // Pinch and Zoom && Rotate (rotate event isn't listened to for now, but pinch does its operations)
@@ -175,7 +178,13 @@ define([
                 //console.log(event);
                 pagePos = event.currentTarget.getBoundingClientRect();
                 pos = { left: left, top: top };
-                elementPos = event.gesture.center;
+                if (transStart === undefined) {
+                    transStart = event.gesture.center;
+                }
+                elementPos = {
+                    pageX: transStart.pageX,
+                    pageY: transStart.pageY
+                };//event.gesture.center;
                 groupPos = {};
                 rotatePos = {};
                 scalePos = {};
@@ -196,7 +205,14 @@ define([
                 scalePos.x = event.gesture.scale * (rotatePos.x - elementPos.pageX) + elementPos.pageX - left;
                 scalePos.y = event.gesture.scale * (rotatePos.y - elementPos.pageY) + elementPos.pageY - top;
 
-                pan(scalePos.x, scalePos.y);
+                // translate center
+                transPos = {};
+                transPos.x = scalePos.x + (event.gesture.center.pageX - transStart.pageX);
+                transPos.y = scalePos.y + (event.gesture.center.pageY - transStart.pageY);
+
+                pan(transPos.x, transPos.y);
+
+                //pan(scalePos.x, scalePos.y);
 
                 /*var test = new Matrix();
                 console.log(test.rotate(rotateStart));
@@ -221,8 +237,9 @@ define([
                 if (event.type === "transformend") {
                     scaleStart = scaleVal;
                     rotateStart = rotateVal;
-                    left += scalePos.x;
-                    top += scalePos.y;
+                    transStart = undefined;
+                    left += transPos.x;//scalePos.x;
+                    top += transPos.y;//scalePos.y;
                 }
 
                 //a, b, c, d, tx, ty (Doesn't work on groups)
@@ -337,7 +354,7 @@ define([
                 .attr("originY", "center");
 
             // Add nodes to Canvas:
-            for (var i = 0; i < 10; i += 1) {
+            for (var i = 0; i < 2; i += 1) {
                 addNodes(celSel);
             }
             celSel.append("text")
@@ -350,7 +367,7 @@ define([
 
             // Render updates (temp fix)
             canvasElement.pumpRender();
-            renderFront();
+            //renderFront();
         }
 
         function resize(width, height) {
@@ -373,6 +390,7 @@ define([
             init: init,
             update: update,
             zoom: zoom,
+            renderEnd: function () { },
             scale: scale,
             resize: resize,
             remove: remove
