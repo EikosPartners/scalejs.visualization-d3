@@ -17,6 +17,7 @@
     <Content Include="scalejs.visualization-d3\offscreen2.js" />
     <Content Include="scalejs.visualization-d3\sunburst.js" />
     <Content Include="scalejs.visualization-d3\offscreen1.js" />
+    <Content Include="scalejs.visualization-d3\scale.js" />
     <Content Include="scalejs.visualization-d3\zoom.js" />
     <Content Include="scalejs.visualization-d3\voronoi.js" />
     <Content Include="Scripts\d3.colorbrewer.js" />

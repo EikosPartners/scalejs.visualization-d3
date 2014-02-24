@@ -10,6 +10,7 @@ define([
     'scalejs.visualization-d3/sunburst',
     'scalejs.visualization-d3/voronoi',
     'scalejs.visualization-d3/zoom',
+    'scalejs.visualization-d3/scale',
     'scalejs.visualization-d3/offscreen1',
     'scalejs.visualization-d3/offscreen2'
 ], function (
@@ -21,6 +22,7 @@ define([
     sunburst,
     voronoi,
     zoom,
+    scale,
     offscreen1,
     offscreen2
 ) {
@@ -33,6 +35,7 @@ define([
             sunburst: sunburst,
             voronoi: voronoi,
             zoom: zoom,
+            scale: scale,
             offscreen1: offscreen1,
             offscreen2: offscreen2
         };
@@ -459,7 +462,7 @@ define([
 
             // Update visualization:
             visualization.update();
-            canvas.pumpRender();
+            //canvas.pumpRender();
             //renderFront();
         }
 
@@ -487,7 +490,7 @@ define([
                 visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
                 visualization.update();
-                canvas.pumpRender();
+                //canvas.pumpRender();
                 //renderFront();
             });
         }
