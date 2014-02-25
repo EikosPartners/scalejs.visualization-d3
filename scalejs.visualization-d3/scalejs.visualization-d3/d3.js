@@ -9,11 +9,7 @@ define([
     'hammer',
     'scalejs.visualization-d3/treemap',
     'scalejs.visualization-d3/sunburst',
-    'scalejs.visualization-d3/voronoi',
-    'scalejs.visualization-d3/zoom',
-    'scalejs.visualization-d3/scale',
-    'scalejs.visualization-d3/offscreen1',
-    'scalejs.visualization-d3/offscreen2'
+    'scalejs.visualization-d3/voronoi'
 ], function (
     core,
     ko,
@@ -22,11 +18,7 @@ define([
     hammer,
     treemap,
     sunburst,
-    voronoi,
-    zoom,
-    scale,
-    offscreen1,
-    offscreen2
+    voronoi
 ) {
     "use strict";
     var //imports
@@ -35,11 +27,7 @@ define([
         visualizations = {
             treemap: treemap,
             sunburst: sunburst,
-            voronoi: voronoi,
-            zoom: zoom,
-            scale: scale,
-            offscreen1: offscreen1,
-            offscreen2: offscreen2
+            voronoi: voronoi
         };
 
     function blankVisualization(type) {
@@ -146,53 +134,6 @@ define([
         canvasRender = document.createElement("canvas");
         canvasRender.width = canvasWidth;
         canvasRender.height = canvasHeight;
-
-        // Function to buffer fabric canvas for pinch and zoom feature:
-        function renderFront(back) {
-            context.setTransform(1, 0, 0, 1, 0, 0);
-            if (!back) {
-                context.clearRect(0, 0, canvasWidth, canvasHeight);
-                context.drawImage(canvasElement, 0, 0);
-            }
-            canvasRender.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
-            canvasRender.getContext('2d').drawImage(canvasElement, 0, 0);
-            canvasElement.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
-        }
-
-        // Function to update canvases:
-        function updateCan() {
-            canvas.select("group")
-                    .attr("scaleX", 1)//scaleVal
-                    .attr("scaleY", 1)//scaleVal
-                    .attr("angle", 0)//rotateVal
-                    .attr("left", 0)//leftVal
-                    .attr("top", 0);//topVal
-            canvas.pumpRender();
-            renderFront(true);
-
-            canvas.select("group")
-                .attr("scaleX", scaleVal)
-                .attr("scaleY", scaleVal)
-                .attr("angle", rotateVal)
-                .attr("left", leftVal)
-                .attr("top", topVal);
-
-            canvas.pumpRender();
-            renderFront();
-
-            context.setTransform(1, 0, 0, 1, 0, 0);
-            context.clearRect(0, 0, canvasWidth, canvasHeight);
-            context.drawImage(canvasRender, 0, 0);
-            canvas.select("group")
-                .attr("scaleX", 1)//scaleVal
-                .attr("scaleY", 1)//scaleVal
-                .attr("angle", 0)//rotateVal
-                .attr("left", 0)//leftVal
-                .attr("top", 0);//topVal
-
-            canvas.pumpRender();
-            renderFront(true);
-        }
 
         // Loop through levels to determine parameters:
         function createLevelParameters(lvlsParam) {
