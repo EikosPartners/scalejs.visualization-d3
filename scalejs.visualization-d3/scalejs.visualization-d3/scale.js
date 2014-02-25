@@ -1,24 +1,19 @@
 ﻿/*global define*/
+/*jslint browser: true */
 define([
     'd3',
-    'hammer',
-    'fabric'
+    'hammer'
 ], function (
     d3,
-    hammer,
-    fabric
+    hammer
 ) {
     "use strict";
 
     return function () {
         var //Treemap variables
             canvasElement,
-            json,
-            selectZoom,
             canvasWidth,
             canvasHeight,
-            root,
-            treemapLayout,
             canvasArea,
             canvasShow,
             canvas,
@@ -33,12 +28,11 @@ define([
             rotateVal = 0,
             scaleStart = 1,
             scaleVal = 1,
-            lastEvent,
-            lastGesture,
+            //lastEvent,
+            //lastGesture,
             lastTouches,
             lastCenter,
             inZoom = false,
-            last,
             objnum = 10;
 
         function renderFront(back) {
@@ -57,9 +51,9 @@ define([
         }
 
         // Zoom after click:
-        function zoom(d) {
-            if (canvasArea !== undefined || inZoom) {
-            }
+        function zoom() {
+            /*if (canvasArea !== undefined || inZoom) {
+            }*/
 
             // Prevent event from firing more than once:
             if (d3.event) {
@@ -155,10 +149,27 @@ define([
                 return Math.sqrt(x * x + y * y);
             }
 
-            if (event.type === "release") {
+            if (event.type === "touch") {
+                // Set all last* variables to starting gesture:
+                //lastEvent = event;
+                //lastGesture = gesture;
+                lastTouches = touches;
+                // Calculate Center:
+                if (touches.length === 2) {
+                    lastCenter = {
+                        x: (touches[0].pageX - touches[1].pageX) / 2 + touches[1].pageX,
+                        y: (touches[0].pageY - touches[1].pageY) / 2 + touches[1].pageY
+                    };
+                } else {
+                    lastCenter = {
+                        x: touches[0].pageX,
+                        y: touches[0].pageY
+                    };
+                }
+            } else if (event.type === "release") {
                 // Reset all last* variables, and update fabric canvas to get crisper image:
-                lastEvent = undefined;
-                lastGesture = undefined;
+                //lastEvent = undefined;
+                //lastGesture = undefined;
                 lastTouches = undefined;
                 lastCenter = undefined;
                 updateCan();
@@ -268,8 +279,8 @@ define([
                 context.drawImage(canvasRender, leftVal, topVal);
                 context.setTransform(1, 0, 0, 1, 0, 0);
 
-                lastEvent = event;
-                lastGesture = gesture;
+                //lastEvent = event;
+                //lastGesture = gesture;
                 lastTouches = touches;
                 lastCenter = center;
             }
@@ -313,12 +324,12 @@ define([
                 return; // Catch for if hasn't been setup, or is zooming (to avoid redrawing; for smooth zoom)
             }
             // Define temp vars:
-            var celSel, cell, nodes;
+            var celSel, i;  //, cell, nodes;
 
             celSel = canvasArea.select("group");
 
             // Add new nodes to Canvas:
-            for (var i = 0; i < 10; i += 1) {
+            for (i = 0; i < 10; i += 1) {
                 addNodes(celSel);
             }
             objnum += 10;
@@ -334,21 +345,17 @@ define([
         function init(
             element,
             width,
-            height,
-            jsonObservable,
-            selectZoomFunction
+            height
         ) {
             if (canvasArea !== undefined) {
                 return; // Catch for if treemap has been setup.
             }
             canvasElement = element;
-            json = jsonObservable;
             canvasWidth = width;
             canvasHeight = height;
-            selectZoom = selectZoomFunction;
 
             // Define temp vars:
-            var celSel, nodes;
+            var celSel, i;  //, nodes;
 
             canvasArea = canvasElement;
 
@@ -370,7 +377,7 @@ define([
 
             hammertime = hammer(canvasArea[0].parentNode, {
                 prevent_default: true
-            }).on("release drag pinch transformstart transformend", testHammer);//release drag transformstart transformend rotate pinch", testHammer); // Missing event before drag after touch
+            }).on("touch drag swipe pinch rotate transform release", testHammer);//release drag transformstart transformend rotate pinch", testHammer); // Missing event before drag after touch
 
             celSel = canvasArea.append("group")
                 .attr("left", left)
@@ -386,7 +393,7 @@ define([
                 .text("Objects: 10");
 
             // Add nodes to Canvas:
-            for (var i = 0; i < 10; i += 1) {
+            for (i = 0; i < 10; i += 1) {
                 addNodes(celSel);
             }
 
@@ -415,7 +422,7 @@ define([
                 canvasShow = undefined;
                 canvasRender.remove();
                 canvasRender = undefined;
-                hammertime.off("release drag pinch transformstart transformend", testHammer);
+                hammertime.off("touch drag swipe pinch rotate transform release", testHammer);
                 hammertime.enable(false);
                 hammertime = undefined;
             }
@@ -427,7 +434,6 @@ define([
             update: update,
             zoom: zoom,
             renderEnd: renderEnd,
-            scale: scale,
             resize: resize,
             remove: remove
         };

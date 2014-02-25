@@ -150,8 +150,8 @@ define([
                 .attr("left", canvasWidth / 2)
                 .attr("top", canvasHeight / 2)
                 .classed("cell", true)
-                .property("perPixelTargetFind", true)
-                .on("mousedown", selectZoom);
+                .property("perPixelTargetFind", true);
+                //.on("mousedown", selectZoom);
 
             // Add arc to nodes:
             cell.append("path")
@@ -258,7 +258,7 @@ define([
             canvasHeight = height;
             radius = Math.min(canvasWidth, canvasHeight) / 2;
             x = d3.scale.linear().range([0, 2 * Math.PI]);
-            y = d3.scale.sqrt().range([0, radius]);
+            y = d3.scale.linear().range([0, radius]);//sqrt
             selectZoom = selectZoomFunction;
 
             // Define temp vars:
@@ -273,7 +273,11 @@ define([
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 
-            canvasArea = canvasElement;
+            canvasArea = canvasElement.append("group")
+                .attr("left", 0)
+                .attr("top", 0)
+                .attr("originX", "center")
+                .attr("originY", "center");
 
             // Setup arc function:
             arc = d3.svg.arc()
@@ -307,7 +311,8 @@ define([
 
         function remove() {
             if (canvasArea !== undefined) {
-                canvasArea.selectAll("group").remove();
+                canvasElement.select("group").remove();
+                //canvasArea.selectAll("group").remove();
                 canvasArea = undefined;
             }
         }
@@ -318,7 +323,6 @@ define([
             update: update,
             zoom: zoom,
             renderEnd: function () { },
-            scale: function () { },
             resize: resize,
             remove: remove
         };

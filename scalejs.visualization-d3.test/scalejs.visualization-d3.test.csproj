@@ -27,6 +27,7 @@
     <Content Include="test\scalejs.visualization-d3.test.js" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="JSLintNet.json" />
     <None Include="packages.config" />
   </ItemGroup>
   <PropertyGroup>

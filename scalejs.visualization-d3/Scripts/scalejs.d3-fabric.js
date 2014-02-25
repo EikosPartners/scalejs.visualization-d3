@@ -41,15 +41,15 @@ define(function () {
             return res;
         }
         if (!parseVersion(d3.version).atLeast(3, 4)) {
-            console.error("Unsupported d3.js version. Need at least 3.4.0 or higher");
+            //console.error("Unsupported d3.js version. Need at least 3.4.0 or higher");
             return false;
         }
         if (!parseVersion(fabric.version).atLeast(1, 4, 2)) {
-            console.error("Unsupported FabricJS version. Need at least 1.4.2 or higher");
+            //console.error("Unsupported FabricJS version. Need at least 1.4.2 or higher");
             return false;
         }
         if (d3.fabric) {
-            console.error("d3-Fabric is already setup");
+            //console.error("d3-Fabric is already setup");
             return false;
         }
 
@@ -67,10 +67,13 @@ define(function () {
             d3_fabric_transition_proto = {},
             d3_fabric_transitionId = 0,
             d3_fabric_transitionInheritId,
-            d3_fabric_transitionInherit;
+            d3_fabric_transitionInherit,
+
+            d3_fabric_subclass,
+            d3_fabric_proto;
 
         //prototype functions (d3_fabric_subclass based off one from d3)
-        var d3_fabric_subclass = Object.setPrototypeOf ? function (object, prototype) {
+        d3_fabric_subclass = Object.setPrototypeOf ? function (object, prototype) {
             Object.setPrototypeOf(object, prototype);
         } : {}.__proto__ ? function (object, prototype) {
             object.__proto__ = prototype;
@@ -79,7 +82,7 @@ define(function () {
             for (var property in prototype) object[property] = prototype[property];
         };
 
-        var d3_fabric_proto = function (object) {
+        d3_fabric_proto = function (object) {
             // tests on Trident, Gecko, and WebKit have shown that this is the fastest method (http://jsperf.com/getprototypeof-vs-proto)
             return object.constructor.prototype;
         }
@@ -103,11 +106,15 @@ define(function () {
         }
 
         //GSAP plugin
-        var d3_fabric_use_GSAP = gsap && parseVersion(gsap.version).atLeast(1, 11);
+        var d3_fabric_use_GSAP = gsap && parseVersion(gsap.version).atLeast(1, 11),
+            d3_fabric_transition_cleanup = function (lock, id) {
+                if (--lock.count) delete lock[id];
+                else delete this.__transition__;
+            };
         if (d3_fabric_use_GSAP) {
             /*!
              * VERSION: 1.0.0
-             * DATE: 2014-02-14
+             * DATE: 2014-02-21
              * UPDATES AND DOCS AT: http://www.greensock.com
              * 
              * @license Copyright (c) 2008-2014, GreenSock. All rights reserved.
@@ -119,19 +126,33 @@ define(function () {
             (window._gsQueue || (window._gsQueue = [])).push(function () {
 
                 var _drawCalls = [],
-                    _ticker, _listening,
+                    _ticker,
+                    _listening,
                     _onTick = function () {
                         if (_drawCalls.length) {
                             _drawCalls.forEach(function (draw) {
-                                draw.render.apply(draw.scope);
-                                draw.render._addedDraw = false;
+                                draw.render.apply(draw.scope, draw.params);
+                                draw.render._addedGSAPDraw = false;
                             });
                             _drawCalls.length = 0;
                         } else {
                             _ticker.removeEventListener("tick", _onTick);
                             _listening = false;
                         }
-                    };
+                    },
+                    _buildOverwrites = function (target, vars) {
+                        var props = [];
+                        Object.keys(vars).filter(function (v) {
+                            return !(v === "tween" || v === "tweenIndex" || v === "canvasRender" || v === "canvasRenderParams" || v === "canvasRenderScope");
+                        }).forEach(function (v) {
+                            var capitalizedPropName = v.charAt(0).toUpperCase() + v.slice(1),
+                                setterName = "set" + capitalizedPropName;
+                            props.push(v);
+                            props.push(setterName)
+                        }, target);
+                        return props;
+                    },
+                    _emptyArray = [];
 
                 window._gsDefine.plugin({
                     propName: "d3fabric",
@@ -139,12 +160,20 @@ define(function () {
                     version: "1.0.0",
 
                     init: function (target, value, tween) {
+                        //this._overwriteProps = _buildOverwrites(target, value);
                         this._target = target;
 
-                        this._fbTween = value.tween.call(target, target.__data__, value.tweenIndex);
+                        this._fbTransitionId = value.transitionId;
+                        this._fbTransistionLock = target.__transition__;
+                        this._fbTransistionInterrupted = this._fbTransistionLock && this._fbTransistionLock.active > this._fbTransitionId;
+                        this._fbGSAPtween = tween;
+                        this._fbTween = !this._fbTransistionInterrupted && value.tween.call(target, target.__data__, value.tweenIndex);
+
+                        if (!this._fbTransistionInterrupted && this._fbTransistionLock && this._fbTransistionLock.active < this._fbTransitionId) this._fbTransistionLock.active = this._fbTransitionId;
 
                         this._fbCanvasRender = value.canvasRender;
-                        this._fbCanvasRenderScope = value.canvasRenderScope
+                        this._fbCanvasRenderParams = value.canvasRenderParams;
+                        this._fbCanvasRenderScope = value.canvasRenderScope;
                         if (!_ticker && this._fbCanvasRender) {
                             _ticker = tween.constructor.ticker;
                         }
@@ -153,19 +182,30 @@ define(function () {
                     },
 
                     set: function (ratio) {
-                        this._super.setRatio.call(this, ratio);
+                        if (this._fbTransistionInterrupted || (this._fbTransistionInterrupted = this._fbTransistionLock && this._fbTransistionLock.active !== this._fbTransitionId)) {
+                            if (ratio < 1) {
+                                // Fast-foward to the end of the tween. This will cause this function to be called again, so we only want to run it if the ratio is less then 1 (the first time this gets called)
+                                if (this._fbGSAPtween.eventCallback("onComplete") !== d3_fabric_transition_cleanup && this._fbTransistionLock) { // to save memory allocation, only change the event callback to the cleanup callback if it isn't already set
+                                    this._fbGSAPtween.eventCallback("onComplete", d3_fabric_transition_cleanup, [this._fbTransistionLock, this._fbTransitionId], this._target);
+                                }
+                                this._fbGSAPtween.seek(this._fbGSAPtween.duration(), false);
+                            }
+                        } else {
+                            this._super.setRatio.call(this, ratio);
 
-                        if (this._fbTween) {
-                            this._fbTween.call(this._target, ratio);
-                            if (this._fbCanvasRender && !this._fbCanvasRender._addedDraw) {
-                                _drawCalls.push({
-                                    scope: this._fbCanvasRenderScope || null,
-                                    render: this._fbCanvasRender
-                                });
-                                this._fbCanvasRender._addedDraw = true;
-                                if (!_listening) {
-                                    _ticker.addEventListener("tick", _onTick);
-                                    _listening = true;
+                            if (this._fbTween) {
+                                this._fbTween.call(this._target, ratio);
+                                if (this._fbCanvasRender && !this._fbCanvasRender._addedGSAPDraw) {
+                                    _drawCalls.push({
+                                        scope: this._fbCanvasRenderScope || null,
+                                        params: this._fbCanvasRenderParams || _emptyArray,
+                                        render: this._fbCanvasRender
+                                    });
+                                    this._fbCanvasRender._addedGSAPDraw = true;
+                                    if (!_listening) {
+                                        _ticker.addEventListener("tick", _onTick);
+                                        _listening = true;
+                                    }
                                 }
                             }
                         }
@@ -186,7 +226,9 @@ define(function () {
                     ret = orgSet.call(this, key, value);
                 if (this.group && (key === "width" || key === "height") && org !== value) {
                     var fg = this.group;
-                    if (fabric_group_has_widthHeightOnlyArg) {
+                    if (fg instanceof fabric.PathGroup) {
+                        fg.setCoords();
+                    } else if (fabric_group_has_widthHeightOnlyArg) {
                         fg._calcBounds(true);
                         fg.setCoords();
                     } else {
@@ -253,7 +295,12 @@ define(function () {
                         var can = this.ownerDocument.createElement("canvas");
 
                         function GSAPRender() {
-                            if (can._fabricCanvas.renderRunning) can._fabricCanvas.canvas.renderAll();
+                            if (can._fabricCanvas.renderRunning) {
+                                if (!can._fabricCanvas.render._addedGSAPDraw && can._fabricCanvas.continiousRender) {
+                                    fabric.util.requestAnimFrame(can._fabricCanvas.render, can);
+                                }
+                                can._fabricCanvas.canvas.renderAll();
+                            }
                         }
                         function NormalRender() {
                             var t = Date.now();
@@ -271,6 +318,7 @@ define(function () {
                             transitionItems: new Array(),
                             canvas: null,
                             renderRunning: false,
+                            continiousRender: false,
                             time: Date.now(),
                             render: d3_fabric_use_GSAP ? GSAPRender : NormalRender
                         };
@@ -357,10 +405,13 @@ define(function () {
                 getterName = "get" + capitalizedPropName,
                 ele = this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this,
                 proto = d3_fabric_proto(ele),
-                isPathSet = ele instanceof fabric.Path && name === "d",
+                isImage = ele instanceof fabric.Image && name === "src",
+                isPathSet = !isImage && ele instanceof fabric.Path && name === "d",
                 isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points";
-            if (isPathSet || isPolySet || proto[getterName]) {
-                if (isPathSet) {
+            if (isImage || isPathSet || isPolySet || proto[getterName]) {
+                if (isImage) {
+                    return ele.getSrc();
+                } else if (isPathSet) {
                     return ele.d3fabricOrgPath;
                 } else if (isPolySet) {
                     return ele.d3fabricOrgPoints;
@@ -394,10 +445,29 @@ define(function () {
             var capitalizedPropName = name.charAt(0).toUpperCase() + name.slice(1),
                     setterName = "set" + capitalizedPropName,
                     proto = d3_fabric_proto(ele),
-                    isPathSet = ele instanceof fabric.Path && name === "d",
+                    isImage = ele instanceof fabric.Image && name === "src",
+                    isPathSet = !isImage && ele instanceof fabric.Path && name === "d",
                     isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points";
-            if (isPathSet || isPolySet || proto[setterName]) {
-                if (isPathSet) {
+            if (isImage || isPathSet || isPolySet || proto[setterName]) {
+                if (isImage) {
+                    // Only update the image if something has changed, since it won't be an instant replacement
+                    if (ele.getSrc() !== value) {
+                        if (!value) value = fabric.util.createImage();
+                        ele.fire("image:load:start", { img: ele });
+                        if (typeof value === "string" && value.indexOf("#") == 0) {
+                            ele._initElement(value.substr(1));
+                            ele.fire("image:load:finished", { img: ele });
+                        } else {
+                            fabric.util.loadImage(value, function (img) {
+                                if (!img) {
+                                    this.fire("image:load:finished", { img: null, url: value });
+                                }
+                                ele._initElement(img);
+                                this.fire("image:load:finished", { img: this, url: value });
+                            }, ele);
+                        }
+                    }
+                } else if (isPathSet) {
                     // Set the path
                     ele.initialize(value, {
                         left: ele.getLeft() || 0,
@@ -536,7 +606,7 @@ define(function () {
             return function (node, value) {
                 if (d3_fabric_is_fabric_object(node)) {
                     if (node.fabricClassList === undefined || node.fabricClassList === null) node.fabricClassList = new Array();
-                    return value ? d3_fabric_array_add(node.fabricClassList, name) : cd3_fabric_array_remove(node.fabricClassList, name);
+                    return value ? d3_fabric_array_add(node.fabricClassList, name) : fabric.util.removeFromArray(node.fabricClassList, name);
                 } else {
                     function nodeClass(node) {
                         if (c = node.classList) return value ? c.add(name) : c.remove(name);
@@ -561,13 +631,6 @@ define(function () {
         function d3_fabric_array_add(arr, value) {
             if (arr.indexOf(value) == -1) {
                 arr.push(value);
-            }
-            return arr;
-        }
-        function d3_fabric_array_remove(arr, value) {
-            var i;
-            if ((i = arr.indexOf(value)) != -1) {
-                arr.splic(i, 1);
             }
             return arr;
         }
@@ -689,17 +752,25 @@ define(function () {
         };
         //-append
         d3_fabric_selection_proto.append = function (name) {
-            var sel = this;
+            var sel = this,
+                isPath = typeof name === "string" && name.toLowerCase() === "path";
             name = d3_fabric_selection_append(name);
             return d3_fabric_selection_proto.select.call(this, function (d, i, j) {
                 var parent = sel[j].parentNode,
                     canvas = parent !== undefined && parent !== null && parent._fabricCanvas !== undefined ? parent : this._fabricCanvas !== undefined ? this : null,
                     fabricCanvas = canvas !== null ? canvas._fabricCanvas : null,
-                    collection = this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null;
+                    isForPath = isPath && this instanceof fabric.PathGroup,
+                    collection = isForPath || this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null;
                 if (collection !== null) {
                     var item = name.apply(this, arguments);
-                    collection.add(item);
-                    if (collection.calcOffset) collection.calcOffset(); // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
+                    if (isForPath) {
+                        collection.getObjects().push(item);
+                        item.group = collection;
+                        collection.setCoords();
+                    } else {
+                        collection.add(item);
+                        if (collection.calcOffset) collection.calcOffset(); // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
+                    }
                     return item;
                 }
                 return null;
@@ -709,15 +780,17 @@ define(function () {
             return typeof name === "function" ? name : function () {
                 var obj = null,
                     ln = name.toLowerCase(),
-                    isText = ln === "text" || ln === "itext",
+                    takesString = ln === "text" || ln === "itext",
                     isPoly = ln === "polygon" || ln === "polyline",
-                    isPath = ln === "path" || isPoly;
-                if (ln === "image") return null; //requires DOM element...
+                    takesPath = ln === "path" || isPoly;
+                if (ln === "image") {
+                    return new fabric.Image(fabric.util.createImage());
+                }
                 for (var i = 0, s = fabric_object_private_set.length; i < s; i++) {
                     if (fabric_object_private_set[i].typeName.toLowerCase() === ln) {
-                        if (isText) {
+                        if (takesString) {
                             obj = new fabric_object_private_set[i].type("");
-                        } else if (isPath) {
+                        } else if (takesPath) {
                             obj = new fabric_object_private_set[i].type([], null, isPoly);
                         } else {
                             obj = new fabric_object_private_set[i].type();
@@ -731,20 +804,29 @@ define(function () {
         }
         //-insert
         d3_fabric_selection_proto.insert = function (name, before) {
-            var sel = this;
+            var sel = this,
+                isPath = typeof name === "string" && name.toLowerCase() === "path";
             name = d3_fabric_selection_append(name);
             before = d3_fabric_selection_selector(before, true);
             return d3_fabric_selection_proto.select.call(this, function (d, i, j) {
                 var parent = sel[j].parentNode,
                     canvas = parent !== undefined && parent !== null && parent._fabricCanvas !== undefined ? parent : this._fabricCanvas !== undefined ? this : null,
                     fabricCanvas = canvas !== null ? canvas._fabricCanvas : null,
-                    collection = this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null;
+                    isForPath = isPath && this instanceof fabric.PathGroup,
+                    collection = isForPath || this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null;
                 if (collection !== null) {
                     var item = name.apply(this, arguments),
                         priorItem = before.apply(this, arguments) || null,
                         priorItemIndex = priorItem === null ? -1 : collection.getObjects().indexOf(priorItem);
-                    priorItemIndex === -1 ? collection.add(item) : collection.insertAt(item, priorItemIndex, false);
-                    if (collection.calcOffset) collection.calcOffset(); // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
+                    if (isForPath) {
+                        var paths = collection.getObjects();
+                        priorItemIndex === -1 ? paths.push(item) : paths.splice(priorItemIndex, 0, item);
+                        item.group = collection;
+                        collection.setCoords();
+                    } else {
+                        priorItemIndex === -1 ? collection.add(item) : collection.insertAt(item, priorItemIndex, false);
+                        if (collection.calcOffset) collection.calcOffset(); // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
+                    }
                     if (item.setCoords) item.setCoords();
                     return item;
                 }
@@ -757,9 +839,18 @@ define(function () {
                 var collection = this.hasOwnProperty("group") && this.group instanceof fabric.Group ? this.group : this.hasOwnProperty("canvas") ? this.canvas : null,
                     p;
                 if (collection) {
-                    if (collection.contains(this)) {
-                        collection.remove(this);
-                        if (collection.setCoords) collection.setCoords();
+                    if (collection instanceof fabric.PathGroup && this instanceof fabric.Path) {
+                        var paths = collection.getObjects(),
+                            index = paths.indexOf(this);
+                        if (index >= 0) {
+                            paths.splice(index, 1);
+                            collection.setCoords();
+                        }
+                    } else {
+                        if (collection.contains(this)) {
+                            collection.remove(this);
+                            if (collection.setCoords) collection.setCoords();
+                        }
                     }
                 } else if (!d3_fabric_is_fabric_object(this) && (p = this.parentNode)) {
                     if (this._fabricCanvas && this._fabricCanvas.canvas && this._fabricCanvas.canvas.getSelectionElement) {
@@ -809,9 +900,16 @@ define(function () {
                                 var nodeIndex = collection.getObjects().indexOf(node),
                                     nextIndex = collection.getObjects().indexOf(next);
                                 if (nodeIndex !== -1 && nextIndex !== -1 && nextIndex !== (nodeIndex + 1) && nodeIndex >= 1) {
-                                    collection.remove(node);
-                                    collection.insertAt(node, nextIndex - 1, false);
-                                    if (collection.setCoords) collection.setCoords();
+                                    if (collection instanceof fabric.PathGroup && node instanceof fabric.Path && next instanceof fabric.Path) {
+                                        var paths = collection.getObjects();
+                                        paths.splice(nodeIndex, 1);
+                                        paths.splice(nextIndex - 1, 0, node);
+                                        collection.setCoords();
+                                    } else {
+                                        collection.remove(node);
+                                        collection.insertAt(node, nextIndex - 1, false);
+                                        if (collection.setCoords) collection.setCoords();
+                                    }
                                 }
                             } else if (!d3_fabric_is_fabric_object(this) && !d3_fabric_is_fabric_object(next) && (p == next.parentNode)) {
                                 // DOM nodes
@@ -911,7 +1009,13 @@ define(function () {
                 subgroups.push(subgroup = []);
                 for (var group = this[j], i = -1, n = group.length; ++i < n;) {
                     if (node = group[i]) {
-                        if (!transition.fabricCanvas) transition.fabricCanvas = node.canvas ? node.canvas._fabricCanvasDomRef._fabricCanvas : null
+                        if (!transition.fabricCanvas) {
+                            // In order to render while animating, a reference to the canvas must be kept //XXX should probably be per-canvas (AKA, per group) but am not sure how to arrange that right now
+                            var tip = node;
+                            while (!tip.canvas && tip.group) tip = tip.group;
+                            transition.fabricCanvas = tip.canvas ? tip.canvas._fabricCanvasDomRef._fabricCanvas : null;
+                            fabricCanvas = transition.fabricCanvas;
+                        }
                         d3_fabric_transitionNode(node, i, id, transition);
                     }
                     subgroup.push(node);
@@ -961,10 +1065,19 @@ define(function () {
                 }
             });
         };
+        //-continiousRender
+        d3_fabric_selection_proto.continiousRender = function (enable) {
+            return this.each(function () {
+                if (this._fabricCanvas !== undefined) {
+                    this._fabricCanvas.continiousRender = enable;
+                    this._fabricCanvas.render.call(this);
+                }
+            });
+        };
         //-pumpRender
         d3_fabric_selection_proto.pumpRender = function () {
             return this.each(function () {
-                if (this._fabricCanvas !== undefined && (d3_fabric_use_GSAP || !this._fabricCanvas.renderRunning)) this._fabricCanvas.render.call(this);
+                if (this._fabricCanvas !== undefined && ((d3_fabric_use_GSAP && !this._fabricCanvas.continiousRender) || !this._fabricCanvas.renderRunning)) this._fabricCanvas.render.call(this);
             });
         };
         //-size
@@ -1125,8 +1238,7 @@ define(function () {
                     ease: inherit.ease,
                     delay: inherit.delay,
                     duration: inherit.duration,
-                    fabricCanvas: inherit.fabricCanvas,
-                    canvasElement: inherit.canvasElement
+                    fabricCanvas: inherit.fabricCanvas
                 };
                 ++lock.count;
                 if (!d3_fabric_use_GSAP) {
@@ -1176,8 +1288,7 @@ define(function () {
                         }
 
                         function stop() {
-                            if (--lock.count) delete lock[id];
-                            else delete node.__transition__;
+                            d3_fabric_transition_cleanup.call(node, lock, id);
                             return false;
                         }
                     });
@@ -1362,33 +1473,42 @@ define(function () {
         }
         function d3_fabric_transition_tween_direct(node, name, value, id, i) {
             if (d3_fabric_use_GSAP) {
-                function startAni(trans, d, i) {
-                    trans.event && trans.event.start.call(this, d, i);
+                function startAni(event, d, i) {
+                    event && event.start.call(this, d, i);
                 }
-                function endAni(trans, lock, id, d, i) {
-                    trans.event && trans.event.end.call(this, d, i);
+                function endAni(lock, id, d, i) {
+                    var trans = lock[id];
+                    trans && trans.event && trans.event.end.call(this, d, i);
 
-                    if (--lock.count) delete lock[id];
-                    else delete this.__transition__;
+                    d3_fabric_transition_cleanup.call(this, lock, id);
                 }
+
                 var lock = node.__transition__,
                     trans = lock[id],
+                    d = node.__data__,
                     fbCanvas = trans.fabricCanvas ? trans.fabricCanvas.render : null;
                 var args = {
                     ease: trans.ease,
                     delay: trans.delay / 1000.0,
-                    /*onStart: startAni,
-                    onStartParams: [trans, d, i],
-                    onStartScope: this,
-                    onComplete: endAni,
-                    onCompleteParams: [trans, lock, id, d, i],
-                    onCompleteScope: this,*/
+                    onCompleteScope: node,
                     d3fabric: {
                         canvasRender: fbCanvas,
                         tween: value,
-                        tweenIndex: i
+                        tweenIndex: i,
+                        transitionId: id
                     }
                 };
+                if (trans.event) {
+                    //All of these causes a heafty performance hit, so only add them if needed
+                    args.onStart = startAni;
+                    args.onStartParams = [trans.event, d, i];
+                    args.onStartScope = node;
+                    args.onComplete = endAni;
+                    args.onCompleteParams = [lock, id, d, i];
+                } else {
+                    args.onComplete = d3_fabric_transition_cleanup;
+                    args.onCompleteParams = [lock, id];
+                }
                 TweenLite.to(node, trans.duration / 1000.0, args);
             } else {
                 node.__transition__[id].tween.set(name, value);
@@ -1462,9 +1582,18 @@ define(function () {
                     var collection = this.hasOwnProperty("group") && this.group instanceof fabric.Group ? this.group : this.hasOwnProperty("canvas") ? this.canvas : null,
                         p;
                     if (collection) {
-                        if (collection.contains(this)) {
-                            collection.remove(this);
-                            if (collection.setCoords) collection.setCoords();
+                        if (collection instanceof fabric.PathGroup && this instanceof fabric.Path) {
+                            var paths = collection.getObjects(),
+                                index = paths.indexOf(this);
+                            if (index >= 0) {
+                                paths.splice(index, 1);
+                                collection.setCoords();
+                            }
+                        } else {
+                            if (collection.contains(this)) {
+                                collection.remove(this);
+                                if (collection.setCoords) collection.setCoords();
+                            }
                         }
                     } else if (!d3_fabric_is_fabric_object(this) && (p = this.parentNode)) {
                         if (this._fabricCanvas && this._fabricCanvas.canvas && this._fabricCanvas.canvas.getSelectionElement) {
@@ -1510,4 +1639,48 @@ define(function () {
 
         return true;
     };
+
+    //Util
+    var d3_fabric_util_proto = {},
+        d3_fabric_util_matrix_proto = {},
+        d3_fabric_util_render_test = null;
+
+    d3.fabric.util = d3_fabric_util_proto;
+
+    //-radiansToDegrees
+    d3_fabric_util_proto.radiansToDegrees = fabric.util.radiansToDegrees;
+    //-degreesToRadians
+    d3_fabric_util_proto.degreesToRadians = fabric.util.degreesToRadians;
+    //-testTransitions
+    d3_fabric_util_proto.testTransitions = function (forceTest, desiredRenderTimeMS, useGSAP) {
+        if (forceTest || d3_fabric_util_render_test === null) {
+            if (!desiredRenderTimeMS) desiredRenderTimeMS = 16;
+            //TODO
+        }
+        return d3_fabric_util_render_test;
+    };
+
+    //Util matrix
+    d3_fabric_util_proto.matrix = d3_fabric_util_matrix_proto;
+
+    //-createTranslation
+    d3_fabric_util_matrix_proto.createTranslation = function (x, y) {
+        return [1, 0, 0, 1, x, y];
+    };
+    //-createRotation
+    d3_fabric_util_matrix_proto.createRotation = function (rad) {
+        var s = Math.sin(rad),
+            c = Math.cos(rad);
+        return [c, s, -s, c, 0, 0];
+    };
+    //-createScale
+    d3_fabric_util_matrix_proto.createScale = function (x, y) {
+        return [x, 0, 0, y, 0, 0];
+    };
+    //-createSkew
+    d3_fabric_util_matrix_proto.createScale = function (xRad, yRad) {
+        return [1, Math.tan(yRad), Math.tan(xRad), 1, 0, 0];
+    };
+    //-multiply
+    d3_fabric_util_matrix_proto.multiply = fabric.util.multiplyTransformMatrices;
 });

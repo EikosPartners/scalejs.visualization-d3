@@ -17,7 +17,8 @@ define([
             y,
             root,
             treemapLayout,
-            canvasArea;
+            canvasArea,
+            lastClickTime;
 
         // Zoom after click:
         function zoom(d) {
@@ -30,7 +31,7 @@ define([
             y.domain([d.y, d.y + d.dy]);
 
             // Animate treemap nodes:
-            t = canvasArea.selectAll("group.cell").transition()
+            t = canvasArea.selectAll("group").transition()
                 .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
                 .attr("left", function (d) { return x(d.x); })
                 .attr("top", function (d) { return y(d.y); });
@@ -55,18 +56,6 @@ define([
             }
         }
 
-        function scale(val) {
-            if (canvasArea === undefined) {
-                return; // Catch for if treemap hasn't been setup.
-            }
-            canvasArea.selectAll("group.cell").transition()
-                .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
-                .attr("left", function (d) { return x(d.x * val); })
-                .attr("top", function (d) { return y(d.y * val); })
-                .attr("scaleX", val)
-                .attr("scaleY", val);
-        }
-
         function addNodes(celSel) {
             // Add nodes to Canvas:
             var cell = celSel.enter().append("group")
@@ -74,8 +63,15 @@ define([
                 .attr("originY", "center")
                 .attr("left", function (d) { return d.x; })
                 .attr("top", function (d) { return d.y; })
-                .classed("cell", true)
-                .on("mousedown", selectZoom);
+                //.classed("cell", true)
+                //.on("mousedown", selectZoom);
+                .on("mousedown", function (d) {
+                    var clickTime = (new Date()).getTime();
+                    if (clickTime - lastClickTime < 500) {
+                        selectZoom(d);
+                    }
+                    lastClickTime = clickTime;
+                });
 
             // Add rectangle to each node:
             cell.append("rect")
@@ -184,7 +180,9 @@ define([
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 
-            canvasArea = canvasElement;
+            canvasArea = canvasElement.append("group")
+                .attr("originX", "center")
+                .attr("originY", "center");
 
             // Filter out nodes with children:
             nodes = treemapLayout.nodes(root)
@@ -208,7 +206,9 @@ define([
 
         function remove() {
             if (canvasArea !== undefined) {
-                canvasArea.selectAll("group").remove();
+                canvasArea.remove();
+                //canvasElement.select("group").remove();
+                //canvasArea.selectAll("group").remove();
                 canvasArea = undefined;
             }
         }
@@ -219,7 +219,6 @@ define([
             update: update,
             zoom: zoom,
             renderEnd: function () { },
-            scale: scale,
             resize: resize,
             remove: remove
         };

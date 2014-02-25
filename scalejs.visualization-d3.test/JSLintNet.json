@@ -1,5 +1,4 @@
 ﻿{
-  "output": "Error",
   "ignore": [
     "\\Scripts\\",
     "\\packages.config"
