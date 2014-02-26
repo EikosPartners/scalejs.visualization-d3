@@ -9,6 +9,10 @@ var require = {
         "bindings":  "Scripts/scalejs.mvvm.bindings",
         "css":  "Scripts/css",
         "css-builder":  "Scripts/css-builder",
+        "d3":  "Scripts/d3.v3",
+        "d3.colorbrewer":  "Scripts/d3.colorbrewer",
+        "fabric":  "Scripts/fabric-1.4.4",
+        "hammer":  "Scripts/hammer",
         "jasmine":  "Scripts/jasmine",
         "jasmine-html":  "Scripts/jasmine-html",
         "knockout":  "Scripts/knockout-3.0.0.debug",
@@ -17,13 +21,16 @@ var require = {
         "normalize":  "Scripts/normalize",
         "sandbox":  "Scripts/scalejs.sandbox",
         "scalejs":  "Scripts/scalejs-0.3.3",
+        "scalejs.d3-fabric":  "Scripts/scalejs.d3-fabric",
         "scalejs.functional":  "Scripts/scalejs.functional-0.2.9.8",
         "scalejs.linq-linqjs":  "Scripts/scalejs.linq-linqjs-3.0.3.1",
         "scalejs.mvvm":  "Scripts/scalejs.mvvm-0.3.4.4",
         "scalejs.statechart-scion":  "Scripts/scalejs.statechart-scion-0.3.0.0",
+        "scalejs.visualization-d3":  "Scripts/scalejs.visualization-d3-0.1.4.391",
         "scion":  "Scripts/scion",
         "styles":  "Scripts/scalejs.styles",
         "text":  "Scripts/text",
+        "tweenLite":  "Scripts/TweenLite-1.11.4",
         "views":  "Scripts/scalejs.mvvm.views"
     },
     "scalejs":  {
@@ -31,10 +38,14 @@ var require = {
             "scalejs.functional",
             "scalejs.linq-linqjs",
             "scalejs.mvvm",
-            "scalejs.statechart-scion"
+            "scalejs.statechart-scion",
+            "scalejs.visualization-d3"
         ]
     },
     "shim":  {
+        "fabric":  {
+            "exports":  "fabric"
+        },
         "jasmine":  {
             "exports":  "jasmine"
         },
@@ -48,6 +59,9 @@ var require = {
                 "scalejs.linq-linqjs",
                 "scalejs.functional"
             ]
+        },
+        "tweenLite":  {
+            "exports":  "TweenLite"
         }
     }
 };

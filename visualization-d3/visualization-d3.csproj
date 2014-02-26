@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ProjectGuid>{9822ED54-CC34-4037-B179-B64CA16A5990}</ProjectGuid>
+    <ProjectGuid>{7322E0C6-441D-4909-84FF-08AE0181950D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <OutputPath>js</OutputPath>
     <JSLintSkip>\Scripts\|\js\</JSLintSkip>
@@ -11,11 +11,11 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <StartAction>Program</StartAction>
     <StartProgram>C:\Program Files (x86)\IIS Express\iisexpress.exe</StartProgram>
-    <StartArguments>/site:scalejs.visualization-d3.test</StartArguments>
+    <StartArguments>/site:visualization-d3</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <StartProgram>C:\Program Files (x86)\IIS Express\iisexpress.exe</StartProgram>
-    <StartArguments>/site:scalejs.visualization-d3.test</StartArguments>
+    <StartArguments>/site:visualization-d3</StartArguments>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="css\jasmine.css" />
@@ -27,6 +27,12 @@
     <Content Include="Scripts\almond.js" />
     <Content Include="Scripts\css-builder.js" />
     <Content Include="Scripts\css.js" />
+    <Content Include="Scripts\d3.colorbrewer.js" />
+    <Content Include="Scripts\d3.v3.js" />
+    <Content Include="Scripts\d3.v3.min.js" />
+    <Content Include="Scripts\domReady.js" />
+    <Content Include="Scripts\fabric-1.4.4.js" />
+    <Content Include="Scripts\hammer.js" />
     <Content Include="Scripts\jasmine-html.js" />
     <Content Include="Scripts\jasmine.js" />
     <Content Include="Scripts\knockout-3.0.0.debug.js" />
@@ -42,6 +48,7 @@
     <Content Include="Scripts\require.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
+    <Content Include="Scripts\scalejs.d3-fabric.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.min.js" />
     <Content Include="Scripts\scalejs.linq-linqjs-3.0.3.1.js" />
@@ -54,8 +61,11 @@
     <Content Include="Scripts\scalejs.statechart-scion-0.3.0.0.js" />
     <Content Include="Scripts\scalejs.statechart-scion-0.3.0.0.min.js" />
     <Content Include="Scripts\scalejs.styles.js" />
+    <Content Include="Scripts\scalejs.visualization-d3-0.1.4.391.js" />
+    <Content Include="Scripts\scalejs.visualization-d3-0.1.4.391.min.js" />
     <Content Include="Scripts\scion.js" />
     <Content Include="Scripts\text.js" />
+    <Content Include="Scripts\TweenLite-1.11.4.js" />
     <Content Include="Scripts\_references.js" />
     <Content Include="app\app.js" />
     <Content Include="app\main\bindings\mainBindings.js" />
@@ -68,7 +78,7 @@
     <Content Include="test\mainViewModel.test.js" />
     <Content Include="config.js" />
     <Content Include="Properties\build.rjs" />
-    <Content Include="Properties\scalejs.visualization-d3.test.nuspec" />
+    <Content Include="Properties\visualization-d3.nuspec" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
@@ -77,7 +87,7 @@
     <ScalejsProjectType>Application</ScalejsProjectType>
   </PropertyGroup>
   <PropertyGroup>
-    <RootNamespace>scalejs.visualization_d3.test</RootNamespace>
+    <RootNamespace>visualization_d3</RootNamespace>
   </PropertyGroup>
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

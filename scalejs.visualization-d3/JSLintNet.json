@@ -1,13 +1,11 @@
 ﻿{
   "output": "Error",
   "ignore": [
-    "\\Scripts\\",
-    "\\packages.config"
+    "\\Scripts\\"
   ],
   "options": {
     "predef": {}
   },
   "runOnSave": true,
-  "runOnBuild": true,
-  "cancelBuild": false
+  "runOnBuild": true
 }

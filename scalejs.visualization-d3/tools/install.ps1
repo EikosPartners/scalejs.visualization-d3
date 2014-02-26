@@ -10,5 +10,13 @@ $project |
 		'scalejs.visualization-d3' : 'Scripts/scalejs.visualization-d3-$($package.Version)',
         'tweenLite' : 'Scripts/TweenLite-1.11.4'
 	}" |
+	Add-Shims "{
+		'fabric': {
+            exports: 'fabric'
+        },
+        'tweenLite': {
+            exports: 'TweenLite'
+        }
+	}" |
 	Add-ScalejsExtension 'scalejs.visualization-d3' |
 	Out-Null
