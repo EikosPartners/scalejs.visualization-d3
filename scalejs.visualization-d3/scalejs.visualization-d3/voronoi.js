@@ -95,10 +95,24 @@ define([
                 return; // Catch for if treemap hasn't been setup.
             }
             // Define temp vars:
-            var celSel, cell;
+            var celSel, cell, coord, j,
+                widthRatio = canvasWidth / dataSize.width,
+                heightRatio = canvasHeight / dataSize.height;
 
             // Get treemap data:
-            root = flat;
+            //root = flat;
+
+            root = [];
+            for (i = 0; i < flat.length; i += 1) {
+                root[i] = { name: flat[i].name, coords: [], color: flat[i].color };
+                for (j = 0; j < flat[i].coords.length; j += 1) {
+                    coord = flat[i].coords[j].split(",");
+                    root[i].coords[j] = {
+                        x: Number(coord[0]) * widthRatio,
+                        y: Number(coord[1]) * heightRatio
+                    };
+                }
+            }
 
             // Select all nodes in Canvas, and apply data:
             celSel = canvasArea.selectAll("group")
@@ -146,23 +160,26 @@ define([
                 widthRatio = canvasWidth / dataSize.width,
                 heightRatio = canvasHeight / dataSize.height;
 
+
+            // Store for next time:
+            //dataSize.width = canvasWidth;
+            //dataSize.height = canvasHeight;
+
+            // Get voronoi data:
+            //root = flat;
+
             // Respace coords:
+            root = [];
             for (i = 0; i < flat.length; i += 1) {
+                root[i] = { name: flat[i].name, coords: [], color: flat[i].color };
                 for (j = 0; j < flat[i].coords.length; j += 1) {
                     coord = flat[i].coords[j].split(",");
-                    flat[i].coords[j] = {
+                    root[i].coords[j] = {
                         x: Number(coord[0]) * widthRatio,
                         y: Number(coord[1]) * heightRatio
                     };
                 }
             }
-
-            // Store for next time:
-            dataSize.width = canvasWidth;
-            dataSize.height = canvasHeight;
-
-            // Get voronoi data:
-            root = flat;
 
             canvasArea = canvasElement.append("group")
                 .attr("originX", "center")
@@ -178,16 +195,16 @@ define([
 
         function resize(width, height) {
             // Temp vars:
-            var j, coord,
-                widthRatio = width / dataSize.width,
-                heightRatio = height / dataSize.height;
+            var j, coord;
+                //widthRatio = width / dataSize.width,
+                //heightRatio = height / dataSize.height;
 
             // Store width and height for later:
             canvasWidth = width;
             canvasHeight = height;
 
             // Respace coords:
-            for (i = 0; i < root.length; i += 1) {
+            /*for (i = 0; i < root.length; i += 1) {
                 for (j = 0; j < root[i].coords.length; j += 1) {
                     coord = root[i].coords[j];
                     coord.x *= widthRatio;
@@ -197,7 +214,7 @@ define([
 
             // Store for next time:
             dataSize.width = canvasWidth;
-            dataSize.height = canvasHeight;
+            dataSize.height = canvasHeight;*/
         }
 
         function remove() {
