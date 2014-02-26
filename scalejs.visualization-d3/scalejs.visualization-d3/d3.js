@@ -6,7 +6,6 @@ define([
     'knockout',
     'd3',
     'd3.colorbrewer',
-    'hammer',
     'scalejs.visualization-d3/treemap',
     'scalejs.visualization-d3/sunburst',
     'scalejs.visualization-d3/voronoi'
@@ -15,7 +14,6 @@ define([
     ko,
     d3,
     colorbrewer,
-    hammer,
     treemap,
     sunburst,
     voronoi
@@ -78,11 +76,6 @@ define([
             selectedItemPathObservable,
             rootScale = d3.scale.linear(),
             canvas,
-            canvasElement,  // Holds the lower canvas of fabric.
-            canvasShow,     // Holds the canvas used to display objects on the user's screen.
-            canvasRender,   // Holds the offscreen buffer canvas used to hold a snapshot of the visualization for zooming.
-            context,        // Holds canvasShow's 2d context.
-            hammerObj,      // Holds touch event system.
             elementStyle,
             canvasWidth,
             canvasHeight,
@@ -91,16 +84,11 @@ define([
             zooms,
             zoomObservable,
             zoomEnabled = true, // Temporary fix to errors with NaN widths during adding/removing nodes.
-            //left = 0,
-            //top = 0,
             leftVal = 0,
             topVal = 0,
             rotateVal = 0,
             scaleVal = 1,
-            //lastEvent,
-            //lastGesture,
-            lastTouches,
-            lastCenter;
+            touchHandler;
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
@@ -119,21 +107,6 @@ define([
                     .property("targetFindTolerance", 1)
                     .attr("width", canvasWidth)
                     .attr("height", canvasHeight);
-
-        // Create zoom canvas, and offscreen buffer canvas:
-        canvasElement = canvas.domNode()[0][0];
-        canvasShow = d3.select(canvas[0][0].parentNode)
-            .append("canvas")
-                .style("position", "absolute")
-                .style("left", 0)
-                .style("top", 0)
-                .attr("width", canvasWidth)
-                .attr("height", canvasHeight)
-                .style("display", "none");
-        context = canvasShow[0][0].getContext('2d');
-        canvasRender = document.createElement("canvas");
-        canvasRender.width = canvasWidth;
-        canvasRender.height = canvasHeight;
 
         // Loop through levels to determine parameters:
         function createLevelParameters(lvlsParam) {
@@ -421,6 +394,39 @@ define([
         canvas.startRender();
         canvas.pumpRender();
 
+        function renderCallback(left, top, rotate, scale) {
+            // Reset transform:
+            leftVal = left;
+            topVal = top;
+            rotateVal = rotate;
+            scaleVal = scale;
+            canvas.select("group")
+                .attr("scaleX", scaleVal)
+                .attr("scaleY", scaleVal)
+                .attr("angle", rotateVal)
+                .attr("left", leftVal)
+                .attr("top", topVal);
+            canvas.pumpRender();
+        }
+
+        // Check if a canvas touch plugin exists:
+        if (core.canvas.touch) {
+            touchHandler = core.canvas.touch(canvas[0][0], renderCallback, renderCallback);
+        } else {
+            touchHandler = {
+                getTransform: function () {
+                    return {
+                        left: 0,
+                        top: 0,
+                        rotate: 0,
+                        scale: 1
+                    };
+                },
+                setTransform: function () { return false; },
+                resetTransform: function () { return false; }
+            };
+        }
+
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
             visualization.remove();
@@ -441,6 +447,7 @@ define([
             }
 
             // Reset transform:
+            touchHandler.resetTransform();
             leftVal = 0;
             topVal = 0;
             rotateVal = 0;
@@ -487,12 +494,9 @@ define([
                 // Resize canvas:
                 canvas.attr('width', canvasWidth);
                 canvas.attr('height', canvasHeight);
-                canvasShow.attr('width', canvasWidth);
-                canvasShow.attr('height', canvasHeight);
-                canvasRender.width = canvasWidth;
-                canvasRender.height = canvasHeight;
 
                 // Reset transform:
+                touchHandler.resetTransform();
                 leftVal = 0;
                 topVal = 0;
                 rotateVal = 0;
@@ -521,219 +525,6 @@ define([
             visualization.scale(val);
             canvas.pumpRender();
         });
-
-        // Function to handle touch events (for pinch and zoom):
-        function touchHandler(event) {
-            //console.log(event);
-            if (!event.gesture) {
-                return;
-            }
-            event.gesture.preventDefault();
-
-            var gesture = event.gesture,
-                touches = [],
-                center,
-                scaleDiff,
-                rotateDiff,
-                pagePos,
-                elementPos,
-                groupPos,
-                rotatePos,
-                scalePos,
-                transPos,
-                sin,
-                cos,
-                i;
-
-            // Convert touches to an array (to avoid safari's reuse of touch objects):
-            for (i = 0; i < gesture.touches.length; i += 1) {
-                touches[i] = {
-                    pageX: gesture.touches[i].pageX,
-                    pageY: gesture.touches[i].pageY
-                };
-            }
-
-            function distance(p1, p2) { // Get distance between two points:
-                var x = p1.pageX - p2.pageX,
-                    y = p1.pageY - p2.pageY;
-                return Math.sqrt(x * x + y * y);
-            }
-
-            if (event.type === "touch") {
-                // Set all last* variables to starting gesture:
-                //lastEvent = event;
-                //lastGesture = gesture;
-                lastTouches = touches;
-                // Calculate Center:
-                if (touches.length === 2) {
-                    lastCenter = {
-                        x: (touches[0].pageX - touches[1].pageX) / 2 + touches[1].pageX,
-                        y: (touches[0].pageY - touches[1].pageY) / 2 + touches[1].pageY
-                    };
-                } else {
-                    lastCenter = {
-                        x: touches[0].pageX,
-                        y: touches[0].pageY
-                    };
-                }
-
-                // Render fabric canvas to pinch&zoom canvas:
-                context.setTransform(1, 0, 0, 1, 0, 0);
-                context.clearRect(0, 0, canvasWidth, canvasHeight);
-                context.drawImage(canvasElement, 0, 0);
-                // Show pinch&zoom canvas:
-                canvasShow.style("display", "");
-                // Hide fabric canvas:
-                canvasElement.style.display = "none";
-                // Reset fabric canvas visualization to default pinch&zoom settings, and render:
-                canvas.select("group")
-                    .attr("scaleX", 1)//scaleVal
-                    .attr("scaleY", 1)//scaleVal
-                    .attr("angle", 0)//rotateVal
-                    .attr("left", 0)//leftVal
-                    .attr("top", 0);//topVal
-                canvas.pumpRender();
-                // Render fabric canvas to off-screen buffer:
-                canvasRender.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
-                canvasRender.getContext('2d').drawImage(canvasElement, 0, 0);
-            } else if (event.type === "release") {
-                // Reset all last* variables, and update fabric canvas to get crisper image:
-                //lastEvent = undefined;
-                //lastGesture = undefined;
-                lastTouches = undefined;
-                lastCenter = undefined;
-
-                // Set fabric canvas visualization's pinch&zoom settings, and render:
-                canvas.select("group")
-                    .attr("scaleX", scaleVal)
-                    .attr("scaleY", scaleVal)
-                    .attr("angle", rotateVal)
-                    .attr("left", leftVal)
-                    .attr("top", topVal);
-                canvas.pumpRender();
-                // Show fabric canvas:
-                //canvasElement.style.display = null;
-                canvasElement.style.display = "";
-                // Hide pinch&zoom canvas:
-                canvasShow.style("display", "none");
-            } else {
-                // Last action was a release, so fix lastTouches:
-                if (lastTouches === undefined) {
-                    lastTouches = touches;
-                }
-                if (touches.length === 1) {
-                    // Starting action, so reset lastTouches:
-                    if (lastTouches.length !== 1) {
-                        lastTouches = touches;
-                        lastCenter = undefined; // Prevent rotating when removing finger.
-                    }
-
-                    // Calculate Center:
-                    center = {
-                        x: touches[0].pageX,
-                        y: touches[0].pageY
-                    };
-
-                    // Translate:
-                    leftVal += touches[0].pageX - lastTouches[0].pageX;
-                    topVal += touches[0].pageY - lastTouches[0].pageY;
-                } else if (touches.length === 2) {
-                    // Starting action, so reset lastTouches:
-                    if (lastTouches.length !== 2) {
-                        lastTouches = touches;
-                        lastCenter = undefined; // Prevent rotating when adding finger.
-                    }
-
-                    // Calculate Center:
-                    center = {
-                        x: (touches[0].pageX - touches[1].pageX) / 2 + touches[1].pageX,
-                        y: (touches[0].pageY - touches[1].pageY) / 2 + touches[1].pageY
-                    };
-                    if (lastCenter === undefined) {
-                        lastCenter = center;
-                    }
-
-                    // Calculate Scale:
-                    scaleDiff = distance(touches[0], touches[1]) / distance(lastTouches[0], lastTouches[1]);
-
-                    // Calculate Rotation:
-                    rotateDiff = Math.atan2(lastTouches[0].pageX - lastCenter.x, lastTouches[0].pageY - lastCenter.y) - Math.atan2(touches[0].pageX - center.x, touches[0].pageY - center.y);
-                    // Get sin and cos of angle in radians (for later):
-                    sin = Math.sin(rotateDiff);
-                    cos = Math.cos(rotateDiff);
-                    // Convert to degrees for fabric:
-                    rotateDiff *= 180 / Math.PI;
-
-                    // Apply Scale:
-                    scaleVal *= scaleDiff;
-
-                    // Apply Rotation:
-                    rotateVal += rotateDiff;
-
-                    // Get canvas position:
-                    pagePos = event.currentTarget.getBoundingClientRect();
-                    // Convert page coords to canvas coords:
-                    elementPos = {
-                        pageX: center.x,
-                        pageY: center.y
-                    };
-                    elementPos.pageX -= pagePos.left;
-                    elementPos.pageY -= pagePos.top;
-
-                    // Get difference between center position and group:
-                    groupPos = {
-                        x: leftVal - elementPos.pageX,
-                        y: topVal - elementPos.pageY
-                    };
-
-                    // Rotate around point:
-                    rotatePos = {
-                        x: groupPos.x * cos - groupPos.y * sin + elementPos.pageX,
-                        y: groupPos.x * sin + groupPos.y * cos + elementPos.pageY
-                    };
-
-                    // Scale relative to center point:
-                    scalePos = {
-                        x: scaleDiff * (rotatePos.x - elementPos.pageX) + elementPos.pageX - leftVal,
-                        y: scaleDiff * (rotatePos.y - elementPos.pageY) + elementPos.pageY - topVal
-                    };
-
-                    // Translate delta in center position:
-                    transPos = {
-                        x: scalePos.x + (center.x - lastCenter.x),
-                        y: scalePos.y + (center.y - lastCenter.y)
-                    };
-
-                    // Apply Translate:
-                    leftVal += transPos.x;
-                    topVal += transPos.y;
-                }
-
-                // Set pinch&zoom canvas's pinch&zoom settings, and render:
-                context.setTransform(1, 0, 0, 1, 0, 0);
-                context.clearRect(0, 0, canvasWidth, canvasHeight);
-                context.translate(leftVal, topVal);
-                context.scale(scaleVal, scaleVal);
-                context.rotate(rotateVal / 180 * Math.PI);
-                context.translate(-leftVal, -topVal);
-                context.drawImage(canvasRender, leftVal, topVal);
-                context.setTransform(1, 0, 0, 1, 0, 0);
-
-                //lastEvent = event;
-                //lastGesture = gesture;
-                lastTouches = touches;
-                lastCenter = center;
-            }
-        }
-
-        // Subscribe to touch events:
-        hammer.plugins.showTouches();
-        hammer.plugins.fakeMultitouch();
-
-        hammerObj = hammer(canvas[0].parentNode, {
-            prevent_default: true
-        });
-        hammerObj.on("touch drag swipe pinch rotate transform release", touchHandler);
     }
 
     return {
