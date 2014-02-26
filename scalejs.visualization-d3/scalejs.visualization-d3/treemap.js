@@ -63,8 +63,6 @@ define([
                 .attr("originY", "center")
                 .attr("left", function (d) { return d.x; })
                 .attr("top", function (d) { return d.y; })
-                //.classed("cell", true)
-                //.on("mousedown", selectZoom);
                 .on("mousedown", function (d) {
                     var clickTime = (new Date()).getTime();
                     if (clickTime - lastClickTime < 500) {
@@ -218,7 +216,6 @@ define([
             init: init,
             update: update,
             zoom: zoom,
-            renderEnd: function () { },
             resize: resize,
             remove: remove
         };

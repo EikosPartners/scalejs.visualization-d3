@@ -372,7 +372,6 @@ define([
                 selectedItemPath(path);
             } else {    // Path is not an observable, so no need to push an update to it.
                 visualization.zoom(d);
-                //renderFront();
             }
 
             // Prevent event from firing more than once:
@@ -401,7 +400,6 @@ define([
                 nodeSelected = d;       // Set nodeSelected to d
                 if (zoomEnabled) {
                     visualization.zoom(d);    // Animate zoom effect
-                    //renderFront();
                 }
             }
         });
@@ -417,12 +415,11 @@ define([
         } else {
             visualization = blankVisualization(visualizationType);
         }
-        // Start rendering the canvas
-        canvas.startRender();
         // Run visualization's initialize code:
         visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
+        // Start rendering the canvas
+        canvas.startRender();
         canvas.pumpRender();
-        visualization.renderEnd();
 
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
@@ -451,10 +448,7 @@ define([
 
             // Run visualization's initialize code:
             visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
-            // Start rendering the canvas
-            //canvas.startRender();
             canvas.pumpRender();
-            visualization.renderEnd();
         });
 
         function update() {
@@ -471,7 +465,6 @@ define([
             // Update visualization:
             visualization.update();
             canvas.pumpRender();
-            visualization.renderEnd();
         }
 
         // Subscribe to data changes:
@@ -490,6 +483,7 @@ define([
                 if (canvasHeight <= 0) {
                     canvasHeight = 1;   // Temp fix for drawImage.
                 }
+
                 // Resize canvas:
                 canvas.attr('width', canvasWidth);
                 canvas.attr('height', canvasHeight);
@@ -497,12 +491,24 @@ define([
                 canvasShow.attr('height', canvasHeight);
                 canvasRender.width = canvasWidth;
                 canvasRender.height = canvasHeight;
+
+                // Reset transform:
+                leftVal = 0;
+                topVal = 0;
+                rotateVal = 0;
+                scaleVal = 1;
+                canvas.select("group")
+                    .attr("scaleX", scaleVal)
+                    .attr("scaleY", scaleVal)
+                    .attr("angle", rotateVal)
+                    .attr("left", leftVal)
+                    .attr("top", topVal);
+
                 // Call visualization's resize function to handle resizing internally:
                 visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
                 visualization.update();
                 canvas.pumpRender();
-                visualization.renderEnd();
             });
         }
 
@@ -514,7 +520,6 @@ define([
         zoomObservable.subscribe(function (val) {
             visualization.scale(val);
             canvas.pumpRender();
-            visualization.renderEnd();
         });
 
         // Function to handle touch events (for pinch and zoom):
@@ -577,7 +582,7 @@ define([
                 context.clearRect(0, 0, canvasWidth, canvasHeight);
                 context.drawImage(canvasElement, 0, 0);
                 // Show pinch&zoom canvas:
-                canvasShow.style("display", null);
+                canvasShow.style("display", "");
                 // Hide fabric canvas:
                 canvasElement.style.display = "none";
                 // Reset fabric canvas visualization to default pinch&zoom settings, and render:
@@ -607,7 +612,8 @@ define([
                     .attr("top", topVal);
                 canvas.pumpRender();
                 // Show fabric canvas:
-                canvasElement.style.display = null;
+                //canvasElement.style.display = null;
+                canvasElement.style.display = "";
                 // Hide pinch&zoom canvas:
                 canvasShow.style("display", "none");
             } else {

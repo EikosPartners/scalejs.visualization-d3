@@ -502,7 +502,7 @@ define(function () {
                             } else {
                                 point = { x: match[0] };
                             }
-                            coords.push(match[0]);
+                            polyValue.push(match[0]);
                         }
                         if (point) {
                             point.y = "0";

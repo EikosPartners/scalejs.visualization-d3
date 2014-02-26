@@ -19,7 +19,8 @@ define([
             root,
             sunburstLayout,
             arc,
-            canvasArea;
+            canvasArea,
+            lastClickTime;
 
         function isParentOf(p, c) {
             if (p === c) {
@@ -149,9 +150,14 @@ define([
                 .attr("originY", "center")
                 .attr("left", canvasWidth / 2)
                 .attr("top", canvasHeight / 2)
-                .classed("cell", true)
-                .property("perPixelTargetFind", true);
-                //.on("mousedown", selectZoom);
+                .property("perPixelTargetFind", true)
+                .on("mousedown", function (d) {
+                    var clickTime = (new Date()).getTime();
+                    if (clickTime - lastClickTime < 500) {
+                        selectZoom(d);
+                    }
+                    lastClickTime = clickTime;
+                });
 
             // Add arc to nodes:
             cell.append("path")
@@ -274,8 +280,6 @@ define([
                             .children(function (d) { return d.children; });
 
             canvasArea = canvasElement.append("group")
-                .attr("left", 0)
-                .attr("top", 0)
                 .attr("originX", "center")
                 .attr("originY", "center");
 
@@ -303,15 +307,12 @@ define([
 
             radius = Math.min(canvasWidth, canvasHeight) / 2;
             y.range([0, radius]);
-
-            canvasArea
-                .attr("left", canvasWidth / 2)
-                .attr("top", canvasHeight / 2);
         }
 
         function remove() {
             if (canvasArea !== undefined) {
-                canvasElement.select("group").remove();
+                canvasArea.remove();
+                //canvasElement.select("group").remove();
                 //canvasArea.selectAll("group").remove();
                 canvasArea = undefined;
             }
@@ -322,7 +323,6 @@ define([
             init: init,
             update: update,
             zoom: zoom,
-            renderEnd: function () { },
             resize: resize,
             remove: remove
         };

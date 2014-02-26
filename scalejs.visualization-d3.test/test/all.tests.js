@@ -1,7 +1,8 @@
 /*global define,jasmine*/
 define([
     'jasmine-html',
-    './scalejs.visualization-d3.test'
+    'scalejs!application',
+    './mainViewModel.test'
 ], function () {
     'use strict';
 
