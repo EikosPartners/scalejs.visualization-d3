@@ -60,6 +60,7 @@ define([
         valueAccessor
     ) {
         var parameters = valueAccessor(),
+            enableRotate = parameters.enableRotate,
             visualization,
             visualizationType,
             visualizationTypeObservable,
@@ -381,11 +382,13 @@ define([
             visualizationType = parameters.visualization || ko.observable("");
             return unwrap(visualizationType);
         });
-        visualizationType = visualizationTypeObservable();
 
+        // Retrieve new visualization type:
+        visualizationType = visualizationTypeObservable();
         if (visualizations[visualizationType] !== undefined) {
             visualization = visualizations[visualizationType]();
         } else {
+            // Visualization doesn't exist, so create blank visualization:
             visualization = blankVisualization(visualizationType);
         }
         // Run visualization's initialize code:
@@ -394,8 +397,8 @@ define([
         canvas.startRender();
         canvas.pumpRender();
 
-        function renderCallback(left, top, rotate, scale) {
-            // Reset transform:
+        function renderCallback(left, top, rotate, scale) { // Called on beginning and end of touch gestures:
+            // Update transform:
             leftVal = left;
             topVal = top;
             rotateVal = rotate;
@@ -408,34 +411,81 @@ define([
                 .attr("top", topVal);
             canvas.pumpRender();
         }
+        function startCallback() {  // Called when user initiates a touch gesture:
+            // Set Rotate State:
+            touchHandler.setRotateState(visualization.enableRotate);
+
+            return {
+                left: leftVal,
+                top: topVal,
+                rotate: rotateVal,
+                scale: scaleVal
+            };
+        }
+        function endCallback(left, top, rotate, scale) {    // Called when user finishes a touch gesture:
+            if (!visualization.enableRotate) {
+                if (left > 0) {
+                    left = 0;
+                }
+                if (top > 0) {
+                    top = 0;
+                }
+                var right = left + scale * canvasWidth,
+                    bottom = top + scale * canvasHeight;
+                if (right < canvasWidth) {
+                    left += canvasWidth - right;
+                }
+                if (bottom < canvasHeight) {
+                    top += canvasHeight - bottom;
+                }
+            }
+            if (scale < 1) {   // Bounce back:
+                // Reset transform:
+                leftVal = 0;
+                topVal = 0;
+                rotateVal = 0;
+                scaleVal = 1;
+            } else {
+                // Update transform:
+                leftVal = left;
+                topVal = top;
+                rotateVal = rotate;
+                scaleVal = scale;
+            }
+            return {
+                left: leftVal,
+                top: topVal,
+                rotate: rotateVal,
+                scale: scaleVal
+            };
+        }
 
         // Check if a canvas touch plugin exists:
         if (core.canvas.touch) {
-            touchHandler = core.canvas.touch(canvas[0][0], renderCallback, renderCallback);
+            touchHandler = core.canvas.touch({
+                canvas: canvas[0][0],
+                renderCallback: renderCallback,
+                startCallback: startCallback,
+                endCallback: endCallback,
+                enableRotate: enableRotate
+            });
         } else {
             touchHandler = {
-                getTransform: function () {
-                    return {
-                        left: 0,
-                        top: 0,
-                        rotate: 0,
-                        scale: 1
-                    };
-                },
-                setTransform: function () { return false; },
-                resetTransform: function () { return false; }
+                setRotateState: function () { return; }
             };
         }
 
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
+            // Remove visualization:
             visualization.remove();
-            //canvas.pumpRender();
-            visualizationType = visualizationTypeObservable();
 
+            // Retrieve new visualization type:
+            visualizationType = visualizationTypeObservable();
             if (visualizations[visualizationType] !== undefined) {
                 visualization = visualizations[visualizationType]();
             } else {
+                // Visualization doesn't exist, so create blank visualization:
                 visualization = blankVisualization(visualizationType);
             }
 
@@ -447,7 +497,6 @@ define([
             }
 
             // Reset transform:
-            touchHandler.resetTransform();
             leftVal = 0;
             topVal = 0;
             rotateVal = 0;
@@ -496,7 +545,6 @@ define([
                 canvas.attr('height', canvasHeight);
 
                 // Reset transform:
-                touchHandler.resetTransform();
                 leftVal = 0;
                 topVal = 0;
                 rotateVal = 0;

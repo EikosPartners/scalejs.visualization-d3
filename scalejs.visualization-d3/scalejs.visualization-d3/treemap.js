@@ -217,7 +217,8 @@ define([
             update: update,
             zoom: zoom,
             resize: resize,
-            remove: remove
+            remove: remove,
+            enableRotate: false
         };
     };
 });

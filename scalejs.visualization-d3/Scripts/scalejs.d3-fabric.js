@@ -78,6 +78,7 @@ define(function () {
             d3_fabric_use_GSAP,
             d3_fabric_transition_cleanup,
             d3_fabric_transition_process,
+            d3_fabric_type_comparison,
             d3_fabric_transitionNode,
             d3_fabric_transition_tween,
             d3_fabric_transition_tween_direct,
@@ -321,7 +322,7 @@ define(function () {
 
                         function GSAPRender() {
                             if (can._fabricCanvas.renderRunning) {
-                                if (!can._fabricCanvas.render._addedGSAPDraw && can._fabricCanvas.continiousRender) {
+                                if (!can._fabricCanvas.render._addedGSAPDraw && can._fabricCanvas.continuousRender) {
                                     fabric.util.requestAnimFrame(can._fabricCanvas.render, can);
                                 }
                                 can._fabricCanvas.canvas.renderAll();
@@ -343,7 +344,7 @@ define(function () {
                             transitionItems: [],
                             canvas: null,
                             renderRunning: false,
-                            continiousRender: false,
+                            continuousRender: false,
                             time: Date.now(),
                             render: d3_fabric_use_GSAP ? GSAPRender : NormalRender
                         };
@@ -407,15 +408,32 @@ define(function () {
         //fabric canvas
         d3.fabric.selection = d3_fabric_selection_proto;
 
+        //-attr helper functions
         function d3_fabric_selection_attr_get(name, nameNS) {
-            var capitalizedPropName = name.charAt(0).toUpperCase() + name.slice(1),
-                getterName = "get" + capitalizedPropName,
+            var getterName = "get" + fabric.util.string.capitalize(name, true),
                 ele = this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this,
                 proto = d3_fabric_proto(ele),
-                isImage = ele instanceof fabric.Image && name === "src",
+                isGradient = name === "gradient",
+                isFilters = !isGradient && ele instanceof fabric.Image && name === "filters",
+                isImage = !isFilters && ele instanceof fabric.Image && name === "src",
                 isPathSet = !isImage && ele instanceof fabric.Path && name === "d",
-                isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points";
-            if (isImage || isPathSet || isPolySet || proto[getterName]) {
+                isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points",
+                i;
+            if (isGradient || isFilters || isImage || isPathSet || isPolySet || proto[getterName]) {
+                if (isGradient) {
+                    if (!nameNS) {
+                        //d3.ns.qualify won't return a namespace if it doesn't know what it is
+                        i = name.indexOf(':');
+                        if (i >= 0) {
+                            nameNS = name.substring(0, i);
+                            name = name.substring(i + 1);
+                        }
+                    }
+                    return nameNS ? ele.get(nameNS) : ele.getFill();
+                }
+                if (isFilters) {
+                    return ele.filters;
+                }
                 if (isImage) {
                     return ele.getSrc();
                 }
@@ -436,9 +454,9 @@ define(function () {
             return null;
         }
         function d3_fabric_selection_attr_set_need_coord(name) {
-            // possibly convert to array?
+            // possibly convert to array? currently orginized from what is assumed to be most common to least common
             return name === "left" ||
-                name === "right" ||
+                name === "top" ||
                 name === "width" ||
                 name === "height" ||
                 name === "originX" ||
@@ -457,18 +475,20 @@ define(function () {
             if (!d3_fabric_is_fabric_object(ele)) {
                 return;
             }
-            var capitalizedPropName = name.charAt(0).toUpperCase() + name.slice(1),
-                setterName = "set" + capitalizedPropName,
+            var setterName = "set" + fabric.util.string.capitalize(name, true),
                 proto = d3_fabric_proto(ele),
-                isImage = ele instanceof fabric.Image && name === "src",
+                isGradient = name === "gradient",
+                isFilters = !isGradient && ele instanceof fabric.Image && name === "filters",
+                isImage = !isFilters && ele instanceof fabric.Image && name === "src",
                 isPathSet = !isImage && ele instanceof fabric.Path && name === "d",
                 isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points",
                 dim,
                 polyValue,
                 match,
                 point = null,
-                re;
-            if (isImage || isPathSet || isPolySet || proto[setterName]) {
+                re,
+                node;
+            if (isFilters || isImage || isPathSet || isPolySet || proto[setterName]) {
                 if (isImage) {
                     // Only update the image if something has changed, since it won't be an instant replacement
                     if (ele.getSrc() !== value) {
@@ -478,9 +498,17 @@ define(function () {
                             ele._initElement(value.substr(1));
                             ele.fire("image:load:finished", { img: ele });
                         } else {
+                            if (Array.isArray(value) && value.domNode) {
+                                // Save contents of Canvas (won't update if canvas is updated...)
+                                node = value.node();
+                                if (node.toDataURL) {
+                                    value = node.toDataURL("image/png");
+                                }
+                            }
                             fabric.util.loadImage(value, function (img) {
-                                if (!img) {
+                                if (!img || d3_fabric_type_comparison(img, value)) {
                                     this.fire("image:load:finished", { img: null, url: value });
+                                    return;
                                 }
                                 ele._initElement(img);
                                 this.fire("image:load:finished", { img: this, url: value });
@@ -488,6 +516,8 @@ define(function () {
                         }
                     }
                 } else if (isPathSet) {
+                    //XXX support loading SVG via URL?
+
                     // Set the path
                     ele.initialize(value, {
                         left: ele.getLeft() || 0,
@@ -543,8 +573,33 @@ define(function () {
                     }, true);
                     ele.setCoords();
                 } else {
-                    proto[setterName].call(ele, value);
-                    if (ele.setCoords && d3_fabric_selection_attr_set_need_coord(name)) { ele.setCoords(); }
+                    if (isGradient) {
+                        // Gradient specific set functions
+                        if (!nameNS) {
+                            //d3.ns.qualify won't return a namespace if it doesn't know what it is
+                            match = name.indexOf(':');
+                            if (match >= 0) {
+                                nameNS = name.substring(0, match);
+                                name = name.substring(match + 1);
+                            }
+                        }
+                        if (value instanceof fabric.Gradient) {
+                            ele.set(nameNS || "fill", value);
+                        } else {
+                            ele.setGradient(nameNS || "fill", value);
+                        }
+                    } else if (isFilters) {
+                        // Apply filters
+                        ele.fire("image:filters:applying", { img: ele });
+                        ele.filters = value || [];
+                        ele.applyFilters(function () {
+                            ele.fire("image:filters:applied", { img: ele });
+                        });
+                    } else {
+                        // Normal set functions
+                        proto[setterName].call(ele, value);
+                        if (ele.setCoords && d3_fabric_selection_attr_set_need_coord(name)) { ele.setCoords(); }
+                    }
                 }
             } else if (proto.setAttribute) {
                 if (nameNS) {
@@ -892,7 +947,7 @@ define(function () {
                     return selClass === null || (obj.fabricClassList !== undefined && obj.fabricClassList !== null && obj.fabricClassList.indexOf(selClass) >= 0);
                 }
                 function testId(obj) {
-                    return selId === null || selId === obj.fabricText;
+                    return selId === null || (obj instanceof fabric.Text ? selId === obj.getText() : selId === obj.fabricText);
                 }
                 function testObj(obj) {
                     return testType(obj) && testClass(obj) && testId(obj);
@@ -1241,6 +1296,9 @@ define(function () {
         d3_fabric_selection_proto.parentNode = function () {
             var n = this.node(),
                 canvas = n._fabricCanvas !== undefined ? n._fabricCanvas.canvas : null;
+            if (!n) {
+                return null;
+            }
             // If an interactive canvas, then a wrapper div was created, meaning that we want the parent of that div as opposed to the div itself. Otherwise, get the usual parent of the canvas element
             return canvas instanceof fabric.Canvas ? n.parentNode.parentNode : d3_fabric_is_fabric_object(n) ? null : n.parentNode;
         };
@@ -1262,11 +1320,11 @@ define(function () {
                 }
             });
         };
-        //-continiousRender
-        d3_fabric_selection_proto.continiousRender = function (enable) {
+        //-continuousRender
+        d3_fabric_selection_proto.continuousRender = function (enable) {
             return this.each(function () {
                 if (this._fabricCanvas !== undefined) {
-                    this._fabricCanvas.continiousRender = enable;
+                    this._fabricCanvas.continuousRender = enable;
                     this._fabricCanvas.render.call(this);
                 }
             });
@@ -1274,7 +1332,9 @@ define(function () {
         //-pumpRender
         d3_fabric_selection_proto.pumpRender = function () {
             return this.each(function () {
-                if (this._fabricCanvas !== undefined && ((d3_fabric_use_GSAP && !this._fabricCanvas.continiousRender) || !this._fabricCanvas.renderRunning)) { this._fabricCanvas.render.call(this); }
+                if (this._fabricCanvas !== undefined && ((d3_fabric_use_GSAP && !this._fabricCanvas.continuousRender) || !this._fabricCanvas.renderRunning)) {
+                    this._fabricCanvas.render.call(this);
+                }
             });
         };
         //-size
@@ -1483,7 +1543,7 @@ define(function () {
             }
             return true;
         }
-        function d3_fabric_type_comparison(a, b) {
+        d3_fabric_type_comparison = function (a, b) {
             if (a !== b) {
                 if (Array.isArray(a) && Array.isArray(b)) {
                     return d3_fabric_array_comparison(a, b);
@@ -1491,7 +1551,7 @@ define(function () {
                 return false;
             }
             return true;
-        }
+        };
 
         d3_fabric_transition_proto.attr = function (nameNS, value) {
             if (arguments.length < 2) {
@@ -1508,9 +1568,9 @@ define(function () {
             function attrTween(b) {
                 return b === null ? null : function () {
                     var a = d3_fabric_selection_attr_get.call(this, nameLocal, nameSpace), i;
-                    if (d3_fabric_type_comparison(a, b)) { return false; }
+                    if (d3_fabric_type_comparison(a, b)) { return false; } // If the a and b are the same, then don't tween (false)...
                     i = interpolate(a, b);
-                    return function (t) { d3_fabric_selection_attr_set(this, nameLocal, nameSpace, i(t)); };
+                    return function (t) { d3_fabric_selection_attr_set(this, nameLocal, nameSpace, i(t)); }; // ...otherwise return a tween function
                 };
             }
             return d3_fabric_transition_tween(this, "attr." + nameNS, value, attrTween);
@@ -1851,13 +1911,172 @@ define(function () {
         d3_fabric_util_proto.radiansToDegrees = fabric.util.radiansToDegrees;
         //-degreesToRadians
         d3_fabric_util_proto.degreesToRadians = fabric.util.degreesToRadians;
-        //-testTransitions
-        d3_fabric_util_proto.testTransitions = function (forceTest, desiredRenderTimeMS, useGSAP) {
-            if (forceTest || d3_fabric_util_render_test === null) {
-                if (!desiredRenderTimeMS) { desiredRenderTimeMS = 16; }
-                //TODO
+        //-testRenderSpeed
+        d3_fabric_util_proto.testRenderSpeed = function (callback, forceTest, options) {
+            var callUserCallback,
+                itemTest = 250,
+                timeRef = [],
+                canvasSel,
+                circleData;
+
+            if (callback) {
+                // Execute async so it doesn't block
+                callUserCallback = function () {
+                    var ret = d3_fabric_util_proto.testRenderSpeed.apply(this, arguments);
+                    callback.call(this, ret);
+                }.bind(this, null, forceTest, options);
+                window.setTimeout(callUserCallback, 10);
+                return -1;
             }
-            return d3_fabric_util_render_test;
+
+            function generateData(count) {
+                var data = [],
+                    i;
+                for (i = 0; i < count; i++) {
+                    data[i] = {
+                        data: Math.random() * 10,
+                        left: Math.random() * 10,
+                        top: Math.random() * 10
+                    };
+                }
+                return data;
+            }
+            function RenderTiming(can) {
+                var t = Date.now();
+                can._fabricCanvas.canvas.renderAll();
+                timeRef.push(Date.now() - t);
+            }
+            function supportedType(type) {
+                return type && (type === "circle" || type === "rect" || type === "text" || type === "path");
+            }
+            function generatePathData(d) {
+                var offset = d.data;
+                return [
+                    ["M", 0, 42 * offset],
+                    ["Q", 0, 42, 0, 42],
+                    ["Q", 0, 42, 0.5, 42],
+                    ["Q", offset, 42, 1, 41.5],
+                    ["Q", 1, 41, 3, 39],
+                    ["Q", 5, 37, 10.5, 31],
+                    ["Q", 16, 25 * offset, 24.5, 18],
+                    ["Q", 33, 11, 37, 8],
+                    ["Q", 41, 5, 45.5, 2.5],
+                    ["Q", 50, 0, 52.5, 0],
+                    ["Q", 55, 0, 57 * offset, 0],
+                    ["Q", 59, 0, 60, 3],
+                    ["Q", 61, 6, 64, 19.5],
+                    ["Q", 67, 33 * offset, 68, 37],
+                    ["Q", 69, 41, 69.5, 44],
+                    ["Q", 70, 47, 71.5, 48],
+                    ["Q", 188, 12, 189.5 * offset, 12],
+                    ["Q", 191, 12, 192.5, 12],
+                    ["Q", 194, 12, 195.5, 15],
+                    ["Q", 197, 18, 199, 19.5],
+                    ["Q", 201 * offset, 21, 203, 22.5],
+                    ["Q", 205, 24, 207.5, 24],
+                    ["Q", 210, 24, 214.5, 23.5],
+                    ["Q", 219, 23, 222.5, 20.5],
+                    ["Q", 226, 18, 229 * offset, 15.5],
+                    ["L", 232, 13]
+                ];
+            }
+            function createDataMap(type) {
+                if (type === "rect") {
+                    return {
+                        "width": function (d) { return d.data; },
+                        "height": function (d) { return d.data; },
+                        "fill": "red"
+                    };
+                }
+                if (type === "text") {
+                    return {
+                        "fill": "red"
+                    };
+                }
+                if (type === "path") {
+                    return {
+                        "d": generatePathData,
+                        "fill": "red"
+                    };
+                }
+                // circle
+                return {
+                    "radius": function (d) { return d.data; },
+                    "fill": "red"
+                };
+            }
+            function createText(d) { return d.data.toString(); }
+            function setLeft(d) { return d.left; }
+            function setTop(d) { return d.top; }
+            if (forceTest || d3_fabric_util_render_test === null || !d3_fabric_util_render_test[options && supportedType(options.type) ? options.type : "circle"]) {
+                if (!options) {
+                    options = {};
+                } else {
+                    options = Object.create(options); // Clone the object
+                }
+                if (!options.desiredRenderTimeMS || options.desiredRenderTimeMS < 1) { options.desiredRenderTimeMS = 16; }
+                if (!options.numberOfPasses || options.numberOfPasses < 2) { options.numberOfPasses = 3; }
+                if (!supportedType(options.type)) { options.type = "circle"; }
+
+                // Setup canvas
+                canvasSel = d3.select(fabric.document.createElement("div")).append("fabric:canvas");
+                canvasSel[0][0]._fabricCanvas.render = RenderTiming.bind(this, canvasSel[0][0]);
+
+                // Build dataset
+                canvasSel.selectAll("group")
+                            .data(generateData(itemTest))
+
+                            .enter().append("group")
+                            .attr({ "left": setLeft, "top": setTop })
+
+                            .append(options.type)
+                            .attr(createDataMap(options.type))
+                            .text(createText);
+
+                // Initial render for adjustment
+                canvasSel.pumpRender();
+                timeRef[0] = timeRef[0] / options.desiredRenderTimeMS;
+                if (timeRef[0] < 0.9 || timeRef[0] > 1.1) {
+                    // Adjust dataset
+                    itemTest = Math.ceil(itemTest / timeRef[0]);
+
+                    circleData = canvasSel.selectAll("group")
+                                .data(generateData(itemTest))
+                                .attr({ "left": setLeft, "top": setTop });
+
+                    circleData.select(options.type)
+                                .attr(createDataMap(options.type))
+                                .text(createText);
+
+                    circleData.enter().append("group")
+                                .attr({ "left": setLeft, "top": setTop })
+
+                                .append(options.type)
+                                .attr(createDataMap(options.type))
+                                .text(createText);
+
+                    circleData.exit().remove();
+                }
+
+                // Reset timing data
+                timeRef.length = 0;
+
+                // Time reach render
+                while (options.numberOfPasses-- > 0) {
+                    canvasSel.pumpRender();
+                }
+
+                // Get results (number of elements that can be drawn within the desired render time)
+                d3_fabric_util_render_test = d3_fabric_util_render_test || {};
+                d3_fabric_util_render_test[options.type] = d3_fabric_util_render_test[options.type] || {};
+                d3_fabric_util_render_test[options.type].total = itemTest / (d3.mean(timeRef) / options.desiredRenderTimeMS);
+                d3_fabric_util_render_test[options.type].perMs = Math.floor(d3_fabric_util_render_test[options.type].total / options.desiredRenderTimeMS);
+
+                // Mark ready for GC
+                canvasSel = null;
+                circleData = null;
+            }
+            return d3_fabric_util_render_test[options && supportedType(options.type) ? options.type : "circle"].perMs;
         };
 
         //Util matrix
@@ -1878,7 +2097,7 @@ define(function () {
             return [x, 0, 0, y, 0, 0];
         };
         //-createSkew
-        d3_fabric_util_matrix_proto.createScale = function (xRad, yRad) {
+        d3_fabric_util_matrix_proto.createSkew = function (xRad, yRad) {
             return [1, Math.tan(yRad), Math.tan(xRad), 1, 0, 0];
         };
         //-multiply
