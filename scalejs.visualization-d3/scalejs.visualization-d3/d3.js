@@ -8,7 +8,9 @@ define([
     'd3.colorbrewer',
     'scalejs.visualization-d3/treemap',
     'scalejs.visualization-d3/sunburst',
-    'scalejs.visualization-d3/voronoi'
+    'scalejs.visualization-d3/voronoi',
+    'scalejs.visualization-d3/testindiv',
+    'scalejs.visualization-d3/testgroup'
 ], function (
     core,
     ko,
@@ -16,7 +18,9 @@ define([
     colorbrewer,
     treemap,
     sunburst,
-    voronoi
+    voronoi,
+    testindiv,
+    testgroup
 ) {
     "use strict";
     var //imports
@@ -25,7 +29,9 @@ define([
         visualizations = {
             treemap: treemap,
             sunburst: sunburst,
-            voronoi: voronoi
+            voronoi: voronoi,
+            testindiv: testindiv,
+            testgroup: testgroup
         };
 
     function blankVisualization(type) {
@@ -102,7 +108,7 @@ define([
         // Create fabric canvas:
         canvas = d3.select(element)
                 .style('overflow', 'hidden')
-                .append("fabric:canvas")
+                .append("fabric:staticcanvas")
                     .property("renderOnAddRemove", false)
                     .property("selection", false)
                     .property("targetFindTolerance", 1)

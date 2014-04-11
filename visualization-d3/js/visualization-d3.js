@@ -15031,1537 +15031,6 @@ define('d3.colorbrewer',{
         12: ["#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69", "#fccde5", "#d9d9d9", "#bc80bd", "#ccebc5", "#ffed6f"]
     }
 });
-/*! Hammer.JS - v1.0.6 - 2014-01-02
- * http://eightmedia.github.com/hammer.js
- *
- * Copyright (c) 2014 Jorik Tangelder <j.tangelder@gmail.com>;
- * Licensed under the MIT license */
-
-(function (window, undefined) {
-    
-
-    /**
-     * Hammer
-     * use this to create instances
-     * @param   {HTMLElement}   element
-     * @param   {Object}        options
-     * @returns {Hammer.Instance}
-     * @constructor
-     */
-    var Hammer = function (element, options) {
-        return new Hammer.Instance(element, options || {});
-    };
-
-    // default settings
-    Hammer.defaults = {
-        // add styles and attributes to the element to prevent the browser from doing
-        // its native behavior. this doesnt prevent the scrolling, but cancels
-        // the contextmenu, tap highlighting etc
-        // set to false to disable this
-        stop_browser_behavior: {
-            // this also triggers onselectstart=false for IE
-            userSelect: 'none',
-            // this makes the element blocking in IE10 >, you could experiment with the value
-            // see for more options this issue; https://github.com/EightMedia/hammer.js/issues/241
-            touchAction: 'none',
-            touchCallout: 'none',
-            contentZooming: 'none',
-            userDrag: 'none',
-            tapHighlightColor: 'rgba(0,0,0,0)'
-        }
-
-        //
-        // more settings are defined per gesture at gestures.js
-        //
-    };
-
-    // detect touchevents
-    Hammer.HAS_POINTEREVENTS = window.navigator.pointerEnabled || window.navigator.msPointerEnabled;
-    Hammer.HAS_TOUCHEVENTS = ('ontouchstart' in window);
-
-    // dont use mouseevents on mobile devices
-    Hammer.MOBILE_REGEX = /mobile|tablet|ip(ad|hone|od)|android|silk/i;
-    Hammer.NO_MOUSEEVENTS = Hammer.HAS_TOUCHEVENTS && window.navigator.userAgent.match(Hammer.MOBILE_REGEX);
-
-    // eventtypes per touchevent (start, move, end)
-    // are filled by Hammer.event.determineEventTypes on setup
-    Hammer.EVENT_TYPES = {};
-
-    // direction defines
-    Hammer.DIRECTION_DOWN = 'down';
-    Hammer.DIRECTION_LEFT = 'left';
-    Hammer.DIRECTION_UP = 'up';
-    Hammer.DIRECTION_RIGHT = 'right';
-
-    // pointer type
-    Hammer.POINTER_MOUSE = 'mouse';
-    Hammer.POINTER_TOUCH = 'touch';
-    Hammer.POINTER_PEN = 'pen';
-
-    // touch event defines
-    Hammer.EVENT_START = 'start';
-    Hammer.EVENT_MOVE = 'move';
-    Hammer.EVENT_END = 'end';
-
-    // hammer document where the base events are added at
-    Hammer.DOCUMENT = window.document;
-
-    // plugins and gestures namespaces
-    Hammer.plugins = Hammer.plugins || {};
-    Hammer.gestures = Hammer.gestures || {};
-
-    // if the window events are set...
-    Hammer.READY = false;
-
-    /**
-     * setup events to detect gestures on the document
-     */
-    function setup() {
-        if (Hammer.READY) {
-            return;
-        }
-
-        // find what eventtypes we add listeners to
-        Hammer.event.determineEventTypes();
-
-        // Register all gestures inside Hammer.gestures
-        Hammer.utils.each(Hammer.gestures, function (gesture) {
-            Hammer.detection.register(gesture);
-        });
-
-        // Add touch events on the document
-        Hammer.event.onTouch(Hammer.DOCUMENT, Hammer.EVENT_MOVE, Hammer.detection.detect);
-        Hammer.event.onTouch(Hammer.DOCUMENT, Hammer.EVENT_END, Hammer.detection.detect);
-
-        // Hammer is ready...!
-        Hammer.READY = true;
-    }
-
-    Hammer.utils = {
-        /**
-         * extend method,
-         * also used for cloning when dest is an empty object
-         * @param   {Object}    dest
-         * @param   {Object}    src
-         * @parm  {Boolean}  merge    do a merge
-         * @returns {Object}    dest
-         */
-        extend: function extend(dest, src, merge) {
-            for (var key in src) {
-                if (dest[key] !== undefined && merge) {
-                    continue;
-                }
-                dest[key] = src[key];
-            }
-            return dest;
-        },
-
-
-        /**
-         * for each
-         * @param obj
-         * @param iterator
-         */
-        each: function (obj, iterator, context) {
-            var i, length;
-            // native forEach on arrays
-            if ('forEach' in obj) {
-                obj.forEach(iterator, context);
-            }
-                // arrays
-            else if (obj.length !== undefined) {
-                for (i = 0, length = obj.length; i < length; i++) {
-                    if (iterator.call(context, obj[i], i, obj) === false) {
-                        return;
-                    }
-                }
-            }
-                // objects
-            else {
-                for (i in obj) {
-                    if (obj.hasOwnProperty(i) && iterator.call(context, obj[i], i, obj) === false) {
-                        return;
-                    }
-                }
-            }
-        },
-
-        /**
-         * find if a node is in the given parent
-         * used for event delegation tricks
-         * @param   {HTMLElement}   node
-         * @param   {HTMLElement}   parent
-         * @returns {boolean}       has_parent
-         */
-        hasParent: function (node, parent) {
-            while (node) {
-                if (node == parent) {
-                    return true;
-                }
-                node = node.parentNode;
-            }
-            return false;
-        },
-
-
-        /**
-         * get the center of all the touches
-         * @param   {Array}     touches
-         * @returns {Object}    center
-         */
-        getCenter: function getCenter(touches) {
-            var valuesX = [], valuesY = [];
-
-            Hammer.utils.each(touches, function (touch) {
-                // I prefer clientX because it ignore the scrolling position
-                valuesX.push(typeof touch.clientX !== 'undefined' ? touch.clientX : touch.pageX);
-                valuesY.push(typeof touch.clientY !== 'undefined' ? touch.clientY : touch.pageY);
-            });
-
-            return {
-                pageX: ((Math.min.apply(Math, valuesX) + Math.max.apply(Math, valuesX)) / 2),
-                pageY: ((Math.min.apply(Math, valuesY) + Math.max.apply(Math, valuesY)) / 2)
-            };
-        },
-
-
-        /**
-         * calculate the velocity between two points
-         * @param   {Number}    delta_time
-         * @param   {Number}    delta_x
-         * @param   {Number}    delta_y
-         * @returns {Object}    velocity
-         */
-        getVelocity: function getVelocity(delta_time, delta_x, delta_y) {
-            return {
-                x: Math.abs(delta_x / delta_time) || 0,
-                y: Math.abs(delta_y / delta_time) || 0
-            };
-        },
-
-
-        /**
-         * calculate the angle between two coordinates
-         * @param   {Touch}     touch1
-         * @param   {Touch}     touch2
-         * @returns {Number}    angle
-         */
-        getAngle: function getAngle(touch1, touch2) {
-            var y = touch2.pageY - touch1.pageY,
-              x = touch2.pageX - touch1.pageX;
-            return Math.atan2(y, x) * 180 / Math.PI;
-        },
-
-
-        /**
-         * angle to direction define
-         * @param   {Touch}     touch1
-         * @param   {Touch}     touch2
-         * @returns {String}    direction constant, like Hammer.DIRECTION_LEFT
-         */
-        getDirection: function getDirection(touch1, touch2) {
-            var x = Math.abs(touch1.pageX - touch2.pageX),
-              y = Math.abs(touch1.pageY - touch2.pageY);
-
-            if (x >= y) {
-                return touch1.pageX - touch2.pageX > 0 ? Hammer.DIRECTION_LEFT : Hammer.DIRECTION_RIGHT;
-            }
-            else {
-                return touch1.pageY - touch2.pageY > 0 ? Hammer.DIRECTION_UP : Hammer.DIRECTION_DOWN;
-            }
-        },
-
-
-        /**
-         * calculate the distance between two touches
-         * @param   {Touch}     touch1
-         * @param   {Touch}     touch2
-         * @returns {Number}    distance
-         */
-        getDistance: function getDistance(touch1, touch2) {
-            var x = touch2.pageX - touch1.pageX,
-              y = touch2.pageY - touch1.pageY;
-            return Math.sqrt((x * x) + (y * y));
-        },
-
-
-        /**
-         * calculate the scale factor between two touchLists (fingers)
-         * no scale is 1, and goes down to 0 when pinched together, and bigger when pinched out
-         * @param   {Array}     start
-         * @param   {Array}     end
-         * @returns {Number}    scale
-         */
-        getScale: function getScale(start, end) {
-            // need two fingers...
-            if (start.length >= 2 && end.length >= 2) {
-                return this.getDistance(end[0], end[1]) /
-                  this.getDistance(start[0], start[1]);
-            }
-            return 1;
-        },
-
-
-        /**
-         * calculate the rotation degrees between two touchLists (fingers)
-         * @param   {Array}     start
-         * @param   {Array}     end
-         * @returns {Number}    rotation
-         */
-        getRotation: function getRotation(start, end) {
-            // need two fingers
-            if (start.length >= 2 && end.length >= 2) {
-                return this.getAngle(end[1], end[0]) -
-                  this.getAngle(start[1], start[0]);
-            }
-            return 0;
-        },
-
-
-        /**
-         * boolean if the direction is vertical
-         * @param    {String}    direction
-         * @returns  {Boolean}   is_vertical
-         */
-        isVertical: function isVertical(direction) {
-            return (direction == Hammer.DIRECTION_UP || direction == Hammer.DIRECTION_DOWN);
-        },
-
-
-        /**
-         * stop browser default behavior with css props
-         * @param   {HtmlElement}   element
-         * @param   {Object}        css_props
-         */
-        stopDefaultBrowserBehavior: function stopDefaultBrowserBehavior(element, css_props) {
-            if (!css_props || !element || !element.style) {
-                return;
-            }
-
-            // with css properties for modern browsers
-            Hammer.utils.each(['webkit', 'khtml', 'moz', 'Moz', 'ms', 'o', ''], function (vendor) {
-                Hammer.utils.each(css_props, function (prop) {
-                    // vender prefix at the property
-                    if (vendor) {
-                        prop = vendor + prop.substring(0, 1).toUpperCase() + prop.substring(1);
-                    }
-                    // set the style
-                    if (prop in element.style) {
-                        element.style[prop] = prop;
-                    }
-                });
-            });
-
-            // also the disable onselectstart
-            if (css_props.userSelect == 'none') {
-                element.onselectstart = function () {
-                    return false;
-                };
-            }
-
-            // and disable ondragstart
-            if (css_props.userDrag == 'none') {
-                element.ondragstart = function () {
-                    return false;
-                };
-            }
-        }
-    };
-
-
-    /**
-     * create new hammer instance
-     * all methods should return the instance itself, so it is chainable.
-     * @param   {HTMLElement}       element
-     * @param   {Object}            [options={}]
-     * @returns {Hammer.Instance}
-     * @constructor
-     */
-    Hammer.Instance = function (element, options) {
-        var self = this;
-
-        // setup HammerJS window events and register all gestures
-        // this also sets up the default options
-        setup();
-
-        this.element = element;
-
-        // start/stop detection option
-        this.enabled = true;
-
-        // merge options
-        this.options = Hammer.utils.extend(
-          Hammer.utils.extend({}, Hammer.defaults),
-          options || {});
-
-        // add some css to the element to prevent the browser from doing its native behavoir
-        if (this.options.stop_browser_behavior) {
-            Hammer.utils.stopDefaultBrowserBehavior(this.element, this.options.stop_browser_behavior);
-        }
-
-        // start detection on touchstart
-        Hammer.event.onTouch(element, Hammer.EVENT_START, function (ev) {
-            if (self.enabled) {
-                Hammer.detection.startDetect(self, ev);
-            }
-        });
-
-        // return instance
-        return this;
-    };
-
-
-    Hammer.Instance.prototype = {
-        /**
-         * bind events to the instance
-         * @param   {String}      gesture
-         * @param   {Function}    handler
-         * @returns {Hammer.Instance}
-         */
-        on: function onEvent(gesture, handler) {
-            var gestures = gesture.split(' ');
-            Hammer.utils.each(gestures, function (gesture) {
-                this.element.addEventListener(gesture, handler, false);
-            }, this);
-            return this;
-        },
-
-
-        /**
-         * unbind events to the instance
-         * @param   {String}      gesture
-         * @param   {Function}    handler
-         * @returns {Hammer.Instance}
-         */
-        off: function offEvent(gesture, handler) {
-            var gestures = gesture.split(' ');
-            Hammer.utils.each(gestures, function (gesture) {
-                this.element.removeEventListener(gesture, handler, false);
-            }, this);
-            return this;
-        },
-
-
-        /**
-         * trigger gesture event
-         * @param   {String}      gesture
-         * @param   {Object}      [eventData]
-         * @returns {Hammer.Instance}
-         */
-        trigger: function triggerEvent(gesture, eventData) {
-            // optional
-            if (!eventData) {
-                eventData = {};
-            }
-
-            // create DOM event
-            var event = Hammer.DOCUMENT.createEvent('Event');
-            event.initEvent(gesture, true, true);
-            event.gesture = eventData;
-
-            // trigger on the target if it is in the instance element,
-            // this is for event delegation tricks
-            var element = this.element;
-            if (Hammer.utils.hasParent(eventData.target, element)) {
-                element = eventData.target;
-            }
-
-            element.dispatchEvent(event);
-            return this;
-        },
-
-
-        /**
-         * enable of disable hammer.js detection
-         * @param   {Boolean}   state
-         * @returns {Hammer.Instance}
-         */
-        enable: function enable(state) {
-            this.enabled = state;
-            return this;
-        }
-    };
-
-
-    /**
-     * this holds the last move event,
-     * used to fix empty touchend issue
-     * see the onTouch event for an explanation
-     * @type {Object}
-     */
-    var last_move_event = null;
-
-
-    /**
-     * when the mouse is hold down, this is true
-     * @type {Boolean}
-     */
-    var enable_detect = false;
-
-
-    /**
-     * when touch events have been fired, this is true
-     * @type {Boolean}
-     */
-    var touch_triggered = false;
-
-
-    Hammer.event = {
-        /**
-         * simple addEventListener
-         * @param   {HTMLElement}   element
-         * @param   {String}        type
-         * @param   {Function}      handler
-         */
-        bindDom: function (element, type, handler) {
-            var types = type.split(' ');
-            Hammer.utils.each(types, function (type) {
-                element.addEventListener(type, handler, false);
-            });
-        },
-
-
-        /**
-         * touch events with mouse fallback
-         * @param   {HTMLElement}   element
-         * @param   {String}        eventType        like Hammer.EVENT_MOVE
-         * @param   {Function}      handler
-         */
-        onTouch: function onTouch(element, eventType, handler) {
-            var self = this;
-
-            this.bindDom(element, Hammer.EVENT_TYPES[eventType], function bindDomOnTouch(ev) {
-                var sourceEventType = ev.type.toLowerCase();
-
-                // onmouseup, but when touchend has been fired we do nothing.
-                // this is for touchdevices which also fire a mouseup on touchend
-                if (sourceEventType.match(/mouse/) && touch_triggered) {
-                    return;
-                }
-
-                    // mousebutton must be down or a touch event
-                else if (sourceEventType.match(/touch/) ||   // touch events are always on screen
-                  sourceEventType.match(/pointerdown/) || // pointerevents touch
-                  (sourceEventType.match(/mouse/) && ev.which === 1)   // mouse is pressed
-                  ) {
-                    enable_detect = true;
-                }
-
-                    // mouse isn't pressed
-                else if (sourceEventType.match(/mouse/) && !ev.which) {
-                    enable_detect = false;
-                }
-
-
-                // we are in a touch event, set the touch triggered bool to true,
-                // this for the conflicts that may occur on ios and android
-                if (sourceEventType.match(/touch|pointer/)) {
-                    touch_triggered = true;
-                }
-
-                // count the total touches on the screen
-                var count_touches = 0;
-
-                // when touch has been triggered in this detection session
-                // and we are now handling a mouse event, we stop that to prevent conflicts
-                if (enable_detect) {
-                    // update pointerevent
-                    if (Hammer.HAS_POINTEREVENTS && eventType != Hammer.EVENT_END) {
-                        count_touches = Hammer.PointerEvent.updatePointer(eventType, ev);
-                    }
-                        // touch
-                    else if (sourceEventType.match(/touch/)) {
-                        count_touches = ev.touches.length;
-                    }
-                        // mouse
-                    else if (!touch_triggered) {
-                        count_touches = sourceEventType.match(/up/) ? 0 : 1;
-                    }
-
-                    // if we are in a end event, but when we remove one touch and
-                    // we still have enough, set eventType to move
-                    if (count_touches > 0 && eventType == Hammer.EVENT_END) {
-                        eventType = Hammer.EVENT_MOVE;
-                    }
-                        // no touches, force the end event
-                    else if (!count_touches) {
-                        eventType = Hammer.EVENT_END;
-                    }
-
-                    // store the last move event
-                    if (count_touches || last_move_event === null) {
-                        last_move_event = ev;
-                    }
-
-                    // trigger the handler
-                    handler.call(Hammer.detection, self.collectEventData(element, eventType, self.getTouchList(last_move_event, eventType), ev));
-
-                    // remove pointerevent from list
-                    if (Hammer.HAS_POINTEREVENTS && eventType == Hammer.EVENT_END) {
-                        count_touches = Hammer.PointerEvent.updatePointer(eventType, ev);
-                    }
-                }
-
-                // on the end we reset everything
-                if (!count_touches) {
-                    last_move_event = null;
-                    enable_detect = false;
-                    touch_triggered = false;
-                    Hammer.PointerEvent.reset();
-                }
-            });
-        },
-
-
-        /**
-         * we have different events for each device/browser
-         * determine what we need and set them in the Hammer.EVENT_TYPES constant
-         */
-        determineEventTypes: function determineEventTypes() {
-            // determine the eventtype we want to set
-            var types;
-
-            // pointerEvents magic
-            if (Hammer.HAS_POINTEREVENTS) {
-                types = Hammer.PointerEvent.getEvents();
-            }
-                // on Android, iOS, blackberry, windows mobile we dont want any mouseevents
-            else if (Hammer.NO_MOUSEEVENTS) {
-                types = [
-                  'touchstart',
-                  'touchmove',
-                  'touchend touchcancel'];
-            }
-                // for non pointer events browsers and mixed browsers,
-                // like chrome on windows8 touch laptop
-            else {
-                types = [
-                  'touchstart mousedown',
-                  'touchmove mousemove',
-                  'touchend touchcancel mouseup'];
-            }
-
-            Hammer.EVENT_TYPES[Hammer.EVENT_START] = types[0];
-            Hammer.EVENT_TYPES[Hammer.EVENT_MOVE] = types[1];
-            Hammer.EVENT_TYPES[Hammer.EVENT_END] = types[2];
-        },
-
-
-        /**
-         * create touchlist depending on the event
-         * @param   {Object}    ev
-         * @param   {String}    eventType   used by the fakemultitouch plugin
-         */
-        getTouchList: function getTouchList(ev/*, eventType*/) {
-            // get the fake pointerEvent touchlist
-            if (Hammer.HAS_POINTEREVENTS) {
-                return Hammer.PointerEvent.getTouchList();
-            }
-                // get the touchlist
-            else if (ev.touches) {
-                return ev.touches;
-            }
-                // make fake touchlist from mouse position
-            else {
-                ev.identifier = 1;
-                return [ev];
-            }
-        },
-
-
-        /**
-         * collect event data for Hammer js
-         * @param   {HTMLElement}   element
-         * @param   {String}        eventType        like Hammer.EVENT_MOVE
-         * @param   {Object}        eventData
-         */
-        collectEventData: function collectEventData(element, eventType, touches, ev) {
-            // find out pointerType
-            var pointerType = Hammer.POINTER_TOUCH;
-            if (ev.type.match(/mouse/) || Hammer.PointerEvent.matchType(Hammer.POINTER_MOUSE, ev)) {
-                pointerType = Hammer.POINTER_MOUSE;
-            }
-
-            return {
-                center: Hammer.utils.getCenter(touches),
-                timeStamp: new Date().getTime(),
-                target: ev.target,
-                touches: touches,
-                eventType: eventType,
-                pointerType: pointerType,
-                srcEvent: ev,
-
-                /**
-                 * prevent the browser default actions
-                 * mostly used to disable scrolling of the browser
-                 */
-                preventDefault: function () {
-                    if (this.srcEvent.preventManipulation) {
-                        this.srcEvent.preventManipulation();
-                    }
-
-                    if (this.srcEvent.preventDefault) {
-                        this.srcEvent.preventDefault();
-                    }
-                },
-
-                /**
-                 * stop bubbling the event up to its parents
-                 */
-                stopPropagation: function () {
-                    this.srcEvent.stopPropagation();
-                },
-
-                /**
-                 * immediately stop gesture detection
-                 * might be useful after a swipe was detected
-                 * @return {*}
-                 */
-                stopDetect: function () {
-                    return Hammer.detection.stopDetect();
-                }
-            };
-        }
-    };
-
-    Hammer.PointerEvent = {
-        /**
-         * holds all pointers
-         * @type {Object}
-         */
-        pointers: {},
-
-        /**
-         * get a list of pointers
-         * @returns {Array}     touchlist
-         */
-        getTouchList: function () {
-            var self = this;
-            var touchlist = [];
-
-            // we can use forEach since pointerEvents only is in IE10
-            Hammer.utils.each(self.pointers, function (pointer) {
-                touchlist.push(pointer);
-            });
-
-            return touchlist;
-        },
-
-        /**
-         * update the position of a pointer
-         * @param   {String}   type             Hammer.EVENT_END
-         * @param   {Object}   pointerEvent
-         */
-        updatePointer: function (type, pointerEvent) {
-            if (type == Hammer.EVENT_END) {
-                this.pointers = {};
-            }
-            else {
-                pointerEvent.identifier = pointerEvent.pointerId;
-                this.pointers[pointerEvent.pointerId] = pointerEvent;
-            }
-
-            return Object.keys(this.pointers).length;
-        },
-
-        /**
-         * check if ev matches pointertype
-         * @param   {String}        pointerType     Hammer.POINTER_MOUSE
-         * @param   {PointerEvent}  ev
-         */
-        matchType: function (pointerType, ev) {
-            if (!ev.pointerType) {
-                return false;
-            }
-
-            var pt = ev.pointerType,
-              types = {};
-            types[Hammer.POINTER_MOUSE] = (pt === ev.MSPOINTER_TYPE_MOUSE || pt === Hammer.POINTER_MOUSE);
-            types[Hammer.POINTER_TOUCH] = (pt === ev.MSPOINTER_TYPE_TOUCH || pt === Hammer.POINTER_TOUCH);
-            types[Hammer.POINTER_PEN] = (pt === ev.MSPOINTER_TYPE_PEN || pt === Hammer.POINTER_PEN);
-            return types[pointerType];
-        },
-
-
-        /**
-         * get events
-         */
-        getEvents: function () {
-            return [
-              'pointerdown MSPointerDown',
-              'pointermove MSPointerMove',
-              'pointerup pointercancel MSPointerUp MSPointerCancel'
-            ];
-        },
-
-        /**
-         * reset the list
-         */
-        reset: function () {
-            this.pointers = {};
-        }
-    };
-
-
-    Hammer.detection = {
-        // contains all registred Hammer.gestures in the correct order
-        gestures: [],
-
-        // data of the current Hammer.gesture detection session
-        current: null,
-
-        // the previous Hammer.gesture session data
-        // is a full clone of the previous gesture.current object
-        previous: null,
-
-        // when this becomes true, no gestures are fired
-        stopped: false,
-
-
-        /**
-         * start Hammer.gesture detection
-         * @param   {Hammer.Instance}   inst
-         * @param   {Object}            eventData
-         */
-        startDetect: function startDetect(inst, eventData) {
-            // already busy with a Hammer.gesture detection on an element
-            if (this.current) {
-                return;
-            }
-
-            this.stopped = false;
-
-            this.current = {
-                inst: inst, // reference to HammerInstance we're working for
-                startEvent: Hammer.utils.extend({}, eventData), // start eventData for distances, timing etc
-                lastEvent: false, // last eventData
-                name: '' // current gesture we're in/detected, can be 'tap', 'hold' etc
-            };
-
-            this.detect(eventData);
-        },
-
-
-        /**
-         * Hammer.gesture detection
-         * @param   {Object}    eventData
-         */
-        detect: function detect(eventData) {
-            if (!this.current || this.stopped) {
-                return;
-            }
-
-            // extend event data with calculations about scale, distance etc
-            eventData = this.extendEventData(eventData);
-
-            // instance options
-            var inst_options = this.current.inst.options;
-
-            // call Hammer.gesture handlers
-            Hammer.utils.each(this.gestures, function (gesture) {
-                // only when the instance options have enabled this gesture
-                if (!this.stopped && inst_options[gesture.name] !== false) {
-                    // if a handler returns false, we stop with the detection
-                    if (gesture.handler.call(gesture, eventData, this.current.inst) === false) {
-                        this.stopDetect();
-                        return false;
-                    }
-                }
-            }, this);
-
-            // store as previous event event
-            if (this.current) {
-                this.current.lastEvent = eventData;
-            }
-
-            // endevent, but not the last touch, so dont stop
-            if (eventData.eventType == Hammer.EVENT_END && !eventData.touches.length - 1) {
-                this.stopDetect();
-            }
-
-            return eventData;
-        },
-
-
-        /**
-         * clear the Hammer.gesture vars
-         * this is called on endDetect, but can also be used when a final Hammer.gesture has been detected
-         * to stop other Hammer.gestures from being fired
-         */
-        stopDetect: function stopDetect() {
-            // clone current data to the store as the previous gesture
-            // used for the double tap gesture, since this is an other gesture detect session
-            this.previous = Hammer.utils.extend({}, this.current);
-
-            // reset the current
-            this.current = null;
-
-            // stopped!
-            this.stopped = true;
-        },
-
-
-        /**
-         * extend eventData for Hammer.gestures
-         * @param   {Object}   ev
-         * @returns {Object}   ev
-         */
-        extendEventData: function extendEventData(ev) {
-            var startEv = this.current.startEvent;
-
-            // if the touches change, set the new touches over the startEvent touches
-            // this because touchevents don't have all the touches on touchstart, or the
-            // user must place his fingers at the EXACT same time on the screen, which is not realistic
-            // but, sometimes it happens that both fingers are touching at the EXACT same time
-            if (startEv && (ev.touches.length != startEv.touches.length || ev.touches === startEv.touches)) {
-                // extend 1 level deep to get the touchlist with the touch objects
-                startEv.touches = [];
-                Hammer.utils.each(ev.touches, function (touch) {
-                    startEv.touches.push(Hammer.utils.extend({}, touch));
-                });
-            }
-
-            var delta_time = ev.timeStamp - startEv.timeStamp
-              , delta_x = ev.center.pageX - startEv.center.pageX
-              , delta_y = ev.center.pageY - startEv.center.pageY
-              , velocity = Hammer.utils.getVelocity(delta_time, delta_x, delta_y)
-              , interimAngle
-              , interimDirection;
-
-            // end events (e.g. dragend) don't have useful values for interimDirection & interimAngle
-            // because the previous event has exactly the same coordinates
-            // so for end events, take the previous values of interimDirection & interimAngle
-            // instead of recalculating them and getting a spurious '0'
-            if (ev.eventType === 'end') {
-                interimAngle = this.current.lastEvent && this.current.lastEvent.interimAngle;
-                interimDirection = this.current.lastEvent && this.current.lastEvent.interimDirection;
-            }
-            else {
-                interimAngle = this.current.lastEvent && Hammer.utils.getAngle(this.current.lastEvent.center, ev.center);
-                interimDirection = this.current.lastEvent && Hammer.utils.getDirection(this.current.lastEvent.center, ev.center);
-            }
-
-            Hammer.utils.extend(ev, {
-                deltaTime: delta_time,
-
-                deltaX: delta_x,
-                deltaY: delta_y,
-
-                velocityX: velocity.x,
-                velocityY: velocity.y,
-
-                distance: Hammer.utils.getDistance(startEv.center, ev.center),
-
-                angle: Hammer.utils.getAngle(startEv.center, ev.center),
-                interimAngle: interimAngle,
-
-                direction: Hammer.utils.getDirection(startEv.center, ev.center),
-                interimDirection: interimDirection,
-
-                scale: Hammer.utils.getScale(startEv.touches, ev.touches),
-                rotation: Hammer.utils.getRotation(startEv.touches, ev.touches),
-
-                startEvent: startEv
-            });
-
-            return ev;
-        },
-
-
-        /**
-         * register new gesture
-         * @param   {Object}    gesture object, see gestures.js for documentation
-         * @returns {Array}     gestures
-         */
-        register: function register(gesture) {
-            // add an enable gesture options if there is no given
-            var options = gesture.defaults || {};
-            if (options[gesture.name] === undefined) {
-                options[gesture.name] = true;
-            }
-
-            // extend Hammer default options with the Hammer.gesture options
-            Hammer.utils.extend(Hammer.defaults, options, true);
-
-            // set its index
-            gesture.index = gesture.index || 1000;
-
-            // add Hammer.gesture to the list
-            this.gestures.push(gesture);
-
-            // sort the list by index
-            this.gestures.sort(function (a, b) {
-                if (a.index < b.index) { return -1; }
-                if (a.index > b.index) { return 1; }
-                return 0;
-            });
-
-            return this.gestures;
-        }
-    };
-
-
-    /**
-     * Drag
-     * Move with x fingers (default 1) around on the page. Blocking the scrolling when
-     * moving left and right is a good practice. When all the drag events are blocking
-     * you disable scrolling on that area.
-     * @events  drag, drapleft, dragright, dragup, dragdown
-     */
-    Hammer.gestures.Drag = {
-        name: 'drag',
-        index: 50,
-        defaults: {
-            drag_min_distance: 10,
-
-            // Set correct_for_drag_min_distance to true to make the starting point of the drag
-            // be calculated from where the drag was triggered, not from where the touch started.
-            // Useful to avoid a jerk-starting drag, which can make fine-adjustments
-            // through dragging difficult, and be visually unappealing.
-            correct_for_drag_min_distance: true,
-
-            // set 0 for unlimited, but this can conflict with transform
-            drag_max_touches: 1,
-
-            // prevent default browser behavior when dragging occurs
-            // be careful with it, it makes the element a blocking element
-            // when you are using the drag gesture, it is a good practice to set this true
-            drag_block_horizontal: false,
-            drag_block_vertical: false,
-
-            // drag_lock_to_axis keeps the drag gesture on the axis that it started on,
-            // It disallows vertical directions if the initial direction was horizontal, and vice versa.
-            drag_lock_to_axis: false,
-
-            // drag lock only kicks in when distance > drag_lock_min_distance
-            // This way, locking occurs only when the distance has become large enough to reliably determine the direction
-            drag_lock_min_distance: 25
-        },
-
-        triggered: false,
-        handler: function dragGesture(ev, inst) {
-            // current gesture isnt drag, but dragged is true
-            // this means an other gesture is busy. now call dragend
-            if (Hammer.detection.current.name != this.name && this.triggered) {
-                inst.trigger(this.name + 'end', ev);
-                this.triggered = false;
-                return;
-            }
-
-            // max touches
-            if (inst.options.drag_max_touches > 0 &&
-              ev.touches.length > inst.options.drag_max_touches) {
-                return;
-            }
-
-            switch (ev.eventType) {
-                case Hammer.EVENT_START:
-                    this.triggered = false;
-                    break;
-
-                case Hammer.EVENT_MOVE:
-                    // when the distance we moved is too small we skip this gesture
-                    // or we can be already in dragging
-                    if (ev.distance < inst.options.drag_min_distance &&
-                      Hammer.detection.current.name != this.name) {
-                        return;
-                    }
-
-                    // we are dragging!
-                    if (Hammer.detection.current.name != this.name) {
-                        Hammer.detection.current.name = this.name;
-                        if (inst.options.correct_for_drag_min_distance && ev.distance > 0) {
-                            // When a drag is triggered, set the event center to drag_min_distance pixels from the original event center.
-                            // Without this correction, the dragged distance would jumpstart at drag_min_distance pixels instead of at 0.
-                            // It might be useful to save the original start point somewhere
-                            var factor = Math.abs(inst.options.drag_min_distance / ev.distance);
-                            Hammer.detection.current.startEvent.center.pageX += ev.deltaX * factor;
-                            Hammer.detection.current.startEvent.center.pageY += ev.deltaY * factor;
-
-                            // recalculate event data using new start point
-                            ev = Hammer.detection.extendEventData(ev);
-                        }
-                    }
-
-                    // lock drag to axis?
-                    if (Hammer.detection.current.lastEvent.drag_locked_to_axis || (inst.options.drag_lock_to_axis && inst.options.drag_lock_min_distance <= ev.distance)) {
-                        ev.drag_locked_to_axis = true;
-                    }
-                    var last_direction = Hammer.detection.current.lastEvent.direction;
-                    if (ev.drag_locked_to_axis && last_direction !== ev.direction) {
-                        // keep direction on the axis that the drag gesture started on
-                        if (Hammer.utils.isVertical(last_direction)) {
-                            ev.direction = (ev.deltaY < 0) ? Hammer.DIRECTION_UP : Hammer.DIRECTION_DOWN;
-                        }
-                        else {
-                            ev.direction = (ev.deltaX < 0) ? Hammer.DIRECTION_LEFT : Hammer.DIRECTION_RIGHT;
-                        }
-                    }
-
-                    // first time, trigger dragstart event
-                    if (!this.triggered) {
-                        inst.trigger(this.name + 'start', ev);
-                        this.triggered = true;
-                    }
-
-                    // trigger normal event
-                    inst.trigger(this.name, ev);
-
-                    // direction event, like dragdown
-                    inst.trigger(this.name + ev.direction, ev);
-
-                    // block the browser events
-                    if ((inst.options.drag_block_vertical && Hammer.utils.isVertical(ev.direction)) ||
-                      (inst.options.drag_block_horizontal && !Hammer.utils.isVertical(ev.direction))) {
-                        ev.preventDefault();
-                    }
-                    break;
-
-                case Hammer.EVENT_END:
-                    // trigger dragend
-                    if (this.triggered) {
-                        inst.trigger(this.name + 'end', ev);
-                    }
-
-                    this.triggered = false;
-                    break;
-            }
-        }
-    };
-
-    /**
-     * Hold
-     * Touch stays at the same place for x time
-     * @events  hold
-     */
-    Hammer.gestures.Hold = {
-        name: 'hold',
-        index: 10,
-        defaults: {
-            hold_timeout: 500,
-            hold_threshold: 1
-        },
-        timer: null,
-        handler: function holdGesture(ev, inst) {
-            switch (ev.eventType) {
-                case Hammer.EVENT_START:
-                    // clear any running timers
-                    clearTimeout(this.timer);
-
-                    // set the gesture so we can check in the timeout if it still is
-                    Hammer.detection.current.name = this.name;
-
-                    // set timer and if after the timeout it still is hold,
-                    // we trigger the hold event
-                    this.timer = setTimeout(function () {
-                        if (Hammer.detection.current.name == 'hold') {
-                            inst.trigger('hold', ev);
-                        }
-                    }, inst.options.hold_timeout);
-                    break;
-
-                    // when you move or end we clear the timer
-                case Hammer.EVENT_MOVE:
-                    if (ev.distance > inst.options.hold_threshold) {
-                        clearTimeout(this.timer);
-                    }
-                    break;
-
-                case Hammer.EVENT_END:
-                    clearTimeout(this.timer);
-                    break;
-            }
-        }
-    };
-
-    /**
-     * Release
-     * Called as last, tells the user has released the screen
-     * @events  release
-     */
-    Hammer.gestures.Release = {
-        name: 'release',
-        index: Infinity,
-        handler: function releaseGesture(ev, inst) {
-            if (ev.eventType == Hammer.EVENT_END) {
-                inst.trigger(this.name, ev);
-            }
-        }
-    };
-
-    /**
-     * Swipe
-     * triggers swipe events when the end velocity is above the threshold
-     * @events  swipe, swipeleft, swiperight, swipeup, swipedown
-     */
-    Hammer.gestures.Swipe = {
-        name: 'swipe',
-        index: 40,
-        defaults: {
-            // set 0 for unlimited, but this can conflict with transform
-            swipe_min_touches: 1,
-            swipe_max_touches: 1,
-            swipe_velocity: 0.7
-        },
-        handler: function swipeGesture(ev, inst) {
-            if (ev.eventType == Hammer.EVENT_END) {
-                // max touches
-                if (inst.options.swipe_max_touches > 0 &&
-                  ev.touches.length < inst.options.swipe_min_touches &&
-                  ev.touches.length > inst.options.swipe_max_touches) {
-                    return;
-                }
-
-                // when the distance we moved is too small we skip this gesture
-                // or we can be already in dragging
-                if (ev.velocityX > inst.options.swipe_velocity ||
-                  ev.velocityY > inst.options.swipe_velocity) {
-                    // trigger swipe events
-                    inst.trigger(this.name, ev);
-                    inst.trigger(this.name + ev.direction, ev);
-                }
-            }
-        }
-    };
-
-    /**
-     * Tap/DoubleTap
-     * Quick touch at a place or double at the same place
-     * @events  tap, doubletap
-     */
-    Hammer.gestures.Tap = {
-        name: 'tap',
-        index: 100,
-        defaults: {
-            tap_max_touchtime: 250,
-            tap_max_distance: 10,
-            tap_always: true,
-            doubletap_distance: 20,
-            doubletap_interval: 300
-        },
-        handler: function tapGesture(ev, inst) {
-            if (ev.eventType == Hammer.EVENT_END && ev.srcEvent.type != 'touchcancel') {
-                // previous gesture, for the double tap since these are two different gesture detections
-                var prev = Hammer.detection.previous,
-                  did_doubletap = false;
-
-                // when the touchtime is higher then the max touch time
-                // or when the moving distance is too much
-                if (ev.deltaTime > inst.options.tap_max_touchtime ||
-                  ev.distance > inst.options.tap_max_distance) {
-                    return;
-                }
-
-                // check if double tap
-                if (prev && prev.name == 'tap' &&
-                  (ev.timeStamp - prev.lastEvent.timeStamp) < inst.options.doubletap_interval &&
-                  ev.distance < inst.options.doubletap_distance) {
-                    inst.trigger('doubletap', ev);
-                    did_doubletap = true;
-                }
-
-                // do a single tap
-                if (!did_doubletap || inst.options.tap_always) {
-                    Hammer.detection.current.name = 'tap';
-                    inst.trigger(Hammer.detection.current.name, ev);
-                }
-            }
-        }
-    };
-
-    /**
-     * Touch
-     * Called as first, tells the user has touched the screen
-     * @events  touch
-     */
-    Hammer.gestures.Touch = {
-        name: 'touch',
-        index: -Infinity,
-        defaults: {
-            // call preventDefault at touchstart, and makes the element blocking by
-            // disabling the scrolling of the page, but it improves gestures like
-            // transforming and dragging.
-            // be careful with using this, it can be very annoying for users to be stuck
-            // on the page
-            prevent_default: false,
-
-            // disable mouse events, so only touch (or pen!) input triggers events
-            prevent_mouseevents: false
-        },
-        handler: function touchGesture(ev, inst) {
-            if (inst.options.prevent_mouseevents && ev.pointerType == Hammer.POINTER_MOUSE) {
-                ev.stopDetect();
-                return;
-            }
-
-            if (inst.options.prevent_default) {
-                ev.preventDefault();
-            }
-
-            if (ev.eventType == Hammer.EVENT_START) {
-                inst.trigger(this.name, ev);
-            }
-        }
-    };
-
-    /**
-     * Transform
-     * User want to scale or rotate with 2 fingers
-     * @events  transform, pinch, pinchin, pinchout, rotate
-     */
-    Hammer.gestures.Transform = {
-        name: 'transform',
-        index: 45,
-        defaults: {
-            // factor, no scale is 1, zoomin is to 0 and zoomout until higher then 1
-            transform_min_scale: 0.01,
-            // rotation in degrees
-            transform_min_rotation: 1,
-            // prevent default browser behavior when two touches are on the screen
-            // but it makes the element a blocking element
-            // when you are using the transform gesture, it is a good practice to set this true
-            transform_always_block: false
-        },
-        triggered: false,
-        handler: function transformGesture(ev, inst) {
-            // current gesture isnt drag, but dragged is true
-            // this means an other gesture is busy. now call dragend
-            if (Hammer.detection.current.name != this.name && this.triggered) {
-                inst.trigger(this.name + 'end', ev);
-                this.triggered = false;
-                return;
-            }
-
-            // atleast multitouch
-            if (ev.touches.length < 2) {
-                return;
-            }
-
-            // prevent default when two fingers are on the screen
-            if (inst.options.transform_always_block) {
-                ev.preventDefault();
-            }
-
-            switch (ev.eventType) {
-                case Hammer.EVENT_START:
-                    this.triggered = false;
-                    break;
-
-                case Hammer.EVENT_MOVE:
-                    var scale_threshold = Math.abs(1 - ev.scale);
-                    var rotation_threshold = Math.abs(ev.rotation);
-
-                    // when the distance we moved is too small we skip this gesture
-                    // or we can be already in dragging
-                    if (scale_threshold < inst.options.transform_min_scale &&
-                      rotation_threshold < inst.options.transform_min_rotation) {
-                        return;
-                    }
-
-                    // we are transforming!
-                    Hammer.detection.current.name = this.name;
-
-                    // first time, trigger dragstart event
-                    if (!this.triggered) {
-                        inst.trigger(this.name + 'start', ev);
-                        this.triggered = true;
-                    }
-
-                    inst.trigger(this.name, ev); // basic transform event
-
-                    // trigger rotate event
-                    if (rotation_threshold > inst.options.transform_min_rotation) {
-                        inst.trigger('rotate', ev);
-                    }
-
-                    // trigger pinch event
-                    if (scale_threshold > inst.options.transform_min_scale) {
-                        inst.trigger('pinch', ev);
-                        inst.trigger('pinch' + ((ev.scale < 1) ? 'in' : 'out'), ev);
-                    }
-                    break;
-
-                case Hammer.EVENT_END:
-                    // trigger dragend
-                    if (this.triggered) {
-                        inst.trigger(this.name + 'end', ev);
-                    }
-
-                    this.triggered = false;
-                    break;
-            }
-        }
-    };
-
-
-    /**
-     * enable multitouch on the desktop by pressing the shiftkey
-     * the other touch goes in the opposite direction so the center keeps at its place
-     * it's recommended to enable Hammer.debug.showTouches for this one
-     */
-    Hammer.plugins.fakeMultitouch = function () {
-        // keeps the start position to keep it centered
-        var start_pos = false;
-
-        // test for msMaxTouchPoints to enable this for IE10 with only one pointer (a mouse in all/most cases)
-        Hammer.HAS_POINTEREVENTS = navigator.msPointerEnabled &&
-          navigator.msMaxTouchPoints && navigator.msMaxTouchPoints >= 1;
-
-        /**
-         * overwrites Hammer.event.getTouchList.
-         * @param   {Event}     ev
-         * @param   TOUCHTYPE   type
-         * @return  {Array}     Touches
-         */
-        Hammer.event.getTouchList = function (ev, eventType) {
-            // get the fake pointerEvent touchlist
-            if (Hammer.HAS_POINTEREVENTS) {
-                return Hammer.PointerEvent.getTouchList();
-            }
-                // get the touchlist
-            else if (ev.touches) {
-                return ev.touches;
-            }
-
-            // reset on start of a new touch
-            if (eventType == Hammer.EVENT_START) {
-                start_pos = false;
-            }
-
-            // when the shift key is pressed, multitouch is possible on desktop
-            // why shift? because ctrl and alt are taken by osx and linux
-            if (ev.shiftKey) {
-                // on touchstart we store the position of the mouse for multitouch
-                if (!start_pos) {
-                    start_pos = {
-                        pageX: ev.pageX,
-                        pageY: ev.pageY
-                    };
-                }
-
-                var distance_x = start_pos.pageX - ev.pageX;
-                var distance_y = start_pos.pageY - ev.pageY;
-
-                // fake second touch in the opposite direction
-                return [
-                  {
-                      identifier: 1,
-                      pageX: start_pos.pageX - distance_x - 50,
-                      pageY: start_pos.pageY - distance_y + 50,
-                      target: ev.target
-                  },
-                  {
-                      identifier: 2,
-                      pageX: start_pos.pageX + distance_x + 50,
-                      pageY: start_pos.pageY + distance_y - 50,
-                      target: ev.target
-                  }
-                ];
-            }
-                // normal single touch
-            else {
-                start_pos = false;
-                return [
-                  {
-                      identifier: 1,
-                      pageX: ev.pageX,
-                      pageY: ev.pageY,
-                      target: ev.target
-                  }
-                ];
-            }
-        };
-    };
-
-    /**
-        * ShowTouches gesture
-        * show all touch on the screen by placing elements at there pageX and pageY
-        * @param   {Boolean}   [force]
-        */
-    Hammer.plugins.showTouches = function (force) {
-        // the circles under your fingers
-        var template_style = 'position:absolute;z-index:9999;left:0;top:0;height:14px;width:14px;border:solid 2px #777;' +
-            'background:rgba(255,255,255,.7);border-radius:20px;pointer-events:none;' +
-            'margin-top:-9px;margin-left:-9px;';
-
-        // elements by identifier
-        var touch_elements = {};
-        var touches_index = {};
-
-        /**
-            * remove unused touch elements
-            */
-        function removeUnusedElements() {
-            // remove unused touch elements
-            for (var key in touch_elements) {
-                if (touch_elements.hasOwnProperty(key) && !touches_index[key]) {
-                    document.body.removeChild(touch_elements[key]);
-                    delete touch_elements[key];
-                }
-            }
-        }
-
-        Hammer.detection.register({
-            name: 'show_touches',
-            priority: 0,
-            handler: function (ev, inst) {
-                touches_index = {};
-
-                // clear old elements when not using a mouse
-                if (ev.pointerType != Hammer.POINTER_MOUSE && !force) {
-                    removeUnusedElements();
-                    return;
-                }
-
-                // place touches by index
-                for (var t = 0, total_touches = ev.touches.length; t < total_touches; t++) {
-                    var touch = ev.touches[t];
-
-                    var id = touch.identifier;
-                    touches_index[id] = touch;
-
-                    // new touch element
-                    if (!touch_elements[id]) {
-                        // create new element and attach base styles
-                        var template = document.createElement('div');
-                        template.setAttribute('style', template_style);
-
-                        // append element to body
-                        document.body.appendChild(template);
-
-                        touch_elements[id] = template;
-                    }
-
-                    // Paul Irish says that translate is faster then left/top
-                    touch_elements[id].style.left = touch.pageX + 'px';
-                    touch_elements[id].style.top = touch.pageY + 'px';
-                }
-
-                removeUnusedElements();
-            }
-        });
-    };
-
-
-
-
-    // Based off Lo-Dash's excellent UMD wrapper (slightly modified) - https://github.com/bestiejs/lodash/blob/master/lodash.js#L5515-L5543
-    // some AMD build optimizers, like r.js, check for specific condition patterns like the following:
-    if (typeof define == 'function' && typeof define.amd == 'object' && define.amd) {
-        // define as an anonymous module
-        define('hammer',[],function () {
-            return Hammer;
-        });
-        // check for `exports` after `define` in case a build optimizer adds an `exports` object
-    }
-    else if (typeof module === 'object' && typeof module.exports === 'object') {
-        module.exports = Hammer;
-    }
-    else {
-        window.Hammer = Hammer;
-    }
-})(this);
-
 /* build: `node build.js modules=ALL exclude=gestures,cufon,json minifier=uglifyjs` */
 /*! Fabric.js Copyright 2008-2013, Printio (Juriy Zaytsev, Maxim Chernyak) */
 
@@ -38098,14 +36567,21 @@ fabric.util.object.extend(fabric.IText.prototype, /** @lends fabric.IText.protot
 })();
 
 
-define("fabric", function(){});
+define("fabric", (function (global) {
+    return function () {
+        var ret, fn;
+        return ret || global.fabric;
+    };
+}(this)));
 
-/*global define*/
+/*global define, console, window, d3, Cubic, TweenLite, EaseLookup*/
+/*jslint nomen: true, plusplus: true */
 define('scalejs.d3-fabric',[],function () {
-    //
+    
 
     var d3fabricAPI = { version: "1.0.0" };
 
+    // d3-fabric setup function
     return function (d3, fabric, gsap) {
         if (!d3 || !fabric) {
             return false;
@@ -38143,15 +36619,15 @@ define('scalejs.d3-fabric',[],function () {
             return res;
         }
         if (!parseVersion(d3.version).atLeast(3, 4)) {
-            //console.error("Unsupported d3.js version. Need at least 3.4.0 or higher");
+            console.error("Unsupported d3.js version. Need at least 3.4.0 or higher");
             return false;
         }
         if (!parseVersion(fabric.version).atLeast(1, 4, 2)) {
-            //console.error("Unsupported FabricJS version. Need at least 1.4.2 or higher");
+            console.error("Unsupported FabricJS version. Need at least 1.4.2 or higher");
             return false;
         }
         if (d3.fabric) {
-            //console.error("d3-Fabric is already setup");
+            console.error("d3-Fabric is already setup");
             return false;
         }
 
@@ -38172,22 +36648,40 @@ define('scalejs.d3-fabric',[],function () {
             d3_fabric_transitionInherit,
 
             d3_fabric_subclass,
-            d3_fabric_proto;
+            d3_fabric_subclass_proto_name = "__proto__",
+            d3_fabric_proto,
+
+            d3_fabric_use_GSAP,
+            d3_fabric_transition_cleanup,
+            d3_fabric_transition_process,
+            d3_fabric_transitionNode,
+            d3_fabric_transition_tween,
+            d3_fabric_transition_tween_direct,
+
+            fabric_object_private_set,
+            fabric_group_has_widthHeightOnlyArg,
+
+            d3_fabric_util_proto = {},
+            d3_fabric_util_matrix_proto = {},
+            d3_fabric_util_render_test = null;
 
         //prototype functions (d3_fabric_subclass based off one from d3)
         d3_fabric_subclass = Object.setPrototypeOf ? function (object, prototype) {
             Object.setPrototypeOf(object, prototype);
-        } : {}.__proto__ ? function (object, prototype) {
-            object.__proto__ = prototype;
+        } : {}[d3_fabric_subclass_proto_name] ? function (object, prototype) {
+            object[d3_fabric_subclass_proto_name] = prototype;
         } : function (object, prototype) {
             // Hope to god it never gets here... (shakes fist at Windows RT)
-            for (var property in prototype) object[property] = prototype[property];
+            var d3_fabric_subclass_property;
+            /*jslint forin: true */
+            for (d3_fabric_subclass_property in prototype) { object[d3_fabric_subclass_property] = prototype[d3_fabric_subclass_property]; }
+            /*jslint forin: false */
         };
 
         d3_fabric_proto = function (object) {
             // tests on Trident, Gecko, and WebKit have shown that this is the fastest method (http://jsperf.com/getprototypeof-vs-proto)
             return object.constructor.prototype;
-        }
+        };
 
         function d3_fabric_selection(groups) {
             d3_fabric_subclass(groups, d3_fabric_selection_proto);
@@ -38208,11 +36702,15 @@ define('scalejs.d3-fabric',[],function () {
         }
 
         //GSAP plugin
-        var d3_fabric_use_GSAP = gsap && parseVersion(gsap.version).atLeast(1, 11),
-            d3_fabric_transition_cleanup = function (lock, id) {
-                if (--lock.count) delete lock[id];
-                else delete this.__transition__;
-            };
+        d3_fabric_use_GSAP = gsap && parseVersion(gsap.version).atLeast(1, 11);
+        d3_fabric_transition_cleanup = function (lock, id) {
+            lock.count = lock.count - 1;
+            if (lock.count) {
+                delete lock[id];
+            } else {
+                delete this.__transition__; //ignore jslint
+            }
+        };
         if (d3_fabric_use_GSAP) {
             /*!
              * VERSION: 1.0.0
@@ -38225,7 +36723,8 @@ define('scalejs.d3-fabric',[],function () {
              * 
              * @author: Vincent Simonetti, rcmaniac25@hotmail.com
              **/
-            (window._gsQueue || (window._gsQueue = [])).push(function () {
+            window._gsQueue = window._gsQueue || [];
+            window._gsQueue.push(function () {
 
                 var _drawCalls = [],
                     _ticker,
@@ -38242,18 +36741,6 @@ define('scalejs.d3-fabric',[],function () {
                             _listening = false;
                         }
                     },
-                    _buildOverwrites = function (target, vars) {
-                        var props = [];
-                        Object.keys(vars).filter(function (v) {
-                            return !(v === "tween" || v === "tweenIndex" || v === "canvasRender" || v === "canvasRenderParams" || v === "canvasRenderScope");
-                        }).forEach(function (v) {
-                            var capitalizedPropName = v.charAt(0).toUpperCase() + v.slice(1),
-                                setterName = "set" + capitalizedPropName;
-                            props.push(v);
-                            props.push(setterName)
-                        }, target);
-                        return props;
-                    },
                     _emptyArray = [];
 
                 window._gsDefine.plugin({
@@ -38262,7 +36749,6 @@ define('scalejs.d3-fabric',[],function () {
                     version: "1.0.0",
 
                     init: function (target, value, tween) {
-                        //this._overwriteProps = _buildOverwrites(target, value);
                         this._target = target;
 
                         this._fbTransitionId = value.transitionId;
@@ -38271,7 +36757,9 @@ define('scalejs.d3-fabric',[],function () {
                         this._fbGSAPtween = tween;
                         this._fbTween = !this._fbTransistionInterrupted && value.tween.call(target, target.__data__, value.tweenIndex);
 
-                        if (!this._fbTransistionInterrupted && this._fbTransistionLock && this._fbTransistionLock.active < this._fbTransitionId) this._fbTransistionLock.active = this._fbTransitionId;
+                        if (!this._fbTransistionInterrupted && this._fbTransistionLock && this._fbTransistionLock.active < this._fbTransitionId) {
+                            this._fbTransistionLock.active = this._fbTransitionId;
+                        }
 
                         this._fbCanvasRender = value.canvasRender;
                         this._fbCanvasRenderParams = value.canvasRenderParams;
@@ -38284,7 +36772,8 @@ define('scalejs.d3-fabric',[],function () {
                     },
 
                     set: function (ratio) {
-                        if (this._fbTransistionInterrupted || (this._fbTransistionInterrupted = this._fbTransistionLock && this._fbTransistionLock.active !== this._fbTransitionId)) {
+                        if (this._fbTransistionInterrupted || (this._fbTransistionLock && this._fbTransistionLock.active !== this._fbTransitionId)) {
+                            if (!this._fbTransistionInterrupted) { this._fbTransistionInterrupted = this._fbTransistionLock && this._fbTransistionLock.active !== this._fbTransitionId; }
                             if (ratio < 1) {
                                 // Fast-foward to the end of the tween. This will cause this function to be called again, so we only want to run it if the ratio is less then 1 (the first time this gets called)
                                 if (this._fbGSAPtween.eventCallback("onComplete") !== d3_fabric_transition_cleanup && this._fbTransistionLock) { // to save memory allocation, only change the event callback to the cleanup callback if it isn't already set
@@ -38315,35 +36804,38 @@ define('scalejs.d3-fabric',[],function () {
 
                 });
 
-            }); if (window._gsDefine) { window._gsQueue.pop()(); }
+            });
+            if (window._gsDefine) { window._gsQueue.pop()(); }
         }
 
         //fabric objects
-        var fabric_object_private_set = [],
-            fabric_group_has_widthHeightOnlyArg = fabric.Group.prototype._calcBounds.length > 0;
+        fabric_object_private_set = [];
+        fabric_group_has_widthHeightOnlyArg = fabric.Group.prototype._calcBounds.length > 0;
 
         (function () {
             function d3_fabric_private_set(orgSet, key, value) {
                 var org = this.get(key),
-                    ret = orgSet.call(this, key, value);
+                    ret = orgSet.call(this, key, value),
+                    fg,
+                    fgWidth,
+                    fgHeight,
+                    update = null,
+                    bounds,
+                    aX = [],
+                    aY = [];
                 if (this.group && (key === "width" || key === "height") && org !== value) {
-                    var fg = this.group;
+                    fg = this.group;
                     if (fg instanceof fabric.PathGroup) {
                         fg.setCoords();
                     } else if (fabric_group_has_widthHeightOnlyArg) {
                         fg._calcBounds(true);
                         fg.setCoords();
                     } else {
-                        var fgWidth = fg.get("width"),
-                            fgHeight = fg.get("height"),
-                            update = null,
-                            bounds,
-                            update = null,
-                            aX = [],
-                            aY = [];
+                        fgWidth = fg.get("width");
+                        fgHeight = fg.get("height");
                         fg.forEachObject(function (o) {
                             // from _calcBounds in fabric.Group
-                            if (o === this) o.setCoords(); //All attr/property functions call this already, but it probably will be called after the set function
+                            if (o === this) { o.setCoords(); } //All attr/property functions call this already, but it probably will be called after the set function
                             Object.keys(o.oCoords).forEach(function (prop) {
                                 aX.push(o.oCoords[prop].x);
                                 aY.push(o.oCoords[prop].y);
@@ -38354,7 +36846,7 @@ define('scalejs.d3-fabric',[],function () {
                             update = { width: bounds.width };
                         }
                         if (bounds.height !== fgHeight) {
-                            if (!update) update = {};
+                            if (!update) { update = {}; }
                             update.height = bounds.height;
                         }
                         if (update) {
@@ -38365,36 +36857,43 @@ define('scalejs.d3-fabric',[],function () {
                 }
                 return ret;
             }
-            if (!fabric_object_private_set.length) Object.keys(fabric).forEach(function (e) {
-                var type = fabric[e];
-                if (type.prototype instanceof fabric.Object || (type.prototype && type.prototype.constructor === fabric.Object)) { // "instanceof is probably not the right way" - Peter
-                    var p_set = type.prototype["_set"];
-                    if (p_set) {
-                        var set = type.prototype["_set"] = function (key, value) { return d3_fabric_private_set.call(this, p_set, key, value); };
-                        fabric_object_private_set.push({ typeName: e, type: type, set: set });
+            if (!fabric_object_private_set.length) {
+                Object.keys(fabric).forEach(function (e) {
+                    var type = fabric[e],
+                        p_set,
+                        set;
+                    if (type.prototype instanceof fabric.Object || (type.prototype && type.prototype.constructor === fabric.Object)) { // "instanceof is probably not the right way" - Peter
+                        p_set = type.prototype._set;
+                        if (p_set) {
+                            set = type.prototype._set = function (key, value) { return d3_fabric_private_set.call(this, p_set, key, value); };
+                            fabric_object_private_set.push({ typeName: e, type: type, set: set });
+                        }
                     }
-                }
-            });
-        })();
+                });
+            }
+        }());
 
         //function overrides
         function addCanvas(func, args) {
-            var name = args.length ? args[0] : null;
+            var name = args.length ? args[0] : null,
+                fabricName,
+                canvasGen,
+                sel,
+                can;
+
+            function FabricCanvas(c) {
+                return new fabric.Canvas(c);
+            }
+            function FabricStaticCanvas(c) {
+                return new fabric.StaticCanvas(c);
+            }
             if (typeof name !== "function" && name.indexOf("fabric:") === 0) {
-                var fabricName = name.slice(7);
+                fabricName = name.slice(7);
                 if (fabricName === "canvas" || fabricName === "staticcanvas") {
-
-                    function FabricCanvas(c) {
-                        return new fabric.Canvas(c);
-                    }
-                    function FabricStaticCanvas(c) {
-                        return new fabric.StaticCanvas(c);
-                    }
-
-                    var canvasGen = fabricName === "canvas" ? FabricCanvas : FabricStaticCanvas;
-                    if (!args.length) args = new Array(1);
+                    canvasGen = fabricName === "canvas" ? FabricCanvas : FabricStaticCanvas;
+                    if (!args.length) { args = new Array(1); }
                     args[0] = function () {
-                        var can = this.ownerDocument.createElement("canvas");
+                        can = this.ownerDocument.createElement("canvas");
 
                         function GSAPRender() {
                             if (can._fabricCanvas.renderRunning) {
@@ -38417,7 +36916,7 @@ define('scalejs.d3-fabric',[],function () {
                         }
 
                         can._fabricCanvas = {
-                            transitionItems: new Array(),
+                            transitionItems: [],
                             canvas: null,
                             renderRunning: false,
                             continiousRender: false,
@@ -38426,14 +36925,14 @@ define('scalejs.d3-fabric',[],function () {
                         };
                         return can;
                     };
-                    var sel = func.apply(this, args);
+                    sel = func.apply(this, args);
 
                     /* Bit of hackery to make sure everything is setup correctly:
                      * - Fabric canvas creation must be donw after being appended to the DOM structure since Fabric modifies the DOM structure based on what type of canvas is used
                      * - A circular reference is setup so that during transitions, the elements can be accessed
                      * - The group's parent node is changed to be the "actual" parent node
                      */
-                    var can = sel.node();
+                    can = sel.node();
                     can._fabricCanvas.canvas = canvasGen(can);
                     can._fabricCanvas.canvas._fabricCanvasDomRef = can;
                     sel[0].parentNode = this.node();
@@ -38450,11 +36949,11 @@ define('scalejs.d3-fabric',[],function () {
 
         d3.selection.prototype.insert = function () {
             return addCanvas.call(this, d3_selection_insert, arguments);
-        }
+        };
 
         d3.select = function (node) {
-            var sel = d3_select.call(this, node),
-                node = sel.empty() ? null : sel.node();
+            var sel = d3_select.call(this, node);
+            node = sel.empty() ? null : sel.node();
             if (node !== null && node._fabricCanvas !== undefined) {
                 return d3_fabric_selection(sel);
             }
@@ -38477,31 +36976,13 @@ define('scalejs.d3-fabric',[],function () {
 
         d3.transition = function (selection) {
             return arguments.length && (d3_fabric_selection_proto.isPrototypeOf(selection) || d3_fabric_transition_proto.isPrototypeOf(selection)) ?
-                d3_fabric_transitionInheritId ? selection.transition() : selection :
-                d3_transition.apply(this, arguments);
+                    d3_fabric_transitionInheritId ? selection.transition() : selection :
+                    d3_transition.apply(this, arguments);
         };
 
         //fabric canvas
         d3.fabric.selection = d3_fabric_selection_proto;
 
-        //-attr
-        d3_fabric_selection_proto.attr = function (name, value) {
-            //XXX should this convert "class" to "fabricClassList" if a fabric object?
-            if (arguments.length < 2) {
-                if (typeof name === "string") {
-                    if (name === "class") return this.property(name);
-                    name = d3.ns.qualify(name);
-                    return d3_fabric_selection_attr_get(name.local ? name.local : name, name.local ? name.space : null);
-                }
-                Object.keys(name).forEach(function (value) {
-                    if (value === "class") this.classed(name[value], true)
-                    else this.each(d3_fabric_selection_attr(value, name[value]));
-                }, this);
-                return this;
-            }
-            if (name === "class") return this.classed(value, true);
-            return this.each(d3_fabric_selection_attr(name, value));
-        };
         function d3_fabric_selection_attr_get(name, nameNS) {
             var capitalizedPropName = name.charAt(0).toUpperCase() + name.slice(1),
                 getterName = "get" + capitalizedPropName,
@@ -38513,13 +36994,16 @@ define('scalejs.d3-fabric',[],function () {
             if (isImage || isPathSet || isPolySet || proto[getterName]) {
                 if (isImage) {
                     return ele.getSrc();
-                } else if (isPathSet) {
+                }
+                if (isPathSet) {
                     return ele.d3fabricOrgPath;
-                } else if (isPolySet) {
+                }
+                if (isPolySet) {
                     return ele.d3fabricOrgPoints;
                 }
                 return proto[getterName].call(ele);
-            } else if (proto.getAttribute) {
+            }
+            if (proto.getAttribute) {
                 if (nameNS) {
                     return proto.getAttributeNS.call(ele, nameNS, name);
                 }
@@ -38540,23 +37024,33 @@ define('scalejs.d3-fabric',[],function () {
                 name === "strokeWidth" ||
                 name === "padding";
         }
+        function d3_fabric_is_fabric_object(obj) {
+            return obj instanceof fabric.Object ||
+                obj instanceof fabric.StaticCanvas ||
+                obj instanceof fabric.Point;
+        }
         function d3_fabric_selection_attr_set(ele, name, nameNS, value) {
             if (!d3_fabric_is_fabric_object(ele)) {
                 return;
             }
             var capitalizedPropName = name.charAt(0).toUpperCase() + name.slice(1),
-                    setterName = "set" + capitalizedPropName,
-                    proto = d3_fabric_proto(ele),
-                    isImage = ele instanceof fabric.Image && name === "src",
-                    isPathSet = !isImage && ele instanceof fabric.Path && name === "d",
-                    isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points";
+                setterName = "set" + capitalizedPropName,
+                proto = d3_fabric_proto(ele),
+                isImage = ele instanceof fabric.Image && name === "src",
+                isPathSet = !isImage && ele instanceof fabric.Path && name === "d",
+                isPolySet = !isPathSet && (ele instanceof fabric.Polygon || ele instanceof fabric.Polyline) && name === "points",
+                dim,
+                polyValue,
+                match,
+                point = null,
+                re;
             if (isImage || isPathSet || isPolySet || proto[setterName]) {
                 if (isImage) {
                     // Only update the image if something has changed, since it won't be an instant replacement
                     if (ele.getSrc() !== value) {
-                        if (!value) value = fabric.util.createImage();
+                        if (!value) { value = fabric.util.createImage(); }
                         ele.fire("image:load:start", { img: ele });
-                        if (typeof value === "string" && value.indexOf("#") == 0) {
+                        if (typeof value === "string" && value.indexOf("#") === 0) {
                             ele._initElement(value.substr(1));
                             ele.fire("image:load:finished", { img: ele });
                         } else {
@@ -38581,22 +37075,21 @@ define('scalejs.d3-fabric',[],function () {
                     });
 
                     // Resize width and height
-                    var dim = ele._parseDimensions();
+                    dim = ele._parseDimensions();
                     delete dim.left;
                     delete dim.top;
                     ele.set(dim);
                     ele.setCoords();
                 } else if (isPolySet) {
                     // Process the points
-                    var polyValue = value;
+                    polyValue = value;
                     if (typeof polyValue === "string") {
                         polyValue = [];
 
-                        var re = /([-+]?((\d+\.\d+)|((\d+)|(\.\d+)))(?:e[-+]?\d+)?)/ig,
-                            match,
-                            point = null;
+                        re = /([\-+]?((\d+\.\d+)|((\d+)|(\.\d+)))(?:e[\-+]?\d+)?)/ig;
 
-                        while ((match = re.exec(value))) {
+                        match = re.exec(value);
+                        while (match) {
                             if (point) {
                                 point.y = match[0];
                                 polyValue.push(point);
@@ -38605,6 +37098,7 @@ define('scalejs.d3-fabric',[],function () {
                                 point = { x: match[0] };
                             }
                             polyValue.push(match[0]);
+                            match = re.exec(value);
                         }
                         if (point) {
                             point.y = "0";
@@ -38613,9 +37107,9 @@ define('scalejs.d3-fabric',[],function () {
 
                         polyValue.forEach(function (p) {
                             p.x = parseFloat(p.x);
-                            if (isNaN(p.x)) p.x = 0;
+                            if (isNaN(p.x)) { p.x = 0; }
                             p.y = parseFloat(p.y);
-                            if (isNaN(p.y)) p.y = 0;
+                            if (isNaN(p.y)) { p.y = 0; }
                         });
                     }
 
@@ -38626,7 +37120,7 @@ define('scalejs.d3-fabric',[],function () {
                     ele.setCoords();
                 } else {
                     proto[setterName].call(ele, value);
-                    if (ele.setCoords && d3_fabric_selection_attr_set_need_coord(name)) ele.setCoords();
+                    if (ele.setCoords && d3_fabric_selection_attr_set_need_coord(name)) { ele.setCoords(); }
                 }
             } else if (proto.setAttribute) {
                 if (nameNS) {
@@ -38640,31 +37134,114 @@ define('scalejs.d3-fabric',[],function () {
             function attrFunction() {
                 var v = value.apply(this, arguments);
                 if (v !== null) {
-                    d3_fabric_selection_attr_set(this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this, name.local ? name.local : name, name.local ? name.space : null, v);
+                    d3_fabric_selection_attr_set(this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this, name.local || name, name.local ? name.space : null, v);
                 }
             }
             function attrConstant() {
-                d3_fabric_selection_attr_set(this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this, name.local ? name.local : name, name.local ? name.space : null, value);
+                d3_fabric_selection_attr_set(this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this, name.local || name, name.local ? name.space : null, value);
             }
             return typeof value === "function" ? attrFunction : attrConstant;
         }
+
+        //-attr
+        d3_fabric_selection_proto.attr = function (name, value) {
+            //XXX should this convert "class" to "fabricClassList" if a fabric object?
+            if (arguments.length < 2) {
+                if (typeof name === "string") {
+                    if (name === "class") { return this.property(name); }
+                    name = d3.ns.qualify(name);
+                    return d3_fabric_selection_attr_get(name.local || name, name.local ? name.space : null);
+                }
+                Object.keys(name).forEach(function (value) {
+                    if (value === "class") {
+                        this.classed(name[value], true);
+                    } else {
+                        this.each(d3_fabric_selection_attr(value, name[value]));
+                    }
+                }, this);
+                return this;
+            }
+            if (name === "class") { return this.classed(value, true); }
+            return this.each(d3_fabric_selection_attr(name, value));
+        };
         //-classed
+        function d3_fabric_collapse(s) {
+            return s.trim().replace(/\s+/g, " ");
+        }
+        function d3_fabric_selection_classedRe(name) {
+            return new RegExp("(?:^|\\s+)" + d3.requote(name) + "(?:\\s+|$)", "g");
+        }
+        function d3_fabric_array_add(arr, value) {
+            if (arr.indexOf(value) === -1) {
+                arr.push(value);
+            }
+            return arr;
+        }
+        function d3_fabric_selection_classedName(name) {
+            var re = d3_fabric_selection_classedRe(name);
+            function nodeClass(node, value) {
+                var c = node.classList;
+                if (c) { return value ? c.add(name) : c.remove(name); }
+                c = node.getAttribute("class") || "";
+                if (value) {
+                    re.lastIndex = 0;
+                    if (!re.test(c)) { node.setAttribute("class", d3_fabric_collapse(c + " " + name)); }
+                } else {
+                    node.setAttribute("class", d3_fabric_collapse(c.replace(re, " ")));
+                }
+            }
+            return function (node, value) {
+                if (d3_fabric_is_fabric_object(node)) {
+                    if (node.fabricClassList === undefined || node.fabricClassList === null) { node.fabricClassList = []; }
+                    return value ? d3_fabric_array_add(node.fabricClassList, name) : fabric.util.removeFromArray(node.fabricClassList, name); //return is never used, it just prevents falling through to nodeClass
+                }
+                nodeClass(node, value);
+                if (node._fabricCanvas && node._fabricCanvas.canvas && node._fabricCanvas.canvas.getSelectionElement) {
+                    // if an interactive canvas, then the selection element and parent should be modified too
+                    var selectionElement = node._fabricCanvas.canvas.getSelectionElement();
+                    nodeClass(selectionElement, value);
+                    nodeClass(selectionElement.parentNode, value);
+                }
+            };
+        }
+        function d3_fabric_selection_classes(name) {
+            return name.trim().split(/^|\s+/);
+        }
+        function d3_fabric_selection_classed(name, value) {
+            name = d3_fabric_selection_classes(name).map(d3_fabric_selection_classedName);
+            var n = name.length;
+            function classedConstant() {
+                var i = -1;
+                while (++i < n) { name[i](this, value); }
+            }
+            function classedFunction() {
+                var i = -1, x = value.apply(this, arguments);
+                while (++i < n) { name[i](this, x); }
+            }
+            return typeof value === "function" ? classedFunction : classedConstant;
+        }
+
         d3_fabric_selection_proto.classed = function (name, value) {
             if (arguments.length < 2) {
                 if (typeof name === "string") {
-                    var node = this.node(), n = (name = d3_fabric_selection_classes(name)).length, i = -1;
+                    name = d3_fabric_selection_classes(name);
+                    var node = this.node(),
+                        n = name.length,
+                        i = -1;
                     if (d3_fabric_is_fabric_object(node)) {
-                        if (value = node.fabricClassList) {
-                            while (++i < n) if (!value.contains(name[i])) return false;
+                        value = node.fabricClassList;
+                        if (value) {
+                            while (++i < n) { if (!value.contains(name[i])) { return false; } }
                         } else {
                             return false;
                         }
                     } else {
-                        if (value = node.classList) {
-                            while (++i < n) if (!value.contains(name[i])) return false;
+                        value = node.classList;
+                        if (value) {
+                            while (++i < n) { if (!value.contains(name[i])) { return false; } }
                         } else {
                             value = node.getAttribute("class");
-                            while (++i < n) if (!d3_fabric_selection_classedRe(name[i]).test(value)) return false;
+                            while (++i < n) { if (!d3_fabric_selection_classedRe(name[i]).test(value)) { return false; } }
                         }
                     }
                     return true;
@@ -38676,81 +37253,7 @@ define('scalejs.d3-fabric',[],function () {
             }
             return this.each(d3_fabric_selection_classed(name, value));
         };
-        function d3_fabric_collapse(s) {
-            return s.trim().replace(/\s+/g, " ");
-        }
-        function d3_fabric_is_fabric_object(obj) {
-            return obj instanceof fabric.Object ||
-                obj instanceof fabric.StaticCanvas ||
-                obj instanceof fabric.Point;
-        }
-        function d3_fabric_selection_classedRe(name) {
-            return new RegExp("(?:^|\\s+)" + d3.requote(name) + "(?:\\s+|$)", "g");
-        }
-        function d3_fabric_selection_classes(name) {
-            return name.trim().split(/^|\s+/);
-        }
-        function d3_fabric_selection_classed(name, value) {
-            name = d3_fabric_selection_classes(name).map(d3_fabric_selection_classedName);
-            var n = name.length;
-            function classedConstant() {
-                var i = -1;
-                while (++i < n) name[i](this, value);
-            }
-            function classedFunction() {
-                var i = -1, x = value.apply(this, arguments);
-                while (++i < n) name[i](this, x);
-            }
-            return typeof value === "function" ? classedFunction : classedConstant;
-        }
-        function d3_fabric_selection_classedName(name) {
-            var re = d3_fabric_selection_classedRe(name);
-            return function (node, value) {
-                if (d3_fabric_is_fabric_object(node)) {
-                    if (node.fabricClassList === undefined || node.fabricClassList === null) node.fabricClassList = new Array();
-                    return value ? d3_fabric_array_add(node.fabricClassList, name) : fabric.util.removeFromArray(node.fabricClassList, name);
-                } else {
-                    function nodeClass(node) {
-                        if (c = node.classList) return value ? c.add(name) : c.remove(name);
-                        var c = node.getAttribute("class") || "";
-                        if (value) {
-                            re.lastIndex = 0;
-                            if (!re.test(c)) node.setAttribute("class", d3_fabric_collapse(c + " " + name));
-                        } else {
-                            node.setAttribute("class", d3_fabric_collapse(c.replace(re, " ")));
-                        }
-                    }
-                    nodeClass(node);
-                    if (node._fabricCanvas && node._fabricCanvas.canvas && node._fabricCanvas.canvas.getSelectionElement) {
-                        // if an interactive canvas, then the selection element and parent should be modified too
-                        var selectionElement = node._fabricCanvas.canvas.getSelectionElement();
-                        nodeClass(selectionElement);
-                        nodeClass(selectionElement.parentNode);
-                    }
-                }
-            };
-        }
-        function d3_fabric_array_add(arr, value) {
-            if (arr.indexOf(value) == -1) {
-                arr.push(value);
-            }
-            return arr;
-        }
         //-style
-        d3_fabric_selection_proto.style = function (name, value, priority) {
-            var n = arguments.length;
-            if (n < 3) {
-                if (typeof name !== "string") {
-                    Object.keys(name).forEach(function (priority) {
-                        this.each(d3_fabric_selection_style(this, priority, name[priority], ""));
-                    }, this);
-                    return this;
-                }
-                if (n < 2) return this.attr(name);
-                priority = "";
-            }
-            return this.each(d3_fabric_selection_style(this, name, value, priority));
-        };
         function d3_fabric_selection_style_special(name) {
             return {
                 specialCase: ["left", "top"].indexOf(name) >= 0,
@@ -38758,16 +37261,17 @@ define('scalejs.d3-fabric',[],function () {
             };
         }
         function d3_fabric_selection_style_nodes(srcNode, specialCase) {
-            var list = [srcNode];
+            var list = [srcNode],
+                selectionElement;
             if (srcNode._fabricCanvas !== undefined && srcNode._fabricCanvas.canvas.getSelectionElement) {
-                var selectionElement = srcNode._fabricCanvas.canvas.getSelectionElement();
+                selectionElement = srcNode._fabricCanvas.canvas.getSelectionElement();
                 if (specialCase) {
                     // modify the canvas container
                     list[0] = selectionElement.parentNode;
                 } else {
                     // modify "all the nodes"
                     list.push(selectionElement);
-                    if (selectionElement.parentNode) list.push(selectionElement.parentNode);
+                    if (selectionElement.parentNode) { list.push(selectionElement.parentNode); }
                 }
             }
             return list;
@@ -38791,51 +37295,74 @@ define('scalejs.d3-fabric',[],function () {
                 }
             };
         }
+
+        d3_fabric_selection_proto.style = function (name, value, priority) {
+            var n = arguments.length;
+            if (n < 3) {
+                if (typeof name !== "string") {
+                    Object.keys(name).forEach(function (priority) {
+                        this.each(d3_fabric_selection_style(this, priority, name[priority], ""));
+                    }, this);
+                    return this;
+                }
+                if (n < 2) { return this.attr(name); }
+                priority = "";
+            }
+            return this.each(d3_fabric_selection_style(this, name, value, priority));
+        };
         //-property
         d3_fabric_selection_proto.property = function (name, value) {
             if (arguments.length < 2) {
+                var n,
+                    updateCoords = false;
                 if (typeof name === "string") {
-                    var n = this.node();
+                    n = this.node();
                     if (name === "class" && (n._fabricCanvas !== undefined || d3_fabric_is_fabric_object(n))) {
                         n = n._fabricCanvas !== undefined ? n._fabricCanvas.canvas : n;
                         return n.fabricClassList ? n.fabricClassList.join(" ") : "";
                     }
                     return n._fabricCanvas !== undefined ? n._fabricCanvas.canvas[name] : n[name];
                 }
-                var updateCoords = false;
                 Object.keys(name).forEach(function (value) {
-                    if (value === "class") this.classed(name[value], true);
-                    else this.each(function () {
-                        if (this._fabricCanvas !== undefined) {
-                            this._fabricCanvas.canvas[value] = name[value];
-                        } else {
-                            this[value] = name[value];
-                            updateCoords |= d3_fabric_selection_attr_set_need_coord(name);
-                        }
-                    });
+                    if (value === "class") {
+                        this.classed(name[value], true);
+                    } else {
+                        this.each(function () {
+                            if (this._fabricCanvas !== undefined) {
+                                this._fabricCanvas.canvas[value] = name[value];
+                            } else {
+                                this[value] = name[value];
+                                updateCoords = updateCoords || d3_fabric_selection_attr_set_need_coord(name);
+                            }
+                        });
+                    }
                 }, this);
-                if (updateCoords) this.each(function () {
-                    if (this.setCoords) this.setCoords();
-                });
+                if (updateCoords) {
+                    this.each(function () {
+                        if (this.setCoords) { this.setCoords(); }
+                    });
+                }
                 return this;
             }
-            if (name === "class") return this.classed(value, true);
+            if (name === "class") { return this.classed(value, true); }
             return this.each(function () {
                 if (this._fabricCanvas !== undefined) {
                     this._fabricCanvas.canvas[name] = value;
                 } else {
                     this[name] = value;
-                    if (this.setCoords && d3_fabric_selection_attr_set_need_coord(name)) this.setCoords();
+                    if (this.setCoords && d3_fabric_selection_attr_set_need_coord(name)) { this.setCoords(); }
                 }
             });
         };
         //-text
         d3_fabric_selection_proto.text = function (value) {
+            var textSet,
+                n;
             if (arguments.length) {
-                var textSet = typeof value === "function" ? function () {
+                textSet = typeof value === "function" ? function () {
                     var v = value.apply(this, arguments);
-                    return v == null ? "" : v;
-                } : value == null ? function () {
+                    return v === null ? "" : v;
+                } : value === null ? function () {
                     return "";
                 } : function () {
                     return value;
@@ -38849,46 +37376,23 @@ define('scalejs.d3-fabric',[],function () {
                     }
                 });
             }
-            var n = this.node();
+            n = this.node();
             return n instanceof fabric.Text ? n.getText() : n.fabricText !== undefined ? n.fabricText : null;
         };
         //-append
-        d3_fabric_selection_proto.append = function (name) {
-            var sel = this,
-                isPath = typeof name === "string" && name.toLowerCase() === "path";
-            name = d3_fabric_selection_append(name);
-            return d3_fabric_selection_proto.select.call(this, function (d, i, j) {
-                var parent = sel[j].parentNode,
-                    canvas = parent !== undefined && parent !== null && parent._fabricCanvas !== undefined ? parent : this._fabricCanvas !== undefined ? this : null,
-                    fabricCanvas = canvas !== null ? canvas._fabricCanvas : null,
-                    isForPath = isPath && this instanceof fabric.PathGroup,
-                    collection = isForPath || this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null;
-                if (collection !== null) {
-                    var item = name.apply(this, arguments);
-                    if (isForPath) {
-                        collection.getObjects().push(item);
-                        item.group = collection;
-                        collection.setCoords();
-                    } else {
-                        collection.add(item);
-                        if (collection.calcOffset) collection.calcOffset(); // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
-                    }
-                    return item;
-                }
-                return null;
-            });
-        };
         function d3_fabric_selection_append(name) {
             return typeof name === "function" ? name : function () {
                 var obj = null,
                     ln = name.toLowerCase(),
                     takesString = ln === "text" || ln === "itext",
                     isPoly = ln === "polygon" || ln === "polyline",
-                    takesPath = ln === "path" || isPoly;
+                    takesPath = ln === "path" || isPoly,
+                    i,
+                    s;
                 if (ln === "image") {
                     return new fabric.Image(fabric.util.createImage());
                 }
-                for (var i = 0, s = fabric_object_private_set.length; i < s; i++) {
+                for (i = 0, s = fabric_object_private_set.length; i < s; i++) {
                     if (fabric_object_private_set[i].typeName.toLowerCase() === ln) {
                         if (takesString) {
                             obj = new fabric_object_private_set[i].type("");
@@ -38900,50 +37404,194 @@ define('scalejs.d3-fabric',[],function () {
                         break;
                     }
                 }
-                if (obj) obj.selectable = false;
+                if (obj) { obj.selectable = false; }
                 return obj;
             };
         }
+
+        d3_fabric_selection_proto.append = function (name) {
+            var sel = this,
+                isPath = typeof name === "string" && name.toLowerCase() === "path";
+            name = d3_fabric_selection_append(name);
+            /*jslint unparam: true*/
+            function appendNode(d, i, j) {
+                var parent = sel[j].parentNode,
+                    canvas = parent !== undefined && parent !== null && parent._fabricCanvas !== undefined ? parent : this._fabricCanvas !== undefined ? this : null,
+                    fabricCanvas = canvas !== null ? canvas._fabricCanvas : null,
+                    isForPath = isPath && this instanceof fabric.PathGroup,
+                    collection = isForPath || this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null,
+                    item;
+                if (collection !== null) {
+                    item = name.apply(this, arguments);
+                    if (isForPath) {
+                        collection.getObjects().push(item);
+                        item.group = collection;
+                        collection.setCoords();
+                    } else {
+                        collection.add(item);
+                        if (collection.calcOffset) { collection.calcOffset(); } // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
+                    }
+                    return item;
+                }
+                return null;
+            }
+            /*jslint unparam: false*/
+            return d3_fabric_selection_proto.select.call(this, appendNode);
+        };
         //-insert
+        function d3_fabric_compare_type(obj, type) {
+            if (!obj) { return false; }
+            var ln = type.toLowerCase(),
+                i,
+                s;
+            for (i = 0, s = fabric_object_private_set.length; i < s; i++) {
+                if (fabric_object_private_set[i].typeName.toLowerCase() === ln) {
+                    return obj instanceof fabric_object_private_set[i].type;
+                }
+            }
+            return false;
+        }
+        function d3_fabric_selection_parse_selector(selector) {
+            function splitSelector(selector) {
+                var classIndex = selector.indexOf("."),
+                    idIndex = selector.indexOf("#"),
+                    selTypeEnd = classIndex === -1 || idIndex === -1 ? classIndex === -1 ? idIndex : classIndex : Math.min(classIndex, idIndex),
+                    selClassEnd = classIndex >= 0 ? idIndex === -1 ? classIndex : Math.max(classIndex, idIndex) : 0,
+                    selIdEnd = idIndex >= 0 ? classIndex === -1 ? idIndex : Math.max(idIndex, classIndex) : 0,
+                    selType = selTypeEnd > 0 ? selector.slice(0, selTypeEnd) : (selTypeEnd === -1 && selector.length > 0) ? selector : null,
+                    selClass = classIndex >= 0 ? classIndex === selClassEnd ? selector.slice(classIndex + 1) : selector.slice(classIndex + 1, selClassEnd) : null,
+                    selId = idIndex >= 0 ? idIndex === selIdEnd ? selector.slice(idIndex + 1) : selector.slice(idIndex + 1, selIdEnd) : null;
+                function testType(obj) {
+                    return selType === null || d3_fabric_compare_type(obj, selType);
+                }
+                function testClass(obj) {
+                    return selClass === null || (obj.fabricClassList !== undefined && obj.fabricClassList !== null && obj.fabricClassList.indexOf(selClass) >= 0);
+                }
+                function testId(obj) {
+                    return selId === null || selId === obj.fabricText;
+                }
+                function testObj(obj) {
+                    return testType(obj) && testClass(obj) && testId(obj);
+                }
+                return {
+                    testType: testType,
+                    testClass: testClass,
+                    testId: testId,
+                    testObj: testObj
+                };
+            }
+            function parseSelectors(selectorGroup) {
+                if (selectorGroup) {
+                    var cleanSelectors = d3.map();
+                    selectorGroup.forEach(function (ele) {
+                        ele = ele.trim();
+                        if (ele.length > 0 && !cleanSelectors.has(ele)) { cleanSelectors.set(ele, splitSelector(ele)); }
+                    });
+                    return cleanSelectors;
+                }
+                return null;
+            }
+            function singleSelector(selector) {
+                var group = d3.map();
+                group.set(selector, splitSelector(selector));
+                return group;
+            }
+            if (!selector || selector.length === 0) {
+                return {
+                    testType: fabric.util.falseFunction,
+                    testClass: fabric.util.falseFunction,
+                    testId: fabric.util.falseFunction,
+                    testObj: fabric.util.falseFunction
+                };
+            }
+            var selectorGroup = selector.indexOf(",") >= 0 ? parseSelectors(d3.set(selector.split(","))) : singleSelector(selector);
+            function test(type, obj) {
+                if (selectorGroup.size() === 1) { return selectorGroup.values()[0]["test" + type].call(selector, obj); }
+                var testPassed = true;
+                selectorGroup.forEach(function (selector) {
+                    testPassed = testPassed && selector["test" + type](obj);
+                });
+                return testPassed;
+            }
+            return {
+                testType: function (obj) { return test("Type", obj); },
+                testClass: function (obj) { return test("Class", obj); },
+                testId: function (obj) { return test("Id", obj); },
+                testObj: function (obj) { return test("Obj", obj); }
+            };
+        }
+        function d3_fabric_selection_selector(selector, firstReturn) {
+            return typeof selector === "function" ? selector : function () {
+                var result = [],
+                    collection = this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this instanceof fabric.Group ? this : null,
+                    selectorTest = d3_fabric_selection_parse_selector(selector);
+                if (collection !== null) {
+                    collection.forEachObject(function (obj) {
+                        if ((!firstReturn || result.length === 0) && selectorTest.testObj(obj)) {
+                            result.push(obj);
+                        }
+                    }, this);
+                }
+                return firstReturn ? result.length > 0 ? result[0] : null : result;
+            };
+        }
+
         d3_fabric_selection_proto.insert = function (name, before) {
             var sel = this,
                 isPath = typeof name === "string" && name.toLowerCase() === "path";
             name = d3_fabric_selection_append(name);
             before = d3_fabric_selection_selector(before, true);
-            return d3_fabric_selection_proto.select.call(this, function (d, i, j) {
+            /*jslint unparam: true*/
+            function insertNode(d, i, j) {
                 var parent = sel[j].parentNode,
                     canvas = parent !== undefined && parent !== null && parent._fabricCanvas !== undefined ? parent : this._fabricCanvas !== undefined ? this : null,
                     fabricCanvas = canvas !== null ? canvas._fabricCanvas : null,
                     isForPath = isPath && this instanceof fabric.PathGroup,
-                    collection = isForPath || this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null;
+                    collection = isForPath || this instanceof fabric.Group ? this : parent instanceof fabric.Group ? parent : fabricCanvas !== null ? fabricCanvas.canvas : null,
+                    item,
+                    priorItem,
+                    priorItemIndex,
+                    paths;
                 if (collection !== null) {
-                    var item = name.apply(this, arguments),
-                        priorItem = before.apply(this, arguments) || null,
-                        priorItemIndex = priorItem === null ? -1 : collection.getObjects().indexOf(priorItem);
+                    item = name.apply(this, arguments);
+                    priorItem = before.apply(this, arguments) || null;
+                    priorItemIndex = priorItem === null ? -1 : collection.getObjects().indexOf(priorItem);
                     if (isForPath) {
-                        var paths = collection.getObjects();
-                        priorItemIndex === -1 ? paths.push(item) : paths.splice(priorItemIndex, 0, item);
+                        paths = collection.getObjects();
+                        if (priorItemIndex === -1) {
+                            paths.push(item);
+                        } else {
+                            paths.splice(priorItemIndex, 0, item);
+                        }
                         item.group = collection;
                         collection.setCoords();
                     } else {
-                        priorItemIndex === -1 ? collection.add(item) : collection.insertAt(item, priorItemIndex, false);
-                        if (collection.calcOffset) collection.calcOffset(); // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
+                        if (priorItemIndex === -1) {
+                            collection.add(item);
+                        } else {
+                            collection.insertAt(item, priorItemIndex, false);
+                        }
+                        if (collection.calcOffset) { collection.calcOffset(); } // calcOffset used in multiple Fabric.JS examples, unsure if really necessary but here as a precaution
                     }
-                    if (item.setCoords) item.setCoords();
+                    if (item.setCoords) { item.setCoords(); }
                     return item;
                 }
                 return null;
-            });
+            }
+            /*jslint unparam: false*/
+            return d3_fabric_selection_proto.select.call(this, insertNode);
         };
         //-remove
         d3_fabric_selection_proto.remove = function () {
             return this.each(function () {
                 var collection = this.hasOwnProperty("group") && this.group instanceof fabric.Group ? this.group : this.hasOwnProperty("canvas") ? this.canvas : null,
-                    p;
+                    paths,
+                    index,
+                    node;
                 if (collection) {
                     if (collection instanceof fabric.PathGroup && this instanceof fabric.Path) {
-                        var paths = collection.getObjects(),
-                            index = paths.indexOf(this);
+                        paths = collection.getObjects();
+                        index = paths.indexOf(this);
                         if (index >= 0) {
                             paths.splice(index, 1);
                             collection.setCoords();
@@ -38951,15 +37599,15 @@ define('scalejs.d3-fabric',[],function () {
                     } else {
                         if (collection.contains(this)) {
                             collection.remove(this);
-                            if (collection.setCoords) collection.setCoords();
+                            if (collection.setCoords) { collection.setCoords(); }
                         }
                     }
-                } else if (!d3_fabric_is_fabric_object(this) && (p = this.parentNode)) {
+                } else if (!d3_fabric_is_fabric_object(this) && this.parentNode) {
                     if (this._fabricCanvas && this._fabricCanvas.canvas && this._fabricCanvas.canvas.getSelectionElement) {
-                        var node = this._fabricCanvas.canvas.getSelectionElement().parentNode;
-                        if (node.parentNode) node.parentNode.removeChild(node);
+                        node = this._fabricCanvas.canvas.getSelectionElement().parentNode;
+                        if (node.parentNode) { node.parentNode.removeChild(node); }
                     } else {
-                        p.removeChild(this);
+                        this.parentNode.removeChild(this);
                     }
                 }
             });
@@ -38976,46 +37624,57 @@ define('scalejs.d3-fabric',[],function () {
         //-datum
         d3_fabric_selection_proto.datum = d3.selection.prototype.datum;
         //-filter
-        d3_fabric_selection_proto.filter = function (filter) {
-            if (typeof filter !== "function") filter = d3_fabric_selection_filter(filter);
-            return d3_fabric_selection(d3.selection.prototype.filter.call(this, filter));
-        }
         function d3_fabric_selection_filter(selector) {
             var selectorTest = d3_fabric_selection_parse_selector(selector);
             return function () {
                 return selectorTest.testObj(this);
             };
         }
+
+        d3_fabric_selection_proto.filter = function (filter) {
+            if (typeof filter !== "function") { filter = d3_fabric_selection_filter(filter); }
+            return d3_fabric_selection(d3.selection.prototype.filter.call(this, filter));
+        };
         //-sort
         d3_fabric_selection_proto.sort = d3.selection.prototype.sort;
         //-order
         d3_fabric_selection_proto.order = function () {
             //XXX should disable renderOnAddRemove until reording is complete?
-            for (var j = -1, m = this.length; ++j < m;) {
-                for (var group = this[j], i = group.length - 1, next = group[i], node; --i >= 0;) {
-                    if (node = group[i]) {
+            var j,
+                m = this.length,
+                group,
+                i,
+                next,
+                node,
+                collection,
+                nodeIndex,
+                nextIndex,
+                paths;
+            for (j = 0; j < m; j++) {
+                for (group = this[j], i = group.length - 2, next = group[i + 1]; i > 0; i--) {
+                    node = group[i];
+                    if (node) {
                         if (next) {
-                            var collection = next.hasOwnProperty("group") && next.group instanceof fabric.Group ? next.group : next.hasOwnProperty("canvas") ? next.canvas : null,
-                                p;
+                            collection = next.hasOwnProperty("group") && next.group instanceof fabric.Group ? next.group : next.hasOwnProperty("canvas") ? next.canvas : null;
                             if (collection) {
                                 // fabric objects
-                                var nodeIndex = collection.getObjects().indexOf(node),
-                                    nextIndex = collection.getObjects().indexOf(next);
+                                nodeIndex = collection.getObjects().indexOf(node);
+                                nextIndex = collection.getObjects().indexOf(next);
                                 if (nodeIndex !== -1 && nextIndex !== -1 && nextIndex !== (nodeIndex + 1) && nodeIndex >= 1) {
                                     if (collection instanceof fabric.PathGroup && node instanceof fabric.Path && next instanceof fabric.Path) {
-                                        var paths = collection.getObjects();
+                                        paths = collection.getObjects();
                                         paths.splice(nodeIndex, 1);
                                         paths.splice(nextIndex - 1, 0, node);
                                         collection.setCoords();
                                     } else {
                                         collection.remove(node);
                                         collection.insertAt(node, nextIndex - 1, false);
-                                        if (collection.setCoords) collection.setCoords();
+                                        if (collection.setCoords) { collection.setCoords(); }
                                     }
                                 }
-                            } else if (!d3_fabric_is_fabric_object(this) && !d3_fabric_is_fabric_object(next) && (p == next.parentNode)) {
+                            } else if (!d3_fabric_is_fabric_object(this) && !d3_fabric_is_fabric_object(next) && next.parentNode) {
                                 // DOM nodes
-                                p.insertBefore(node, next);
+                                next.parentNode.insertBefore(node, next);
                             }
                         }
                         next = node;
@@ -39025,22 +37684,44 @@ define('scalejs.d3-fabric',[],function () {
             return this;
         };
         //-on
-        d3_fabric_selection_proto.on = function (type, listener, capture) {
-            var n = arguments.length;
-            if (n < 3) {
-                if (typeof type !== "string") {
-                    if (n < 2) listener = false;
-                    Object.keys(name).forEach(function (capture) {
-                        this.each(d3_fabric_selection_on(capture, type[capture], listener));
-                    }, this);
-                    return this;
-                }
-                if (n < 2) return this;
-                capture = false;
+        function d3_fabric_selection_on_wrap_event(opt) {
+            /*jslint todo: true */
+            if (!opt.e) {
+                opt.e = {
+                    isFakeD3Event: true //always "true" so that it can be determined that everything here is not a browser event, but instead built from the known options provided
+                };
+                /* TODO: create fake event
+                 * variables
+                 * - bubbles:bool
+                 * - cancelable:bool
+                 * - currentTarget:<obj>
+                 * - defaultPrevented:bool
+                 * - eventPhase:int
+                 * - target:<obj>
+                 * - timeStamp:Date
+                 * - type:<obj>
+                 * functions
+                 * - preventDefault():void
+                 * - stopImmediatePropagation():void
+                 * - stopPropagation():void
+                 */
             }
-            return this.each(d3_fabric_selection_on(type, listener, capture));
-        };
-        function d3_fabric_selection_on(type, listener, capture) {
+            /*jslint todo: false */
+            return opt.e;
+        }
+        function d3_fabric_selection_on_wrap(listener, argumentz) {
+            return function (opt) {
+                var o = d3.event;
+                d3.event = d3_fabric_selection_on_wrap_event(opt);
+                argumentz[0] = this.__data__;
+                try {
+                    listener.apply(this, argumentz);
+                } finally {
+                    d3.event = o;
+                }
+            };
+        }
+        function d3_fabric_selection_on(type, listener) {
             var wrap = d3_fabric_selection_on_wrap;
             function onAdd() {
                 var li = wrap(listener, arguments);
@@ -39061,39 +37742,22 @@ define('scalejs.d3-fabric',[],function () {
             }
             return listener ? onAdd : onRemove;
         }
-        function d3_fabric_selection_on_wrap_event(opt) {
-            if (!opt.e) {
-                /* TODO: create fake event
-                 * variables
-                 * - isFakeD3Event:bool //always "true" so that it can be determined that everything here is not a browser event, but instead built from the known options provided
-                 * - bubbles:bool
-                 * - cancelable:bool
-                 * - currentTarget:<obj>
-                 * - defaultPrevented:bool
-                 * - eventPhase:int
-                 * - target:<obj>
-                 * - timeStamp:Date
-                 * - type:<obj>
-                 * functions
-                 * - preventDefault():void
-                 * - stopImmediatePropagation():void
-                 * - stopPropagation():void
-                 */
-            }
-            return opt.e;
-        }
-        function d3_fabric_selection_on_wrap(listener, argumentz) {
-            return function (opt) {
-                var o = d3.event;
-                d3.event = d3_fabric_selection_on_wrap_event(opt);
-                argumentz[0] = this.__data__;
-                try {
-                    listener.apply(this, argumentz);
-                } finally {
-                    d3.event = o;
+
+        d3_fabric_selection_proto.on = function (type, listener, capture) {
+            var n = arguments.length;
+            if (n < 3) {
+                if (typeof type !== "string") {
+                    if (n < 2) { listener = false; }
+                    Object.keys(type).forEach(function (capture) {
+                        this.each(d3_fabric_selection_on(capture, type[capture], listener));
+                    }, this);
+                    return this;
                 }
-            };
-        }
+                if (n < 2) { return this; }
+                capture = false;
+            }
+            return this.each(d3_fabric_selection_on(type, listener, capture));
+        };
         //-transition
         d3_fabric_selection_proto.transition = function () {
             var id = d3_fabric_transitionInheritId || ++d3_fabric_transitionId,
@@ -39106,17 +37770,24 @@ define('scalejs.d3-fabric',[],function () {
                     delay: 0,
                     duration: 250,
                     fabricCanvas: null
-                };
-            for (var j = -1, m = this.length; ++j < m;) {
-                subgroups.push(subgroup = []);
-                for (var group = this[j], i = -1, n = group.length; ++i < n;) {
-                    if (node = group[i]) {
+                },
+                j,
+                m = this.length,
+                group,
+                i,
+                n,
+                tip;
+            for (j = 0; j < m; j++) {
+                subgroup = [];
+                subgroups.push(subgroup);
+                for (group = this[j], i = 0, n = group.length; i < n; i++) {
+                    node = group[i];
+                    if (node) {
                         if (!transition.fabricCanvas) {
                             // In order to render while animating, a reference to the canvas must be kept //XXX should probably be per-canvas (AKA, per group) but am not sure how to arrange that right now
-                            var tip = node;
-                            while (!tip.canvas && tip.group) tip = tip.group;
+                            tip = node;
+                            while (!tip.canvas && tip.group) { tip = tip.group; }
                             transition.fabricCanvas = tip.canvas ? tip.canvas._fabricCanvasDomRef._fabricCanvas : null;
-                            fabricCanvas = transition.fabricCanvas;
                         }
                         d3_fabric_transitionNode(node, i, id, transition);
                     }
@@ -39179,7 +37850,7 @@ define('scalejs.d3-fabric',[],function () {
         //-pumpRender
         d3_fabric_selection_proto.pumpRender = function () {
             return this.each(function () {
-                if (this._fabricCanvas !== undefined && ((d3_fabric_use_GSAP && !this._fabricCanvas.continiousRender) || !this._fabricCanvas.renderRunning)) this._fabricCanvas.render.call(this);
+                if (this._fabricCanvas !== undefined && ((d3_fabric_use_GSAP && !this._fabricCanvas.continiousRender) || !this._fabricCanvas.renderRunning)) { this._fabricCanvas.render.call(this); }
             });
         };
         //-size
@@ -39189,99 +37860,6 @@ define('scalejs.d3-fabric',[],function () {
             selector = d3_fabric_selection_selector(selector, true);
             return d3_fabric_selection(d3.selection.prototype.select.call(this, selector));
         };
-        function d3_fabric_selection_selector(selector, firstReturn) {
-            return typeof selector === "function" ? selector : function () {
-                var result = new Array(),
-                    collection = this._fabricCanvas !== undefined ? this._fabricCanvas.canvas : this instanceof fabric.Group ? this : null,
-                    selectorTest = d3_fabric_selection_parse_selector(selector);
-                if (collection !== null) collection.forEachObject(function (obj) {
-                    if ((!firstReturn || result.length == 0) && selectorTest.testObj(obj)) {
-                        result.push(obj);
-                    }
-                }, this);
-                return firstReturn ? result.length > 0 ? result[0] : null : result;
-            };
-        }
-        function d3_fabric_selection_parse_selector(selector) {
-            function splitSelector(selector) {
-                var classIndex = selector.indexOf("."),
-                    idIndex = selector.indexOf("#"),
-                    selTypeEnd = classIndex === -1 || idIndex === -1 ? classIndex === -1 ? idIndex : classIndex : Math.min(classIndex, idIndex),
-                    selClassEnd = classIndex >= 0 ? idIndex === -1 ? classIndex : Math.max(classIndex, idIndex) : 0,
-                    selIdEnd = idIndex >= 0 ? classIndex === -1 ? idIndex : Math.max(idIndex, classIndex) : 0,
-                    selType = selTypeEnd > 0 ? selector.slice(0, selTypeEnd) : (selTypeEnd === -1 && selector.length > 0) ? selector : null,
-                    selClass = classIndex >= 0 ? classIndex == selClassEnd ? selector.slice(classIndex + 1) : selector.slice(classIndex + 1, selClassEnd) : null,
-                    selId = idIndex >= 0 ? idIndex == selIdEnd ? selector.slice(idIndex + 1) : selector.slice(idIndex + 1, selIdEnd) : null;
-                function testType(obj) {
-                    return selType === null || d3_fabric_compare_type(obj, selType);
-                }
-                function testClass(obj) {
-                    return selClass === null || (obj.fabricClassList !== undefined && obj.fabricClassList !== null && obj.fabricClassList.indexOf(selClass) >= 0);
-                }
-                function testId(obj) {
-                    return selId === null || selId === obj.fabricText;
-                }
-                function testObj(obj) {
-                    return testType(obj) && testClass(obj) && testId(obj);
-                }
-                return {
-                    testType: testType,
-                    testClass: testClass,
-                    testId: testId,
-                    testObj: testObj
-                };
-            }
-            function parseSelectors(selectorGroup) {
-                if (selectorGroup) {
-                    var cleanSelectors = d3.map();
-                    selectorGroup.forEach(function (ele) {
-                        ele = ele.trim();
-                        if (ele.length > 0 && !cleanSelectors.has(ele)) cleanSelectors.set(ele, splitSelector(ele));
-                    });
-                    return cleanSelectors;
-                }
-                return null;
-            }
-            function singleSelector(selector) {
-                var group = d3.map();
-                group.set(selector, splitSelector(selector));
-                return group;
-            }
-            if (!selector || selector.length === 0) {
-                function returnFalse() { return false; }
-                return {
-                    testType: returnFalse,
-                    testClass: returnFalse,
-                    testId: returnFalse,
-                    testObj: returnFalse
-                };
-            }
-            var selectorGroup = selector.indexOf(",") >= 0 ? parseSelectors(d3.set(selector.split(","))) : singleSelector(selector);
-            function test(type, obj) {
-                if (selectorGroup.size() === 1) return selectorGroup.values()[0]["test" + type].call(selector, obj);
-                var testPassed = true;
-                selectorGroup.forEach(function (selector) {
-                    testPassed &= testPassed && selector["test" + type].call(selector, obj);
-                });
-                return testPassed;
-            }
-            return {
-                testType: function (obj) { return test("Type", obj); },
-                testClass: function (obj) { return test("Class", obj); },
-                testId: function (obj) { return test("Id", obj); },
-                testObj: function (obj) { return test("Obj", obj); }
-            };
-        }
-        function d3_fabric_compare_type(obj, type) {
-            if (!obj) return false;
-            var ln = type.toLowerCase();
-            for (var i = 0, s = fabric_object_private_set.length; i < s; i++) {
-                if (fabric_object_private_set[i].typeName.toLowerCase() === ln) {
-                    return obj instanceof fabric_object_private_set[i].type;
-                }
-            }
-            return false;
-        }
         //-selectAll
         d3_fabric_selection_proto.selectAll = function (selector) {
             selector = d3_fabric_selection_selector(selector, false);
@@ -39299,20 +37877,26 @@ define('scalejs.d3-fabric',[],function () {
         d3_fabric_selectionEnter_proto.select = function (selector) {
             return d3_fabric_selection(d3.selection.enter.prototype.select.call(this, selector));
         };
-        d3_fabric_selectionEnter_proto.insert = function (name, before) {
-            if (arguments.length < 2) before = d3_fabric_selection_enterInsertBefore(this);
-            return d3_fabric_selection_proto.insert.call(this, name, before);
-        };
         function d3_fabric_selection_enterInsertBefore(enter) {
             var i0, j0;
-            return function (d, i, j) {
+            /*jslint unparam: true*/
+            function insert(d, i, j) {
                 var group = enter[j].update, n = group.length, node;
-                if (j != j0) j0 = j, i0 = 0;
-                if (i >= i0) i0 = i + 1;
-                while (!(node = group[i0]) && ++i0 < n);
+                if (j !== j0) { j0 = j; i0 = 0; }
+                if (i >= i0) { i0 = i + 1; }
+                node = group[i0];
+                while (!node && ++i0 < n) {
+                    node = group[i0];
+                }
                 return node;
-            };
+            }
+            /*jslint unparam: false*/
+            return insert;
         }
+        d3_fabric_selectionEnter_proto.insert = function (name, before) {
+            if (arguments.length < 2) { before = d3_fabric_selection_enterInsertBefore(this); }
+            return d3_fabric_selection_proto.insert.call(this, name, before);
+        };
 
         //fabric transition
         d3.fabric.transition = d3_fabric_transition_proto;
@@ -39328,13 +37912,16 @@ define('scalejs.d3-fabric',[],function () {
                 fabricCanvas.transitionItems.push(item);
             }
         }
-        function d3_fabric_transitionNode(node, i, id, inherit) {
-            var lock = node.__transition__ || (node.__transition__ = {
+        d3_fabric_transitionNode = function (node, i, id, inherit) {
+            var lock = node.__transition__ || {
                 active: 0,
                 count: 0
-            }), transition = lock[id];
+            },
+                transition = lock[id],
+                time;
+            if (!node.__transition__) { node.__transition__ = lock; }
             if (!transition) {
-                var time = inherit.time;
+                time = inherit.time;
                 transition = lock[id] = {
                     time: time,
                     ease: inherit.ease,
@@ -39354,26 +37941,13 @@ define('scalejs.d3-fabric',[],function () {
                             duration = transition.duration,
                             tweened = [];
 
-                        if (delay <= elapsed) return start(elapsed - delay);
-                        return true;
-
-                        function start(elapsed) {
-                            if (lock.active > id) return stop();
-                            lock.active = id;
-                            transition.event && transition.event.start.call(node, d, i);
-
-                            transition.tween.forEach(function (key, value) {
-                                if (value = value.call(node, d, i)) {
-                                    tweened.push(value);
-                                }
-                            });
-                            if (tweened.length == 0) return stop();
-                            d3_fabric_timer_call(transition.fabricCanvas, tick);
+                        function stop() {
+                            d3_fabric_transition_cleanup.call(node, lock, id);
                             return false;
                         }
 
                         function tick(elapsed) {
-                            if (lock.active !== id) return stop();
+                            if (lock.active !== id) { return stop(); }
 
                             var t = elapsed / duration,
                                 e = ease(t),
@@ -39383,57 +37957,118 @@ define('scalejs.d3-fabric',[],function () {
                                 tweened[--n].call(node, e);
                             }
                             if (t >= 1) {
-                                transition.event && transition.event.end.call(node, d, i);
+                                if (transition.event) { transition.event.end.call(node, d, i); }
                                 return stop();
                             }
                             return true;
                         }
 
-                        function stop() {
-                            d3_fabric_transition_cleanup.call(node, lock, id);
+                        function start() {
+                            if (lock.active > id) { return stop(); }
+                            lock.active = id;
+                            if (transition.event) { transition.event.start.call(node, d, i); }
+
+                            /*jslint unparam: true*/
+                            transition.tween.forEach(function (key, value) {
+                                value = value.call(node, d, i);
+                                if (value) {
+                                    tweened.push(value);
+                                }
+                            });
+                            /*jslint unparam: false*/
+                            if (tweened.length === 0) { return stop(); }
+                            d3_fabric_timer_call(transition.fabricCanvas, tick);
                             return false;
                         }
+
+                        if (delay <= elapsed) { return start(elapsed - delay); }
+                        return true;
                     });
                 }
             }
-        }
-        function d3_fabric_transition_process(transitionItems, delta) {
-            var i = transitionItems.length;
+        };
+        d3_fabric_transition_process = function (transitionItems, delta) {
+            var i = transitionItems.length,
+                transItem;
             while (--i >= 0) {
-                var transItem = transitionItems.shift();
+                transItem = transitionItems.shift();
                 transItem.currentTime += delta;
-                if (transItem.callback.call(this.canvas, transItem.currentTime - transItem.startTime)) transitionItems.push(transItem);
+                if (transItem.callback.call(this.canvas, transItem.currentTime - transItem.startTime)) { transitionItems.push(transItem); }
             }
-        }
+        };
 
         //-delay
         d3_fabric_transition_proto.delay = function (value) {
-            var id = this.fabricAniId;
-            return d3_fabric_selection_proto.each.call(this, typeof value === "function" ? function (d, i, j) {
-                this.__transition__[id].delay = +value.call(this, d, i, j);
-            } : (value = +value, function () {
-                this.__transition__[id].delay = value;
-            }));
+            var id = this.fabricAniId,
+                op;
+            if (typeof value === "function") {
+                op = function (d, i, j) {
+                    this.__transition__[id].delay = +value.call(this, d, i, j);
+                };
+            } else {
+                value = +value;
+                op = function () {
+                    this.__transition__[id].delay = value;
+                };
+            }
+            return d3_fabric_selection_proto.each.call(this, op);
         };
         //-duration
         d3_fabric_transition_proto.duration = function (value) {
-            var id = this.fabricAniId;
-            return d3_fabric_selection_proto.each.call(this, typeof value === "function" ? function (d, i, j) {
-                this.__transition__[id].duration = Math.max(1, value.call(this, d, i, j));
-            } : (value = Math.max(1, value), function () {
-                this.__transition__[id].duration = value;
-            }));
+            var id = this.fabricAniId,
+                op;
+            if (typeof value === "function") {
+                op = function (d, i, j) {
+                    this.__transition__[id].duration = Math.max(1, value.call(this, d, i, j));
+                };
+            } else {
+                value = Math.max(1, value);
+                op = function () {
+                    this.__transition__[id].duration = value;
+                };
+            }
+            return d3_fabric_selection_proto.each.call(this, op);
         };
         //-ease
         d3_fabric_transition_proto.ease = function (value) {
             var id = this.fabricAniId;
-            if (arguments.length < 1) return this.node().__transition__[id].ease;
-            if (typeof value !== "function") value = d3_fabric_use_GSAP ? EaseLookup.find(value) : d3.ease.apply(d3, arguments);
+            if (arguments.length < 1) { return this.node().__transition__[id].ease; }
+            if (typeof value !== "function") { value = d3_fabric_use_GSAP ? EaseLookup.find(value) : d3.ease.apply(d3, arguments); }
             return d3_fabric_selection_proto.each.call(this, function () {
                 this.__transition__[id].ease = value;
             });
         };
         //-attr
+        function d3_fabric_array_comparison(a, b) {
+            // From http://stackoverflow.com/questions/7837456/comparing-two-arrays-in-javascript
+
+            // compare lengths - can save a lot of time
+            if (a.length !== b.length) { return false; }
+
+            var i,
+                l;
+            for (i = 0, l = a.length; i < l; i++) {
+                // Check if we have nested arrays
+                if (a[i] instanceof Array && b[i] instanceof Array) {
+                    // recurse into the nested arrays
+                    if (!d3_fabric_array_comparison(a[i], b[i])) { return false; }
+                } else if (a[i] !== b[i]) {
+                    // Warning - two different object instances will never be equal: {x:20} != {x:20}
+                    return false;
+                }
+            }
+            return true;
+        }
+        function d3_fabric_type_comparison(a, b) {
+            if (a !== b) {
+                if (Array.isArray(a) && Array.isArray(b)) {
+                    return d3_fabric_array_comparison(a, b);
+                }
+                return false;
+            }
+            return true;
+        }
+
         d3_fabric_transition_proto.attr = function (nameNS, value) {
             if (arguments.length < 2) {
                 Object.keys(nameNS).forEach(function (value) {
@@ -39443,13 +38078,15 @@ define('scalejs.d3-fabric',[],function () {
             }
             var interpolate = d3.interpolate,
                 name = d3.ns.qualify(nameNS),
-                nameLocal = name.local ? name.local : name,
-                nameSpace = name.local ? name.space : null;
+                nameLocal = name.local || name,
+                nameSpace = name.space || null;
 
             function attrTween(b) {
-                return b === null ? function () { } : function () {
+                return b === null ? null : function () {
                     var a = d3_fabric_selection_attr_get.call(this, nameLocal, nameSpace), i;
-                    return a !== b && (i = interpolate(a, b), function (t) { d3_fabric_selection_attr_set(this, nameLocal, nameSpace, i(t)); });
+                    if (d3_fabric_type_comparison(a, b)) { return false; }
+                    i = interpolate(a, b);
+                    return function (t) { d3_fabric_selection_attr_set(this, nameLocal, nameSpace, i(t)); };
                 };
             }
             return d3_fabric_transition_tween(this, "attr." + nameNS, value, attrTween);
@@ -39457,8 +38094,8 @@ define('scalejs.d3-fabric',[],function () {
         //-attrTween
         d3_fabric_transition_proto.attrTween = function (nameNS, tween) {
             var name = d3.ns.qualify(nameNS),
-                nameLocal = name.local ? name.local : name,
-                nameSpace = name.local ? name.space : null;
+                nameLocal = name.local || name,
+                nameSpace = name.space || null;
 
             function attrTween(d, i) {
                 var f = tween.call(this, d, i, d3_fabric_selection_attr_get.call(this, nameLocal, nameSpace));
@@ -39468,10 +38105,11 @@ define('scalejs.d3-fabric',[],function () {
         };
         //-style
         d3_fabric_transition_proto.style = function (name, value, priority) {
-            var n = arguments.length;
+            var n = arguments.length,
+                procInfo;
             if (n < 3) {
                 if (typeof name !== "string") {
-                    if (n < 2) value = "";
+                    if (n < 2) { value = ""; }
                     Object.keys(name).forEach(function (priority) {
                         this.style(priority, name[priority], value);
                     }, this);
@@ -39479,7 +38117,7 @@ define('scalejs.d3-fabric',[],function () {
                 }
                 priority = "";
             }
-            var procInfo = d3_fabric_selection_style_special(name);
+            procInfo = d3_fabric_selection_style_special(name);
             function styleNull() {
                 if (!((procInfo.fabricCanvasSpecialCase && this._fabricCanvas !== undefined) || d3_fabric_is_fabric_object(this))) {
                     d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n) {
@@ -39488,52 +38126,65 @@ define('scalejs.d3-fabric',[],function () {
                 }
             }
             function styleString(b) {
-                return b === null ? styleNull : (b += "", function () {
+                if (b === null) {
+                    return styleNull;
+                }
+                b += "";
+                return function () {
+                    var a,
+                        i,
+                        sourceFunctions,
+                        f;
                     if ((procInfo.fabricCanvasSpecialCase && this._fabricCanvas !== undefined) || d3_fabric_is_fabric_object(this)) {
-                        var a = d3_fabric_selection_attr_get.call(this, name, null);
-                        return a !== b && (i = d3.interpolate(a, b), function (t) { d3_fabric_selection_attr_set(this, name, null, i(t)); });
-                    } else {
-                        var sourceFunctions = [];
-                        d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n) {
-                            var a = window.getComputedStyle(n, null).getPropertyValue(name);
-                            sourceFunctions.push(a !== b && d3.interpolate(a, b));
-                        });
-
-                        return sourceFunctions.length > 0 && function (t) {
-                            d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n, i) {
-                                if (f = sourceFunctions[i]) n.style.setProperty(name, f(t), priority);
-                            });
-                        };
+                        a = d3_fabric_selection_attr_get.call(this, name, null);
+                        if (d3_fabric_type_comparison(a, b)) { return false; }
+                        i = d3.interpolate(a, b);
+                        return function (t) { d3_fabric_selection_attr_set(this, name, null, i(t)); };
                     }
-                });
+                    sourceFunctions = [];
+                    d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n) {
+                        a = window.getComputedStyle(n, null).getPropertyValue(name);
+                        sourceFunctions.push(!d3_fabric_type_comparison(a, b) && d3.interpolate(a, b));
+                    });
+
+                    return sourceFunctions.length > 0 && function (t) {
+                        d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n, i) {
+                            f = sourceFunctions[i];
+                            if (f) { n.style.setProperty(name, f(t), priority); }
+                        });
+                    };
+                };
             }
             return d3_fabric_transition_tween(this, "style." + name, value, styleString);
         };
         //-styleTween
         d3_fabric_transition_proto.styleTween = function (name, tween, priority) {
-            if (arguments.length < 3) priority = "";
+            if (arguments.length < 3) { priority = ""; }
 
             var procInfo = d3_fabric_selection_style_special(name);
             function styleTween(d, i) {
-                var isFabric = d3_fabric_is_fabric_object(this);
+                var isFabric = d3_fabric_is_fabric_object(this),
+                    sourceFunctions,
+                    fabricNode,
+                    f;
 
                 if ((procInfo.fabricCanvasSpecialCase && this._fabricCanvas !== undefined) || isFabric) {
-                    var fabricNode = isFabric ? this : this._fabricCanvas.canvas,
-                        f = tween.call(fabricNode, d, i, d3_fabric_selection_attr_get.call(fabricNode, name, null));
+                    fabricNode = isFabric ? this : this._fabricCanvas.canvas;
+                    f = tween.call(fabricNode, d, i, d3_fabric_selection_attr_get.call(fabricNode, name, null));
                     return f && function (t) { d3_fabric_selection_attr_set(this, name, null, f(t)); };
-                } else {
-                    // If this is a special case, then we want the parent of the of the selection element. Otherwise we just use the node
-                    var sourceFunctions = [];
-                    d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n) {
-                        sourceFunctions.push(tween.call(n, d, i, window.getComputedStyle(n, null).getPropertyValue(name)));
-                    });
-
-                    return sourceFunctions.length > 0 && function (t) {
-                        d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n, i) {
-                            if (f = sourceFunctions[i]) n.style.setProperty(name, f(t), priority);
-                        });
-                    };
                 }
+                // If this is a special case, then we want the parent of the of the selection element. Otherwise we just use the node
+                sourceFunctions = [];
+                d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n) {
+                    sourceFunctions.push(tween.call(n, d, i, window.getComputedStyle(n, null).getPropertyValue(name)));
+                });
+
+                return sourceFunctions.length > 0 && function (t) {
+                    d3_fabric_selection_style_nodes(this, procInfo.specialCase).forEach(function (n, i) {
+                        f = sourceFunctions[i];
+                        if (f) { n.style.setProperty(name, f(t), priority); }
+                    });
+                };
             }
 
             return this.tween("style." + name, styleTween);
@@ -39541,7 +38192,7 @@ define('scalejs.d3-fabric',[],function () {
         //-text
         d3_fabric_transition_proto.text = function (value) {
             function textTween(b) {
-                if (b == null) b = "";
+                if (b === null) { b = ""; }
                 return function () {
                     if (this instanceof fabric.Text) {
                         this.setText(b);
@@ -39555,67 +38206,84 @@ define('scalejs.d3-fabric',[],function () {
         };
         //-tween
         d3_fabric_transition_proto.tween = function (name, tween) {
-            var id = this.fabricAniId;
-            if (arguments.length < 2) return this.node().__transition__[id].tween.get(name);
-            return d3_fabric_selection_proto.each.call(this, tween == null ? function () {
-                if (!d3_fabric_use_GSAP) this.__transition__[id].tween.remove(name);
-            } : function (d, i) {
-                d3_fabric_transition_tween_direct(this, name, tween, id, i);
-            });
-        };
-        function d3_fabric_transition_tween(groups, name, value, tween) {
-            var id = groups.fabricAniId;
-            return d3_fabric_selection_proto.each.call(groups, typeof value === "function"
-                ? function (d, i, j) {
-                    d3_fabric_transition_tween_direct(this, name, tween(value.call(this, d, i, j)), id, i);
-                }
-                : (value = tween(value), function (d, i) {
-                    d3_fabric_transition_tween_direct(this, name, value, id, i);
-                }));
-        }
-        function d3_fabric_transition_tween_direct(node, name, value, id, i) {
-            if (d3_fabric_use_GSAP) {
-                function startAni(event, d, i) {
-                    event && event.start.call(this, d, i);
-                }
-                function endAni(lock, id, d, i) {
-                    var trans = lock[id];
-                    trans && trans.event && trans.event.end.call(this, d, i);
-
-                    d3_fabric_transition_cleanup.call(this, lock, id);
-                }
-
-                var lock = node.__transition__,
-                    trans = lock[id],
-                    d = node.__data__,
-                    fbCanvas = trans.fabricCanvas ? trans.fabricCanvas.render : null;
-                var args = {
-                    ease: trans.ease,
-                    delay: trans.delay / 1000.0,
-                    onCompleteScope: node,
-                    d3fabric: {
-                        canvasRender: fbCanvas,
-                        tween: value,
-                        tweenIndex: i,
-                        transitionId: id
-                    }
+            var id = this.fabricAniId,
+                op;
+            if (arguments.length < 2) { return this.node().__transition__[id].tween.get(name); }
+            if (tween === null) {
+                op = function () {
+                    if (!d3_fabric_use_GSAP) { this.__transition__[id].tween.remove(name); }
                 };
-                if (trans.event) {
-                    //All of these causes a heafty performance hit, so only add them if needed
-                    args.onStart = startAni;
-                    args.onStartParams = [trans.event, d, i];
-                    args.onStartScope = node;
-                    args.onComplete = endAni;
-                    args.onCompleteParams = [lock, id, d, i];
-                } else {
-                    args.onComplete = d3_fabric_transition_cleanup;
-                    args.onCompleteParams = [lock, id];
-                }
-                TweenLite.to(node, trans.duration / 1000.0, args);
             } else {
-                node.__transition__[id].tween.set(name, value);
+                /*jslint unparam: true*/
+                op = function (d, i) {
+                    d3_fabric_transition_tween_direct(this, name, tween, id, i);
+                };
+                /*jslint unparam: false*/
             }
-        }
+            return d3_fabric_selection_proto.each.call(this, op);
+        };
+        d3_fabric_transition_tween = function (groups, name, value, tween) {
+            var id = groups.fabricAniId,
+                op;
+            if (typeof value === "function") {
+                op = function (d, i, j) {
+                    d3_fabric_transition_tween_direct(this, name, tween(value.call(this, d, i, j)), id, i);
+                };
+            } else {
+                value = tween(value);
+                /*jslint unparam: true*/
+                op = function (d, i) {
+                    d3_fabric_transition_tween_direct(this, name, value, id, i);
+                };
+                /*jslint unparam: false*/
+            }
+            return d3_fabric_selection_proto.each.call(groups, op);
+        };
+        d3_fabric_transition_tween_direct = function (node, name, value, id, i) {
+            function startAni(event, d, i) {
+                if (event) { event.start.call(this, d, i); }
+            }
+            function endAni(lock, id, d, i) {
+                var trans = lock[id];
+                if (trans && trans.event) { trans.event.end.call(this, d, i); }
+
+                d3_fabric_transition_cleanup.call(this, lock, id);
+            }
+
+            if (value) {
+                if (d3_fabric_use_GSAP) {
+                    var lock = node.__transition__,
+                        trans = lock[id],
+                        d = node.__data__,
+                        fbCanvas = trans.fabricCanvas ? trans.fabricCanvas.render : null,
+                        args = {
+                            ease: trans.ease,
+                            delay: trans.delay / 1000.0,
+                            onCompleteScope: node,
+                            d3fabric: {
+                                canvasRender: fbCanvas,
+                                tween: value,
+                                tweenIndex: i,
+                                transitionId: id
+                            }
+                        };
+                    if (trans.event) {
+                        //All of these causes a heafty performance hit, so only add them if needed
+                        args.onStart = startAni;
+                        args.onStartParams = [trans.event, d, i];
+                        args.onStartScope = node;
+                        args.onComplete = endAni;
+                        args.onCompleteParams = [lock, id, d, i];
+                    } else {
+                        args.onComplete = d3_fabric_transition_cleanup;
+                        args.onCompleteParams = [lock, id];
+                    }
+                    TweenLite.to(node, trans.duration / 1000.0, args);
+                } else {
+                    node.__transition__[id].tween.set(name, value);
+                }
+            }
+        };
         //-select
         d3_fabric_transition_proto.select = function (selector) {
             selector = d3_fabric_selection_selector(selector, true);
@@ -39630,16 +38298,19 @@ define('scalejs.d3-fabric',[],function () {
         };
         //-selectAll
         d3_fabric_transition_proto.selectAll = function (selector) {
-            var id = this.fabricAniId, subgroups = [], subgroup, subnodes, node, subnode, transition;
+            var id = this.fabricAniId, subgroups = [], subgroup, subnodes, node, subnode, transition, j, m, group, i, n, k, o;
             selector = d3_fabric_selection_selector(selector, false);
-            for (var j = -1, m = this.length; ++j < m;) {
-                for (var group = this[j], i = -1, n = group.length; ++i < n;) {
-                    if (node = group[i]) {
+            for (j = 0, m = this.length; j < m; j++) {
+                for (group = this[j], i = 0, n = group.length; i < n; i++) {
+                    node = group[i];
+                    if (node) {
                         transition = node.__transition__[id];
                         subnodes = selector.call(node, node.__data__, i, j);
-                        subgroups.push(subgroup = []);
-                        for (var k = -1, o = subnodes.length; ++k < o;) {
-                            if (subnode = subnodes[k]) d3_fabric_transitionNode(subnode, k, id, transition);
+                        subgroup = [];
+                        subgroups.push(subgroup);
+                        for (k = 0, o = subnodes.length; k < o; k++) {
+                            subnode = subnodes[k];
+                            if (subnode) { d3_fabric_transitionNode(subnode, k, id, transition); }
                             subgroup.push(subnode);
                         }
                     }
@@ -39649,12 +38320,14 @@ define('scalejs.d3-fabric',[],function () {
         };
         //-filter
         d3_fabric_transition_proto.filter = function (filter) {
-            var subgroups = [], subgroup, group, node;
-            if (typeof filter !== "function") filter = d3_fabric_selection_filter(filter);
-            for (var j = 0, m = this.length; j < m; j++) {
-                subgroups.push(subgroup = []);
-                for (var group = this[j], i = 0, n = group.length; i < n; i++) {
-                    if ((node = group[i]) && filter.call(node, node.__data__, i, j)) {
+            var subgroups = [], subgroup, group, node, j, m, i, n;
+            if (typeof filter !== "function") { filter = d3_fabric_selection_filter(filter); }
+            for (j = 0, m = this.length; j < m; j++) {
+                subgroup = [];
+                subgroups.push(subgroup);
+                for (group = this[j], i = 0, n = group.length; i < n; i++) {
+                    node = group[i];
+                    if (node && filter.call(node, node.__data__, i, j)) {
                         subgroup.push(node);
                     }
                 }
@@ -39663,11 +38336,13 @@ define('scalejs.d3-fabric',[],function () {
         };
         //-transition
         d3_fabric_transition_proto.transition = function () {
-            var id0 = this.fabricAniId, id1 = ++d3_fabric_transitionId, subgroups = [], subgroup, group, node, transition;
-            for (var j = 0, m = this.length; j < m; j++) {
-                subgroups.push(subgroup = []);
-                for (var group = this[j], i = 0, n = group.length; i < n; i++) {
-                    if (node = group[i]) {
+            var id0 = this.fabricAniId, id1 = ++d3_fabric_transitionId, subgroups = [], subgroup, group, node, transition, j, m, i, n;
+            for (j = 0, m = this.length; j < m; j++) {
+                subgroup = [];
+                subgroups.push(subgroup);
+                for (group = this[j], i = 0, n = group.length; i < n; i++) {
+                    node = group[i];
+                    if (node) {
                         transition = Object.create(node.__transition__[id0]);
                         transition.delay += transition.duration;
                         d3_fabric_transitionNode(node, i, id1, transition);
@@ -39682,11 +38357,13 @@ define('scalejs.d3-fabric',[],function () {
             return this.each("end.transition", function () {
                 if (this.__transition__.count < 2) {
                     var collection = this.hasOwnProperty("group") && this.group instanceof fabric.Group ? this.group : this.hasOwnProperty("canvas") ? this.canvas : null,
-                        p;
+                        node,
+                        paths,
+                        index;
                     if (collection) {
                         if (collection instanceof fabric.PathGroup && this instanceof fabric.Path) {
-                            var paths = collection.getObjects(),
-                                index = paths.indexOf(this);
+                            paths = collection.getObjects();
+                            index = paths.indexOf(this);
                             if (index >= 0) {
                                 paths.splice(index, 1);
                                 collection.setCoords();
@@ -39694,15 +38371,15 @@ define('scalejs.d3-fabric',[],function () {
                         } else {
                             if (collection.contains(this)) {
                                 collection.remove(this);
-                                if (collection.setCoords) collection.setCoords();
+                                if (collection.setCoords) { collection.setCoords(); }
                             }
                         }
-                    } else if (!d3_fabric_is_fabric_object(this) && (p = this.parentNode)) {
+                    } else if (!d3_fabric_is_fabric_object(this) && this.parentNode) {
                         if (this._fabricCanvas && this._fabricCanvas.canvas && this._fabricCanvas.canvas.getSelectionElement) {
-                            var node = this._fabricCanvas.canvas.getSelectionElement().parentNode;
-                            if (node.parentNode) node.parentNode.removeChild(node);
+                            node = this._fabricCanvas.canvas.getSelectionElement().parentNode;
+                            if (node.parentNode) { node.parentNode.removeChild(node); }
                         } else {
-                            p.removeChild(this);
+                            this.parentNode.removeChild(this);
                         }
                     }
                 }
@@ -39716,10 +38393,12 @@ define('scalejs.d3-fabric',[],function () {
         d3_fabric_transition_proto.size = d3_fabric_selection_proto.size;
         //-each
         d3_fabric_transition_proto.each = function (type, listener) {
-            var id = this.fabricAniId;
+            var id = this.fabricAniId,
+                inherit,
+                inheritId;
             if (arguments.length < 2) {
-                var inherit = d3_fabric_transitionInherit,
-                    inheritId = d3_fabric_transitionInheritId;
+                inherit = d3_fabric_transitionInherit;
+                inheritId = d3_fabric_transitionInheritId;
                 d3_fabric_transitionInheritId = id;
                 d3_fabric_selection_proto.each.call(this, function (d, i, j) {
                     d3_fabric_transitionInherit = this.__transition__[id];
@@ -39728,9 +38407,11 @@ define('scalejs.d3-fabric',[],function () {
                 d3_fabric_transitionInherit = inherit;
                 d3_fabric_transitionInheritId = inheritId;
             } else {
-                d3_fabric_selection_proto.each.call(this, function (d, i, j) {
-                    var transition = this.__transition__[id];
-                    (transition.event || (transition.event = d3.dispatch("start", "end"))).on(type, listener);
+                d3_fabric_selection_proto.each.call(this, function () {
+                    var transition = this.__transition__[id],
+                        event = transition.event || d3.dispatch("start", "end");
+                    if (!transition.event) { transition.event = event; }
+                    event.on(type, listener);
                 });
             }
             return this;
@@ -39739,53 +38420,50 @@ define('scalejs.d3-fabric',[],function () {
         //-call
         d3_fabric_transition_proto.call = d3_fabric_selection_proto.call;
 
+        //Util
+        d3.fabric.util = d3_fabric_util_proto;
+
+        //-radiansToDegrees
+        d3_fabric_util_proto.radiansToDegrees = fabric.util.radiansToDegrees;
+        //-degreesToRadians
+        d3_fabric_util_proto.degreesToRadians = fabric.util.degreesToRadians;
+        //-testTransitions
+        d3_fabric_util_proto.testTransitions = function (forceTest, desiredRenderTimeMS, useGSAP) {
+            if (forceTest || d3_fabric_util_render_test === null) {
+                if (!desiredRenderTimeMS) { desiredRenderTimeMS = 16; }
+                //TODO
+            }
+            return d3_fabric_util_render_test;
+        };
+
+        //Util matrix
+        d3_fabric_util_proto.matrix = d3_fabric_util_matrix_proto;
+
+        //-createTranslation
+        d3_fabric_util_matrix_proto.createTranslation = function (x, y) {
+            return [1, 0, 0, 1, x, y];
+        };
+        //-createRotation
+        d3_fabric_util_matrix_proto.createRotation = function (rad) {
+            var s = Math.sin(rad),
+                c = Math.cos(rad);
+            return [c, s, -s, c, 0, 0];
+        };
+        //-createScale
+        d3_fabric_util_matrix_proto.createScale = function (x, y) {
+            return [x, 0, 0, y, 0, 0];
+        };
+        //-createSkew
+        d3_fabric_util_matrix_proto.createScale = function (xRad, yRad) {
+            return [1, Math.tan(yRad), Math.tan(xRad), 1, 0, 0];
+        };
+        //-multiply
+        d3_fabric_util_matrix_proto.multiply = fabric.util.multiplyTransformMatrices;
+
         return true;
     };
-
-    //Util
-    var d3_fabric_util_proto = {},
-        d3_fabric_util_matrix_proto = {},
-        d3_fabric_util_render_test = null;
-
-    d3.fabric.util = d3_fabric_util_proto;
-
-    //-radiansToDegrees
-    d3_fabric_util_proto.radiansToDegrees = fabric.util.radiansToDegrees;
-    //-degreesToRadians
-    d3_fabric_util_proto.degreesToRadians = fabric.util.degreesToRadians;
-    //-testTransitions
-    d3_fabric_util_proto.testTransitions = function (forceTest, desiredRenderTimeMS, useGSAP) {
-        if (forceTest || d3_fabric_util_render_test === null) {
-            if (!desiredRenderTimeMS) desiredRenderTimeMS = 16;
-            //TODO
-        }
-        return d3_fabric_util_render_test;
-    };
-
-    //Util matrix
-    d3_fabric_util_proto.matrix = d3_fabric_util_matrix_proto;
-
-    //-createTranslation
-    d3_fabric_util_matrix_proto.createTranslation = function (x, y) {
-        return [1, 0, 0, 1, x, y];
-    };
-    //-createRotation
-    d3_fabric_util_matrix_proto.createRotation = function (rad) {
-        var s = Math.sin(rad),
-            c = Math.cos(rad);
-        return [c, s, -s, c, 0, 0];
-    };
-    //-createScale
-    d3_fabric_util_matrix_proto.createScale = function (x, y) {
-        return [x, 0, 0, y, 0, 0];
-    };
-    //-createSkew
-    d3_fabric_util_matrix_proto.createScale = function (xRad, yRad) {
-        return [1, Math.tan(yRad), Math.tan(xRad), 1, 0, 0];
-    };
-    //-multiply
-    d3_fabric_util_matrix_proto.multiply = fabric.util.multiplyTransformMatrices;
 });
+
 /*!
  * VERSION: 1.11.4
  * DATE: 2014-01-18
@@ -41441,7 +40119,12 @@ define('scalejs.d3-fabric',[],function () {
 
 })(window);
 
-define("tweenLite", function(){});
+define("tweenLite", (function (global) {
+    return function () {
+        var ret, fn;
+        return ret || global.TweenLite;
+    };
+}(this)));
 
 /*global define*/
 define('scalejs.visualization-d3/treemap',[
@@ -42094,10 +40777,24 @@ define('scalejs.visualization-d3/voronoi',[
                 return; // Catch for if treemap hasn't been setup.
             }
             // Define temp vars:
-            var celSel, cell;
+            var celSel, cell, coord, j,
+                widthRatio = canvasWidth / dataSize.width,
+                heightRatio = canvasHeight / dataSize.height;
 
             // Get treemap data:
-            root = flat;
+            //root = flat;
+
+            root = [];
+            for (i = 0; i < flat.length; i += 1) {
+                root[i] = { name: flat[i].name, coords: [], color: flat[i].color };
+                for (j = 0; j < flat[i].coords.length; j += 1) {
+                    coord = flat[i].coords[j].split(",");
+                    root[i].coords[j] = {
+                        x: Number(coord[0]) * widthRatio,
+                        y: Number(coord[1]) * heightRatio
+                    };
+                }
+            }
 
             // Select all nodes in Canvas, and apply data:
             celSel = canvasArea.selectAll("group")
@@ -42145,23 +40842,26 @@ define('scalejs.visualization-d3/voronoi',[
                 widthRatio = canvasWidth / dataSize.width,
                 heightRatio = canvasHeight / dataSize.height;
 
+
+            // Store for next time:
+            //dataSize.width = canvasWidth;
+            //dataSize.height = canvasHeight;
+
+            // Get voronoi data:
+            //root = flat;
+
             // Respace coords:
+            root = [];
             for (i = 0; i < flat.length; i += 1) {
+                root[i] = { name: flat[i].name, coords: [], color: flat[i].color };
                 for (j = 0; j < flat[i].coords.length; j += 1) {
                     coord = flat[i].coords[j].split(",");
-                    flat[i].coords[j] = {
+                    root[i].coords[j] = {
                         x: Number(coord[0]) * widthRatio,
                         y: Number(coord[1]) * heightRatio
                     };
                 }
             }
-
-            // Store for next time:
-            dataSize.width = canvasWidth;
-            dataSize.height = canvasHeight;
-
-            // Get voronoi data:
-            root = flat;
 
             canvasArea = canvasElement.append("group")
                 .attr("originX", "center")
@@ -42177,16 +40877,16 @@ define('scalejs.visualization-d3/voronoi',[
 
         function resize(width, height) {
             // Temp vars:
-            var j, coord,
-                widthRatio = width / dataSize.width,
-                heightRatio = height / dataSize.height;
+            var j, coord;
+                //widthRatio = width / dataSize.width,
+                //heightRatio = height / dataSize.height;
 
             // Store width and height for later:
             canvasWidth = width;
             canvasHeight = height;
 
             // Respace coords:
-            for (i = 0; i < root.length; i += 1) {
+            /*for (i = 0; i < root.length; i += 1) {
                 for (j = 0; j < root[i].coords.length; j += 1) {
                     coord = root[i].coords[j];
                     coord.x *= widthRatio;
@@ -42196,7 +40896,7 @@ define('scalejs.visualization-d3/voronoi',[
 
             // Store for next time:
             dataSize.width = canvasWidth;
-            dataSize.height = canvasHeight;
+            dataSize.height = canvasHeight;*/
         }
 
         function remove() {
@@ -42224,7 +40924,6 @@ define('scalejs.visualization-d3/d3',[
     'knockout',
     'd3',
     'd3.colorbrewer',
-    'hammer',
     'scalejs.visualization-d3/treemap',
     'scalejs.visualization-d3/sunburst',
     'scalejs.visualization-d3/voronoi'
@@ -42233,7 +40932,6 @@ define('scalejs.visualization-d3/d3',[
     ko,
     d3,
     colorbrewer,
-    hammer,
     treemap,
     sunburst,
     voronoi
@@ -42296,11 +40994,6 @@ define('scalejs.visualization-d3/d3',[
             selectedItemPathObservable,
             rootScale = d3.scale.linear(),
             canvas,
-            canvasElement,  // Holds the lower canvas of fabric.
-            canvasShow,     // Holds the canvas used to display objects on the user's screen.
-            canvasRender,   // Holds the offscreen buffer canvas used to hold a snapshot of the visualization for zooming.
-            context,        // Holds canvasShow's 2d context.
-            hammerObj,      // Holds touch event system.
             elementStyle,
             canvasWidth,
             canvasHeight,
@@ -42309,16 +41002,10 @@ define('scalejs.visualization-d3/d3',[
             zooms,
             zoomObservable,
             zoomEnabled = true, // Temporary fix to errors with NaN widths during adding/removing nodes.
-            //left = 0,
-            //top = 0,
             leftVal = 0,
             topVal = 0,
             rotateVal = 0,
-            scaleVal = 1,
-            //lastEvent,
-            //lastGesture,
-            lastTouches,
-            lastCenter;
+            scaleVal = 1;
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
@@ -42337,21 +41024,6 @@ define('scalejs.visualization-d3/d3',[
                     .property("targetFindTolerance", 1)
                     .attr("width", canvasWidth)
                     .attr("height", canvasHeight);
-
-        // Create zoom canvas, and offscreen buffer canvas:
-        canvasElement = canvas.domNode()[0][0];
-        canvasShow = d3.select(canvas[0][0].parentNode)
-            .append("canvas")
-                .style("position", "absolute")
-                .style("left", 0)
-                .style("top", 0)
-                .attr("width", canvasWidth)
-                .attr("height", canvasHeight)
-                .style("display", "none");
-        context = canvasShow[0][0].getContext('2d');
-        canvasRender = document.createElement("canvas");
-        canvasRender.width = canvasWidth;
-        canvasRender.height = canvasHeight;
 
         // Loop through levels to determine parameters:
         function createLevelParameters(lvlsParam) {
@@ -42626,11 +41298,13 @@ define('scalejs.visualization-d3/d3',[
             visualizationType = parameters.visualization || ko.observable("");
             return unwrap(visualizationType);
         });
-        visualizationType = visualizationTypeObservable();
 
+        // Retrieve new visualization type:
+        visualizationType = visualizationTypeObservable();
         if (visualizations[visualizationType] !== undefined) {
             visualization = visualizations[visualizationType]();
         } else {
+            // Visualization doesn't exist, so create blank visualization:
             visualization = blankVisualization(visualizationType);
         }
         // Run visualization's initialize code:
@@ -42639,15 +41313,49 @@ define('scalejs.visualization-d3/d3',[
         canvas.startRender();
         canvas.pumpRender();
 
+        function renderCallback(left, top, rotate, scale) {
+            // Reset transform:
+            leftVal = left;
+            topVal = top;
+            rotateVal = rotate;
+            scaleVal = scale;
+            canvas.select("group")
+                .attr("scaleX", scaleVal)
+                .attr("scaleY", scaleVal)
+                .attr("angle", rotateVal)
+                .attr("left", leftVal)
+                .attr("top", topVal);
+            canvas.pumpRender();
+        }
+        function startCallback() {
+            return {
+                left: leftVal,
+                top: topVal,
+                rotate: rotateVal,
+                scale: scaleVal
+            };
+        }
+
+        // Check if a canvas touch plugin exists:
+        if (core.canvas.touch) {
+            core.canvas.touch({
+                canvas: canvas[0][0],
+                renderCallback: renderCallback,
+                startCallback: startCallback
+            });
+        }
+
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
+            // Remove visualization:
             visualization.remove();
-            //canvas.pumpRender();
-            visualizationType = visualizationTypeObservable();
 
+            // Retrieve new visualization type:
+            visualizationType = visualizationTypeObservable();
             if (visualizations[visualizationType] !== undefined) {
                 visualization = visualizations[visualizationType]();
             } else {
+                // Visualization doesn't exist, so create blank visualization:
                 visualization = blankVisualization(visualizationType);
             }
 
@@ -42705,10 +41413,6 @@ define('scalejs.visualization-d3/d3',[
                 // Resize canvas:
                 canvas.attr('width', canvasWidth);
                 canvas.attr('height', canvasHeight);
-                canvasShow.attr('width', canvasWidth);
-                canvasShow.attr('height', canvasHeight);
-                canvasRender.width = canvasWidth;
-                canvasRender.height = canvasHeight;
 
                 // Reset transform:
                 leftVal = 0;
@@ -42739,219 +41443,6 @@ define('scalejs.visualization-d3/d3',[
             visualization.scale(val);
             canvas.pumpRender();
         });
-
-        // Function to handle touch events (for pinch and zoom):
-        function touchHandler(event) {
-            //console.log(event);
-            if (!event.gesture) {
-                return;
-            }
-            event.gesture.preventDefault();
-
-            var gesture = event.gesture,
-                touches = [],
-                center,
-                scaleDiff,
-                rotateDiff,
-                pagePos,
-                elementPos,
-                groupPos,
-                rotatePos,
-                scalePos,
-                transPos,
-                sin,
-                cos,
-                i;
-
-            // Convert touches to an array (to avoid safari's reuse of touch objects):
-            for (i = 0; i < gesture.touches.length; i += 1) {
-                touches[i] = {
-                    pageX: gesture.touches[i].pageX,
-                    pageY: gesture.touches[i].pageY
-                };
-            }
-
-            function distance(p1, p2) { // Get distance between two points:
-                var x = p1.pageX - p2.pageX,
-                    y = p1.pageY - p2.pageY;
-                return Math.sqrt(x * x + y * y);
-            }
-
-            if (event.type === "touch") {
-                // Set all last* variables to starting gesture:
-                //lastEvent = event;
-                //lastGesture = gesture;
-                lastTouches = touches;
-                // Calculate Center:
-                if (touches.length === 2) {
-                    lastCenter = {
-                        x: (touches[0].pageX - touches[1].pageX) / 2 + touches[1].pageX,
-                        y: (touches[0].pageY - touches[1].pageY) / 2 + touches[1].pageY
-                    };
-                } else {
-                    lastCenter = {
-                        x: touches[0].pageX,
-                        y: touches[0].pageY
-                    };
-                }
-
-                // Render fabric canvas to pinch&zoom canvas:
-                context.setTransform(1, 0, 0, 1, 0, 0);
-                context.clearRect(0, 0, canvasWidth, canvasHeight);
-                context.drawImage(canvasElement, 0, 0);
-                // Show pinch&zoom canvas:
-                canvasShow.style("display", "");
-                // Hide fabric canvas:
-                canvasElement.style.display = "none";
-                // Reset fabric canvas visualization to default pinch&zoom settings, and render:
-                canvas.select("group")
-                    .attr("scaleX", 1)//scaleVal
-                    .attr("scaleY", 1)//scaleVal
-                    .attr("angle", 0)//rotateVal
-                    .attr("left", 0)//leftVal
-                    .attr("top", 0);//topVal
-                canvas.pumpRender();
-                // Render fabric canvas to off-screen buffer:
-                canvasRender.getContext('2d').clearRect(0, 0, canvasWidth, canvasHeight);
-                canvasRender.getContext('2d').drawImage(canvasElement, 0, 0);
-            } else if (event.type === "release") {
-                // Reset all last* variables, and update fabric canvas to get crisper image:
-                //lastEvent = undefined;
-                //lastGesture = undefined;
-                lastTouches = undefined;
-                lastCenter = undefined;
-
-                // Set fabric canvas visualization's pinch&zoom settings, and render:
-                canvas.select("group")
-                    .attr("scaleX", scaleVal)
-                    .attr("scaleY", scaleVal)
-                    .attr("angle", rotateVal)
-                    .attr("left", leftVal)
-                    .attr("top", topVal);
-                canvas.pumpRender();
-                // Show fabric canvas:
-                //canvasElement.style.display = null;
-                canvasElement.style.display = "";
-                // Hide pinch&zoom canvas:
-                canvasShow.style("display", "none");
-            } else {
-                // Last action was a release, so fix lastTouches:
-                if (lastTouches === undefined) {
-                    lastTouches = touches;
-                }
-                if (touches.length === 1) {
-                    // Starting action, so reset lastTouches:
-                    if (lastTouches.length !== 1) {
-                        lastTouches = touches;
-                        lastCenter = undefined; // Prevent rotating when removing finger.
-                    }
-
-                    // Calculate Center:
-                    center = {
-                        x: touches[0].pageX,
-                        y: touches[0].pageY
-                    };
-
-                    // Translate:
-                    leftVal += touches[0].pageX - lastTouches[0].pageX;
-                    topVal += touches[0].pageY - lastTouches[0].pageY;
-                } else if (touches.length === 2) {
-                    // Starting action, so reset lastTouches:
-                    if (lastTouches.length !== 2) {
-                        lastTouches = touches;
-                        lastCenter = undefined; // Prevent rotating when adding finger.
-                    }
-
-                    // Calculate Center:
-                    center = {
-                        x: (touches[0].pageX - touches[1].pageX) / 2 + touches[1].pageX,
-                        y: (touches[0].pageY - touches[1].pageY) / 2 + touches[1].pageY
-                    };
-                    if (lastCenter === undefined) {
-                        lastCenter = center;
-                    }
-
-                    // Calculate Scale:
-                    scaleDiff = distance(touches[0], touches[1]) / distance(lastTouches[0], lastTouches[1]);
-
-                    // Calculate Rotation:
-                    rotateDiff = Math.atan2(lastTouches[0].pageX - lastCenter.x, lastTouches[0].pageY - lastCenter.y) - Math.atan2(touches[0].pageX - center.x, touches[0].pageY - center.y);
-                    // Get sin and cos of angle in radians (for later):
-                    sin = Math.sin(rotateDiff);
-                    cos = Math.cos(rotateDiff);
-                    // Convert to degrees for fabric:
-                    rotateDiff *= 180 / Math.PI;
-
-                    // Apply Scale:
-                    scaleVal *= scaleDiff;
-
-                    // Apply Rotation:
-                    rotateVal += rotateDiff;
-
-                    // Get canvas position:
-                    pagePos = event.currentTarget.getBoundingClientRect();
-                    // Convert page coords to canvas coords:
-                    elementPos = {
-                        pageX: center.x,
-                        pageY: center.y
-                    };
-                    elementPos.pageX -= pagePos.left;
-                    elementPos.pageY -= pagePos.top;
-
-                    // Get difference between center position and group:
-                    groupPos = {
-                        x: leftVal - elementPos.pageX,
-                        y: topVal - elementPos.pageY
-                    };
-
-                    // Rotate around point:
-                    rotatePos = {
-                        x: groupPos.x * cos - groupPos.y * sin + elementPos.pageX,
-                        y: groupPos.x * sin + groupPos.y * cos + elementPos.pageY
-                    };
-
-                    // Scale relative to center point:
-                    scalePos = {
-                        x: scaleDiff * (rotatePos.x - elementPos.pageX) + elementPos.pageX - leftVal,
-                        y: scaleDiff * (rotatePos.y - elementPos.pageY) + elementPos.pageY - topVal
-                    };
-
-                    // Translate delta in center position:
-                    transPos = {
-                        x: scalePos.x + (center.x - lastCenter.x),
-                        y: scalePos.y + (center.y - lastCenter.y)
-                    };
-
-                    // Apply Translate:
-                    leftVal += transPos.x;
-                    topVal += transPos.y;
-                }
-
-                // Set pinch&zoom canvas's pinch&zoom settings, and render:
-                context.setTransform(1, 0, 0, 1, 0, 0);
-                context.clearRect(0, 0, canvasWidth, canvasHeight);
-                context.translate(leftVal, topVal);
-                context.scale(scaleVal, scaleVal);
-                context.rotate(rotateVal / 180 * Math.PI);
-                context.translate(-leftVal, -topVal);
-                context.drawImage(canvasRender, leftVal, topVal);
-                context.setTransform(1, 0, 0, 1, 0, 0);
-
-                //lastEvent = event;
-                //lastGesture = gesture;
-                lastTouches = touches;
-                lastCenter = center;
-            }
-        }
-
-        // Subscribe to touch events:
-        hammer.plugins.showTouches();
-        hammer.plugins.fakeMultitouch();
-
-        hammerObj = hammer(canvas[0].parentNode, {
-            prevent_default: true
-        });
-        hammerObj.on("touch drag swipe pinch rotate transform release", touchHandler);
     }
 
     return {

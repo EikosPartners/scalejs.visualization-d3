@@ -33,22 +33,40 @@ define([
             // Animate treemap nodes:
             t = canvasArea.selectAll("group").transition()
                 .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
-                .attr("left", function (d) { return x(d.x); })
-                .attr("top", function (d) { return y(d.y); });
-
-            t.select("rect")
-                .attr("width", function (d) { return Math.max(kx * d.dx - 1, 0); })
-                .attr("height", function (d) { return Math.max(ky * d.dy - 1, 0); });
-
-            t.select("text")
-                .attr("left", function (d) { return kx * d.dx / 2; })
-                .attr("top", function (d) { return ky * d.dy / 2; })
-                .attr("opacity", function (d) {
-                    d.w = this.getWidth();
-                    d.h = this.getHeight();
-                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
-                    return (kx * (d.dx - padding) >= d.w) && (ky * (d.dy - 2) >= d.h) ? 1 : 0;
+                .tween("groupZoom", function (d) {
+                    // Create interpolations used for a nice slide:
+                    var interpX = d3.interpolate(this.left, x(d.x)),
+                        interpY = d3.interpolate(this.top, y(d.y)),
+                        element = this;
+                    return function (t) {
+                        element.left = interpX(t);
+                        element.top = interpY(t);
+                    };
                 });
+
+            t.select("rect").tween("rectZoom", function (d) {
+                // Create interpolations used for a nice slide:
+                var interpWidth = d3.interpolate(this.width, Math.max(kx * d.dx - 1, 0)),
+                    interpHeight = d3.interpolate(this.height, Math.max(ky * d.dy - 1, 0)),
+                    element = this;
+                return function (t) {
+                    element.width = interpWidth(t);
+                    element.height = interpHeight(t);
+                };
+            });
+
+            t.select("text").tween("textZoom", function (d) {
+                // Create interpolations used for a nice slide:
+                var interpX = d3.interpolate(this.left, kx * d.dx / 2),
+                    interpY = d3.interpolate(this.top, ky * d.dy / 2),
+                    interpOpacity = d3.interpolate(this.opacity, (d.dx - 4 >= this.width) && (d.dy - 2 >= this.height) ? 1 : 0),
+                    element = this;
+                return function (t) {
+                    element.left = interpX(t);
+                    element.top = interpY(t);
+                    element.opacity = interpOpacity(t);
+                };
+            });
 
             // Prevent event from firing more than once:
             if (d3.event) {
@@ -58,39 +76,30 @@ define([
 
         function addNodes(celSel) {
             // Add nodes to Canvas:
-            var cell = celSel.enter().append("group")
-                .attr("originX", "center")
-                .attr("originY", "center")
-                .attr("left", function (d) { return d.x; })
-                .attr("top", function (d) { return d.y; })
-                .on("mousedown", function (d) {
-                    var clickTime = (new Date()).getTime();
-                    if (clickTime - lastClickTime < 500) {
-                        selectZoom(d);
-                    }
-                    lastClickTime = clickTime;
-                });
+            var cell = celSel.enter().append("group").each(function (d) {
+                this.originX = "center";
+                this.originY = "center";
+                this.left = d.x;
+                this.top = d.y;
+            });
 
             // Add rectangle to each node:
-            cell.append("rect")
-                .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
-                .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                .attr("fill", function (d) { return d.color; });
+            cell.append("rect").each(function (d) {
+                this.width = Math.max(d.dx - 1, 0);
+                this.height = Math.max(d.dy - 1, 0);
+                this.fill = d.color;
+            });
 
             // Add title to each node:
-            cell.append("text")
-                .attr("originX", "center")
-                .attr("originY", "center")
-                .attr("left", function (d) { return d.dx / 2; })
-                .attr("top", function (d) { return d.dy / 2; })
-                .attr("fontSize", 11)
-                .text(function (d) { return d.name; })
-                .attr("opacity", function (d) {
-                    d.w = this.getWidth();
-                    d.h = this.getHeight();
-                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
-                    return (d.dx - padding >= d.w) && (d.dy - 2 >= d.h) ? 1 : 0;
-                });
+            cell.append("text").each(function (d) {
+                this.originX = "center";
+                this.originY = "center";
+                this.left = d.dx / 2;
+                this.top = d.dy / 2;
+                this.fontSize = 11;
+                this.setText(d.name);
+                this.opacity = (d.dx - 4 >= this.width) && (d.dy - 2 >= this.height) ? 1 : 0;
+            });
         }
 
         function update() {
@@ -116,26 +125,52 @@ define([
             // Update nodes on Canvas:
             cell = celSel.transition()
                 .duration(1000)
-                .attr("left", function (d) { return d.x; })
-                .attr("top", function (d) { return d.y; });
+                .tween("groupTween", function (d) {
+                    // Create interpolations used for a nice slide:
+                    var interpX = d3.interpolate(this.left, d.x),
+                        interpY = d3.interpolate(this.top, d.y),
+                        element = this;
+                    return function (t) {
+                        element.left = interpX(t);
+                        element.top = interpY(t);
+                    };
+                });
 
             // Update each node's rectangle:
-            cell.select("rect")
-                .attr("width", function (d) { return Math.max(d.dx - 1, 0); })
-                .attr("height", function (d) { return Math.max(d.dy - 1, 0); })
-                .attr("fill", function (d) { return d.color; });
+            cell.select("rect").tween("rectTween", function (d) {
+                // Create interpolations used for a nice slide:
+                var interpWidth = d3.interpolate(this.width, Math.max(d.dx - 1, 0)),
+                    interpHeight = d3.interpolate(this.height, Math.max(d.dy - 1, 0)),
+                    interpFill = d3.interpolate(this.fill, d.color),
+                    element = this;
+                return function (t) {
+                    element.width = interpWidth(t);
+                    element.height = interpHeight(t);
+                    element.fill = interpFill(t);
+                };
+            });
 
             // Update each node's title:
-            cell.select("text")
-                .attr("left", function (d) { return d.dx / 2; })
-                .attr("top", function (d) { return d.dy / 2; })
-                .text(function (d) { return d.name; })
-                .attr("opacity", function (d) {
-                    d.w = this.getWidth();
-                    d.h = this.getHeight();
-                    var padding = 2 + 2;    // 2 for inside radius, 2 for outside radius.
-                    return (d.dx - padding >= d.w) && (d.dy - 2 >= d.h) ? 1 : 0;
-                });
+            cell.select("text").tween("textTween", function (d) {
+                // Create interpolations used for a nice slide:
+                var interpX = d3.interpolate(this.left, d.dx / 2),
+                    interpY = d3.interpolate(this.top, d.dy / 2),
+                    interpOpacity,
+                    element = this;
+                if(this.name !== d.name){
+                    this.setText(d.name);
+                    interpOpacity = d3.interpolate(this.opacity, (d.dx - 4 >= this.width) && (d.dy - 2 >= this.height) ? 1 : 0);
+                    return function (t) {
+                        element.left = interpX(t);
+                        element.top = interpY(t);
+                        element.opacity = interpOpacity(t);
+                    };
+                }
+                return function (t) {
+                    element.left = interpX(t);
+                    element.top = interpY(t);
+                };
+            });
 
             // Add new nodes to Canvas:
             addNodes(celSel);
@@ -178,9 +213,10 @@ define([
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 
-            canvasArea = canvasElement.append("group")
-                .attr("originX", "center")
-                .attr("originY", "center");
+            canvasArea = canvasElement.append("group").each(function () {
+                this.originX = "center";
+                this.originY = "center";
+            });
 
             // Filter out nodes with children:
             nodes = treemapLayout.nodes(root)
@@ -192,6 +228,8 @@ define([
 
             // Add nodes to Canvas:
             addNodes(celSel);
+
+            canvasElement.pumpRender();
         }
 
         function resize(width, height) {

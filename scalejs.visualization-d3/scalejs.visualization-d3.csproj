@@ -15,6 +15,8 @@
     </Content>
     <Content Include="scalejs.visualization-d3.js" />
     <Content Include="scalejs.visualization-d3\sunburst.js" />
+    <Content Include="scalejs.visualization-d3\testgroup.js" />
+    <Content Include="scalejs.visualization-d3\testindiv.js" />
     <Content Include="scalejs.visualization-d3\voronoi.js" />
     <Content Include="Scripts\d3.colorbrewer.js" />
     <Content Include="scalejs.visualization-d3\treemap.js" />
@@ -35,6 +37,7 @@
     <None Include="JSLintNet.json" />
     <None Include="packages.config" />
     <Content Include="Scripts\TweenLite-1.11.4.js" />
+    <Content Include="Scripts\canvas.js" />
   </ItemGroup>
   <PropertyGroup>
     <ScalejsProjectType>Extension</ScalejsProjectType>
