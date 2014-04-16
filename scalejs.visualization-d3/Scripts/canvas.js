@@ -57,7 +57,6 @@ define(function () {
                     canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
                     // Calculate all objects' boundaries and parameters:
                     canvasObj.children.forEach(function (child) { child.calcBounds(); });
-                    //canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
                     // Clear canvas:
                     canvasObj.context.clearRect(0, 0, canvasObj.element.width, canvasObj.element.height);
                     // Render all objects:
@@ -163,8 +162,8 @@ define(function () {
                                 this.extents.bottom = 0;
                             }
                             // Calculate boundaries and additional parameters:
-                            this.width = this.extents.right - this.extents.left;
-                            this.height = this.extents.bottom - this.extents.top;
+                            this.width = (this.extents.right - this.extents.left) * this.scaleX;
+                            this.height = (this.extents.bottom - this.extents.top) * this.scaleY;
                             this.offset.left = getOffset[this.originX](this.width);
                             this.offset.top = getOffset[this.originY](this.height);
                             this.pos.left = this.left + this.offset.left;
@@ -173,30 +172,54 @@ define(function () {
                             this.extents.top += this.pos.top;
                             this.extents.right += this.pos.left;
                             this.extents.bottom += this.pos.top;
+                            this.radianAngle = this.angle * Math.PI / 180;
                         },
                         render: function () {
                             canvasObj.context.save();   // Required to restore transform matrix after the following render:
                             canvasObj.context.translate(this.pos.left, this.pos.top);   // Set group center.
-                            canvasObj.context.rotate(this.angle * Math.PI / 180);   // Rotate group at center.
                             canvasObj.context.scale(this.scaleX, this.scaleY);  // Scale group at center.
+                            canvasObj.context.rotate(this.radianAngle);   // Rotate group at center.
                             this.children.forEach(function (child) { child.render(); });    // Render children.
                             canvasObj.context.restore();
                         },
                         isPointIn: function (posX, posY, event) {
+                            // Remove translate:
+                            posX -= this.pos.left;
+                            posY -= this.pos.top;
+                            // Remove scale:
+                            posX /= this.scaleX;
+                            posY /= this.scaleY;
+                            // Remove rotate:
+                            var sin = Math.sin(-this.radianAngle),
+                                cos = Math.cos(-this.radianAngle),
+                                tposX = posX;
+                            posX = posX * cos - posY * sin;
+                            posY = tposX * sin + posY * cos;
+                            // Loop through all children and check if the point is in:
+                            return this.children.some(function (child) {
+                                return child.isPointIn(posX, posY, event);
+                            });
                             // Use the last extents (as it was last visible to user for click event):
-                            return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
+                            //return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
                         },
                         mouseDownEvent: function (posX, posY, event) {
                             canvasObj.context.save();   // Required to restore transform matrix after the following transform:
-                            canvasObj.context.translate(this.pos.left, this.pos.top);
+                            // Translate position:
+                            //canvasObj.context.translate(this.pos.left, this.pos.top);
                             posX -= this.pos.left;
                             posY -= this.pos.top;
-                            canvasObj.context.rotate(this.angle * Math.PI / 180);
-                            posX = posX * Math.cos(this.angle * Math.PI / 180) - posY * Math.sin(this.angle * Math.PI / 180);
-                            posY = posX * Math.sin(this.angle * Math.PI / 180) + posY * Math.cos(this.angle * Math.PI / 180);
-                            canvasObj.context.scale(this.scaleX, this.scaleY);
-                            posX *= this.scaleX;
-                            posY *= this.scaleY;
+                            // Scale Position:
+                            //canvasObj.context.scale(1 / this.scaleX, 1 / this.scaleY);
+                            posX /= this.scaleX;
+                            posY /= this.scaleY;
+                            // Rotate position:
+                            //canvasObj.context.rotate(-this.radianAngle);
+                            var sin = Math.sin(-this.radianAngle),
+                                cos = Math.cos(-this.radianAngle),
+                                tposX = posX;
+                            posX = posX * cos - posY * sin;
+                            posY = tposX * sin + posY * cos;
+                            // Loop through all children and check if they have been clicked:
                             this.children.forEach(function (child) {
                                 if (child.isPointIn(posX, posY, event)) {
                                     child.mouseDownEvent.call(child, posX, posY, event);
@@ -320,7 +343,7 @@ define(function () {
                         },
                         isPointIn: function (posX, posY, event) {
                             // Use the last extents (as it was last visible to user for click event):
-                            return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
+                            return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;  // Incorrect when rotated.
                         },
                         mouseDownEvent: function (posX, posY, event) {
                             this.onmousedown && this.onmousedown.call(this, this.data.data);
@@ -655,7 +678,10 @@ define(function () {
                 event.offsetX = event.pageX - pagePos.left;
                 event.offsetY = event.pageY - pagePos.top;
             }
-            
+
+            canvasObj.context.save();
+            // Reset transform:
+            canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
             // Loop through every child object on canvas:
             canvasObj.children.forEach(function (child) {
                 // Check if mouse is in child:
@@ -664,6 +690,7 @@ define(function () {
                     child.mouseDownEvent.call(child, event.offsetX, event.offsetY, event);
                 }
             });
+            canvasObj.context.restore();
         }
 
         // Touch event for clicking an object (maps event to mouseEvent):
