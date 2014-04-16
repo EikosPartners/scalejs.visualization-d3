@@ -2,6 +2,7 @@
 
 $project |
 	Add-Paths "{
+		'canvas' : 'Scripts/canvas',
 		'd3' : 'Scripts/d3.v3',
 		'd3.colorbrewer' : 'Scripts/d3.colorbrewer',
 		'fabric' : 'Scripts/fabric-1.4.4',

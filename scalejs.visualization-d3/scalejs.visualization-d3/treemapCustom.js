@@ -1,8 +1,10 @@
 ﻿/*global define*/
 define([
-    'd3'
+    'd3',
+    'canvas'
 ], function (
-    d3
+    d3,
+    canvasSelect
 ) {
     "use strict";
 
@@ -18,7 +20,8 @@ define([
             root,
             treemapLayout,
             canvasArea,
-            lastClickTime;
+            lastClickTime,
+            lastClickNode;
 
         // Zoom after click:
         function zoom(d) {
@@ -59,7 +62,7 @@ define([
                 // Create interpolations used for a nice slide:
                 var interpX = d3.interpolate(this.left, kx * d.dx / 2),
                     interpY = d3.interpolate(this.top, ky * d.dy / 2),
-                    interpOpacity = d3.interpolate(this.opacity, (d.dx - 4 >= this.width) && (d.dy - 2 >= this.height) ? 1 : 0),
+                    interpOpacity = d3.interpolate(this.opacity, (kx * d.dx - 4 >= this.width) && (ky * d.dy - 2 >= this.height) ? 1 : 0),
                     element = this;
                 return function (t) {
                     element.left = interpX(t);
@@ -72,15 +75,24 @@ define([
             if (d3.event) {
                 d3.event.stopPropagation();
             }
+
+            //canvasElement.pumpRender();
         }
 
         function addNodes(celSel) {
             // Add nodes to Canvas:
             var cell = celSel.enter().append("group").each(function (d) {
-                this.originX = "center";
-                this.originY = "center";
+                //this.originX = "center";
+                //this.originY = "center";
                 this.left = d.x;
                 this.top = d.y;
+            }).on("mousedown", function (d) {
+                var clickTime = (new Date()).getTime();
+                if (clickTime - lastClickTime < 500 && lastClickNode === d) {
+                    selectZoom(d.parent);
+                }
+                lastClickTime = clickTime;
+                lastClickNode = d;
             });
 
             // Add rectangle to each node:
@@ -177,6 +189,8 @@ define([
 
             // Remove nodes from Canvas:
             cell = celSel.exit().remove();
+
+            //canvasElement.pumpRender();
         }
 
         function init(
@@ -184,12 +198,14 @@ define([
             width,
             height,
             jsonObservable,
-            selectZoomFunction
+            selectZoomFunction,
+            trueElement
         ) {
             if (canvasArea !== undefined) {
                 return; // Catch for if treemap has been setup.
             }
-            canvasElement = element;
+            canvasElement = element;/*canvasSelect(trueElement.getElementsByTagName("canvas")[0])
+                                .ease(d3.ease("cubic-in-out"));*///element
             json = jsonObservable;
             canvasWidth = width;
             canvasHeight = height;
@@ -214,8 +230,8 @@ define([
                             .children(function (d) { return d.children; });
 
             canvasArea = canvasElement.append("group").each(function () {
-                this.originX = "center";
-                this.originY = "center";
+                //this.originX = "center";
+                //this.originY = "center";
             });
 
             // Filter out nodes with children:
@@ -229,7 +245,7 @@ define([
             // Add nodes to Canvas:
             addNodes(celSel);
 
-            canvasElement.pumpRender();
+            //canvasElement.pumpRender();
         }
 
         function resize(width, height) {

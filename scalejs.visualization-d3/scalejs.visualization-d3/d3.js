@@ -6,8 +6,11 @@ define([
     'knockout',
     'd3',
     'd3.colorbrewer',
+    'canvas',
     'scalejs.visualization-d3/treemap',
+    'scalejs.visualization-d3/treemapCustom',
     'scalejs.visualization-d3/sunburst',
+    'scalejs.visualization-d3/sunburstCustom',
     'scalejs.visualization-d3/voronoi',
     'scalejs.visualization-d3/testindiv',
     'scalejs.visualization-d3/testgroup'
@@ -16,8 +19,11 @@ define([
     ko,
     d3,
     colorbrewer,
+    canvasSelect,
     treemap,
+    treemapCustom,
     sunburst,
+    sunburstCustom,
     voronoi,
     testindiv,
     testgroup
@@ -28,7 +34,9 @@ define([
         isObservable = ko.isObservable,
         visualizations = {
             treemap: treemap,
+            treemapCustom: treemapCustom,
             sunburst: sunburst,
+            sunburstCustom: sunburstCustom,
             voronoi: voronoi,
             testindiv: testindiv,
             testgroup: testgroup
@@ -106,14 +114,21 @@ define([
         }
 
         // Create fabric canvas:
-        canvas = d3.select(element)
+        canvas = canvasSelect(d3.select(element)
+                                .style('overflow', 'hidden')
+                                .append("canvas")
+                                    .attr("width", canvasWidth)
+                                    .attr("height", canvasHeight)
+                                    .node())
+                    .ease(d3.ease("cubic-in-out"));
+                /*d3.select(element)
                 .style('overflow', 'hidden')
                 .append("fabric:staticcanvas")
                     .property("renderOnAddRemove", false)
                     .property("selection", false)
                     .property("targetFindTolerance", 1)
                     .attr("width", canvasWidth)
-                    .attr("height", canvasHeight);
+                    .attr("height", canvasHeight);*/
 
         // Loop through levels to determine parameters:
         function createLevelParameters(lvlsParam) {
