@@ -87,12 +87,13 @@ define([
                 this.left = d.x;
                 this.top = d.y;
             }).on("mousedown", function (d) {
-                var clickTime = (new Date()).getTime();
+                /*var clickTime = (new Date()).getTime();
                 if (clickTime - lastClickTime < 500 && lastClickNode === d) {
                     selectZoom(d.parent);
                 }
                 lastClickTime = clickTime;
-                lastClickNode = d;
+                lastClickNode = d;*/
+                selectZoom(d.parent);
             });
 
             // Add rectangle to each node:

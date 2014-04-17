@@ -90,6 +90,7 @@ define([
             selectedItemPath,
             selectedItemPathObservable,
             rootScale = d3.scale.linear(),
+            canvasElement,
             canvas,
             elementStyle,
             canvasWidth,
@@ -113,13 +114,94 @@ define([
             canvasHeight = 1;   // Temp fix for drawImage.
         }
 
+        canvasElement = d3.select(element)
+                        .style('overflow', 'hidden')
+                        .append("canvas")
+                            .attr("width", canvasWidth)
+                            .attr("height", canvasHeight)
+                            .node();
+
+        function renderCallback(left, top, rotate, scale) { // Called on beginning and end of touch gestures:
+            // Update transform:
+            leftVal = left;
+            topVal = top;
+            rotateVal = rotate;
+            scaleVal = scale;
+            canvas.select("group")
+                .attr("scaleX", scaleVal)
+                .attr("scaleY", scaleVal)
+                .attr("angle", rotateVal)
+                .attr("left", leftVal)
+                .attr("top", topVal);
+            canvas.pumpRender();
+        }
+        function startCallback() {  // Called when user initiates a touch gesture:
+            // Set Rotate State:
+            touchHandler.setRotateState(visualization.enableRotate);
+
+            return {
+                left: leftVal,
+                top: topVal,
+                rotate: rotateVal,
+                scale: scaleVal
+            };
+        }
+        function endCallback(left, top, rotate, scale) {    // Called when user finishes a touch gesture:
+            if (!visualization.enableRotate) {
+                if (left > 0) {
+                    left = 0;
+                }
+                if (top > 0) {
+                    top = 0;
+                }
+                var right = left + scale * canvasWidth,
+                    bottom = top + scale * canvasHeight;
+                if (right < canvasWidth) {
+                    left += canvasWidth - right;
+                }
+                if (bottom < canvasHeight) {
+                    top += canvasHeight - bottom;
+                }
+            }
+            if (scale < 1) {   // Bounce back:
+                // Reset transform:
+                leftVal = 0;
+                topVal = 0;
+                rotateVal = 0;
+                scaleVal = 1;
+            } else {
+                // Update transform:
+                leftVal = left;
+                topVal = top;
+                rotateVal = rotate;
+                scaleVal = scale;
+            }
+            return {
+                left: leftVal,
+                top: topVal,
+                rotate: rotateVal,
+                scale: scaleVal
+            };
+        }
+
+        // Check if a canvas touch plugin exists (register before initializing visualization to avoid event handler conflicts):
+        if (core.canvas.touch) {
+            touchHandler = core.canvas.touch({
+                canvas: canvasElement,
+                renderCallback: renderCallback,
+                startCallback: startCallback,
+                //stepCallback: endCallback,
+                endCallback: endCallback,
+                enableRotate: enableRotate
+            });
+        } else {
+            touchHandler = {
+                setRotateState: function () { return; }
+            };
+        }
+
         // Create fabric canvas:
-        canvas = canvasSelect(d3.select(element)
-                                .style('overflow', 'hidden')
-                                .append("canvas")
-                                    .attr("width", canvasWidth)
-                                    .attr("height", canvasHeight)
-                                    .node())
+        canvas = canvasSelect(canvasElement)
                     .ease(d3.ease("cubic-in-out"));
                 /*d3.select(element)
                 .style('overflow', 'hidden')
@@ -417,84 +499,6 @@ define([
         // Start rendering the canvas
         canvas.startRender();
         canvas.pumpRender();
-
-        function renderCallback(left, top, rotate, scale) { // Called on beginning and end of touch gestures:
-            // Update transform:
-            leftVal = left;
-            topVal = top;
-            rotateVal = rotate;
-            scaleVal = scale;
-            canvas.select("group")
-                .attr("scaleX", scaleVal)
-                .attr("scaleY", scaleVal)
-                .attr("angle", rotateVal)
-                .attr("left", leftVal)
-                .attr("top", topVal);
-            canvas.pumpRender();
-        }
-        function startCallback() {  // Called when user initiates a touch gesture:
-            // Set Rotate State:
-            touchHandler.setRotateState(visualization.enableRotate);
-
-            return {
-                left: leftVal,
-                top: topVal,
-                rotate: rotateVal,
-                scale: scaleVal
-            };
-        }
-        function endCallback(left, top, rotate, scale) {    // Called when user finishes a touch gesture:
-            if (!visualization.enableRotate) {
-                if (left > 0) {
-                    left = 0;
-                }
-                if (top > 0) {
-                    top = 0;
-                }
-                var right = left + scale * canvasWidth,
-                    bottom = top + scale * canvasHeight;
-                if (right < canvasWidth) {
-                    left += canvasWidth - right;
-                }
-                if (bottom < canvasHeight) {
-                    top += canvasHeight - bottom;
-                }
-            }
-            if (scale < 1) {   // Bounce back:
-                // Reset transform:
-                leftVal = 0;
-                topVal = 0;
-                rotateVal = 0;
-                scaleVal = 1;
-            } else {
-                // Update transform:
-                leftVal = left;
-                topVal = top;
-                rotateVal = rotate;
-                scaleVal = scale;
-            }
-            return {
-                left: leftVal,
-                top: topVal,
-                rotate: rotateVal,
-                scale: scaleVal
-            };
-        }
-
-        // Check if a canvas touch plugin exists:
-        if (core.canvas.touch) {
-            touchHandler = core.canvas.touch({
-                canvas: canvas[0][0],
-                renderCallback: renderCallback,
-                startCallback: startCallback,
-                endCallback: endCallback,
-                enableRotate: enableRotate
-            });
-        } else {
-            touchHandler = {
-                setRotateState: function () { return; }
-            };
-        }
 
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {

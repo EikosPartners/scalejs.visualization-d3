@@ -1,7 +1,11 @@
 ﻿/*global define*/
 /*jslint devel: true */
 /*jslint browser: true */
-define(function () {
+define([
+    'hammer'
+], function (
+    hammer
+) {
     "use strict";
 
     // Get requestAnimationFrame function based on which browser:
@@ -667,8 +671,52 @@ define(function () {
             return thisSelector;
         }
 
+
+        function clickHandler(event) {
+            // Ignore event with no gesture:
+            if (!event.gesture) {
+                return;
+            }
+            event.gesture.preventDefault();
+
+            // Ignore events with more than one touch.
+            if (event.gesture.touches.length === 1) {
+                // Calculate offset from target's top-left corner:
+                var touch = event.gesture.touches[0],       // Get touch location on page.
+                    display = touch.target.style.display,   // Save display property.
+                    pagePos;                                // Get target position on page.
+                touch.target.style.display = "";    // Make visible
+                pagePos = touch.target.getBoundingClientRect(); // Get visible coords.
+                touch.target.style.display = display;   // Restore display property.
+                event.offsetX = touch.pageX - pagePos.left;
+                event.offsetY = touch.pageY - pagePos.top;
+
+                canvasObj.context.save();
+                // Reset transform:
+                canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
+                // Loop through every child object on canvas:
+                canvasObj.children.forEach(function (child) {
+                    // Check if mouse is in child:
+                    if (child.isPointIn(event.offsetX, event.offsetY)) {
+                        // If so, propagate event down to child.
+                        child.mouseDownEvent.call(child, event.offsetX, event.offsetY, event);
+                    }
+                });
+                canvasObj.context.restore();
+            }
+        }
+
+        var hammerObj = hammer(canvasObj.element, {
+            prevent_default: true
+        });
+
+        hammerObj.on("click tap", clickHandler);
+
+        /*var lastDownTime,
+            lastDownPosX,
+            lastDownPosY;
         // Mouse event for clicking an object:
-        function mouseEvent(event) {
+        function mouseStartEvent(event) {
             // Prevent auto-zoom, and other gestures:
             event.preventDefault();
 
@@ -678,19 +726,37 @@ define(function () {
                 event.offsetX = event.pageX - pagePos.left;
                 event.offsetY = event.pageY - pagePos.top;
             }
+            lastDownTime = new Date().getTime();
+            lastDownPosX = event.offsetX;
+            lastDownPosY = event.offsetY;
+        }
+        // Mouse event for clicking an object:
+        function mouseEndEvent(event) {
+            // Prevent auto-zoom, and other gestures:
+            event.preventDefault();
 
-            canvasObj.context.save();
-            // Reset transform:
-            canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
-            // Loop through every child object on canvas:
-            canvasObj.children.forEach(function (child) {
-                // Check if mouse is in child:
-                if (child.isPointIn(event.offsetX, event.offsetY)) {
-                    // If so, propagate event down to child.
-                    child.mouseDownEvent.call(child, event.offsetX, event.offsetY, event);
-                }
-            });
-            canvasObj.context.restore();
+            // Get offset if doesn't exist:
+            if (event["offsetX"] === undefined) {
+                var pagePos = event.target.getBoundingClientRect(); // Get target position on page.
+                event.offsetX = event.pageX - pagePos.left;
+                event.offsetY = event.pageY - pagePos.top;
+            }
+            var distance = (event.offsetX - lastDownPosX) * (event.offsetX - lastDownPosX) + (event.offsetY - lastDownPosY) * (event.offsetY - lastDownPosY);
+
+            if (distance <= 10 && (new Date().getTime()) - lastDownTime <= 250) {
+                canvasObj.context.save();
+                // Reset transform:
+                canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
+                // Loop through every child object on canvas:
+                canvasObj.children.forEach(function (child) {
+                    // Check if mouse is in child:
+                    if (child.isPointIn(event.offsetX, event.offsetY)) {
+                        // If so, propagate event down to child.
+                        child.mouseDownEvent.call(child, event.offsetX, event.offsetY, event);
+                    }
+                });
+                canvasObj.context.restore();
+            }
         }
 
         // Touch event for clicking an object (maps event to mouseEvent):
@@ -707,9 +773,12 @@ define(function () {
             }
         }
 
-        // Add event listeners for click:
-        canvasObj.element.addEventListener("mousedown", mouseEvent);    // For mouse inputs.
-        canvasObj.element.addEventListener("touchstart", touchEvent);   // For touch screens.
+        // Add event listeners for down:
+        canvasObj.element.addEventListener("mousedown", mouseStartEvent);    // For mouse inputs.
+        //canvasObj.element.addEventListener("touchstart", touchStartEvent);   // For touch screens.
+        // Add event listeners for up:
+        canvasObj.element.addEventListener("mouseup", mouseEndEvent);    // For mouse inputs.
+        //canvasObj.element.addEventListener("touchend", touchEvent);*/   // For touch screens.
 
         // Create a selector containing the canvas:
         var canvasSelector = createSelector({

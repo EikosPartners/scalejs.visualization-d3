@@ -131,7 +131,7 @@ define([
             var t = canvasArea.selectAll("group")
                 .transition()
                 .duration(d3.event ? (d3.event.altKey ? 7500 : 1000) : 1000)
-                .tween("groupZoom", function (d) {
+                .tween("groupZoom", function () {
                     // Create interpolations used for a nice slide:
                     var interpX = d3.interpolate(this.left, canvasWidth / 2),
                         interpY = d3.interpolate(this.top, canvasHeight / 2),
@@ -182,12 +182,13 @@ define([
                         yr: y.range()
                     };
                 }).on("mousedown", function (d) {
-                    var clickTime = (new Date()).getTime();
+                    /*var clickTime = (new Date()).getTime();
                     if (clickTime - lastClickTime < 500 && lastClickNode === d) {
                         selectZoom(d);
                     }
                     lastClickTime = clickTime;
-                    lastClickNode = d;
+                    lastClickNode = d;*/
+                    selectZoom(d);
                 });
 
             // Add text to nodes:

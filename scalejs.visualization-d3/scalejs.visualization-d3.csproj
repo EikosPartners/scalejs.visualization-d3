@@ -40,6 +40,7 @@
     <None Include="packages.config" />
     <Content Include="Scripts\TweenLite-1.11.4.js" />
     <Content Include="Scripts\canvas.js" />
+    <Content Include="Scripts\hammer.js" />
   </ItemGroup>
   <PropertyGroup>
     <ScalejsProjectType>Extension</ScalejsProjectType>
