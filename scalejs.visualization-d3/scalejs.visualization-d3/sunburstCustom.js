@@ -49,7 +49,7 @@ define([
                     interpDY = d3.interpolate(this.old.dy, d.dy),
                     interpXD = d3.interpolate(this.old.xd, [p.x, p.x + p.dx]),
                     interpYD = d3.interpolate(this.old.yd, [p.y, 1]),
-                    interpYR = d3.interpolate(this.old.yr, [p.y ? 20 : 0, radius]),
+                    interpYR = d3.interpolate(this.old.yr, [p.y ? p.dy * radius / 2 : 0, radius]),
                     // Remember this element:
                     element = this;
                 return function (t) { // Interpolate arc:
@@ -82,7 +82,7 @@ define([
                     textElement = this;
                 return function (t) { // Interpolate attributes:
                     var rad, radless, offsety, angle,
-                        outerRad, innerRad, arcWidth;
+                        outerRad, innerRad, arcStartAngle, arcEndAngle, arcWidth;
                     // Store new data in the old property:
                     textElement.old = {
                         x: interpX(t),
@@ -95,27 +95,39 @@ define([
                     d.w = this.width;
                     d.h = this.height;
 
+                    // Setup variables for opacity:
+                    outerRad = outerRadius(textElement.old);
+                    innerRad = innerRadius(textElement.old);
+                    arcStartAngle = startAngle(textElement.old);
+                    arcEndAngle = endAngle(textElement.old);
+                    arcWidth = (arcEndAngle - arcStartAngle) * innerRad;
+
                     // Calculate text angle:
                     rad = x(textElement.old.x + textElement.old.dx / 2);
                     radless = rad - Math.PI / 2;
                     offsety = y(d.y) + 2;
                     angle = rad * 180 / Math.PI - 90;
-                    if (angle > 90) {
-                        angle = (angle + 180) % 360;
-                    }
-
-                    // Change anchor based on side of Sunburst the text is on:
-                    textElement.originX = rad > Math.PI ? "right" : "left";
                     textElement.left = offsety * Math.cos(radless);
                     textElement.top = offsety * Math.sin(radless);
+                    if (p !== d) {
+                        // Flip text right side up:
+                        if (angle > 90) {
+                            angle = (angle + 180) % 360;
+                        }
+                        // Change anchor based on side of Sunburst the text is on:
+                        textElement.originX = rad > Math.PI ? "right" : "left";
 
-                    // Setup variables for opacity:
-                    outerRad = outerRadius(textElement.old);
-                    innerRad = innerRadius(textElement.old);
-                    arcWidth = (endAngle(textElement.old) - startAngle(textElement.old)) * innerRad;
+                        // Change opacity:
+                        textElement.opacity = (outerRad - innerRad - 4 >= d.w) && ((arcWidth - 2 >= d.h) || p === d) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
+                    } else {
+                        angle -= 90;
+                        // Change anchor based on side of Sunburst the text is on:
+                        textElement.originX = "center";
+                        textElement.originY = "top";
 
-                    // Change opacity:
-                    textElement.opacity = (outerRad - innerRad - 4 >= d.w) && ((arcWidth - 2 >= d.h) || root === d) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
+                        // Change opacity:
+                        textElement.opacity = (outerRad - innerRad - 4 >= d.h) && ((arcWidth - 2 >= d.w) || p === d) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
+                    }
 
                     // Rotate text angle:
                     textElement.angle = angle;
@@ -193,16 +205,31 @@ define([
 
             // Add text to nodes:
             cell.append("text").each(function (d) {
-                this.originX = (x(d.x + d.dx / 2) > Math.PI) ? "right" : "left";
-                this.originY = "center";
+                if (root !== d) {
+                    // Change anchor based on side of Sunburst the text is on:
+                    this.originX = (x(d.x + d.dx / 2) > Math.PI) ? "right" : "left";
+                    this.originY = "center";
+                } else {
+                    // Change anchor based on side of Sunburst the text is on:
+                    this.originX = "center";
+                    this.originY = "top";
+                }
                 this.fontSize = 11;
                 this.setText(d.name);
                 d.bw = y(d.y + d.dy) - y(d.y);
                 d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
-                this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || y(d.y) < 1) ? 1 : 0;
                 var ang = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
-                if (ang > 90) {
-                    ang = (ang + 180) % 360;
+                if (root !== d) {
+                    // Flip text right side up:
+                    if (ang > 90) {
+                        ang = (ang + 180) % 360;
+                    }
+                    // Change opacity:
+                    this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || root === d) ? 1 : 0;
+                } else {
+                    ang -= 90;
+                    // Change opacity:
+                    this.opacity = (d.bw - 4 >= this.height) && ((d.bh - 2 >= this.width) || root === d) ? 1 : 0;
                 }
                 this.angle = ang;
                 this.left = (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2);
@@ -377,7 +404,8 @@ define([
             zoom: zoom,
             resize: resize,
             remove: remove,
-            enableRotate: true
+            enableRotate: true,
+            enableRootZoom: false
         };
     };
 });

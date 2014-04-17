@@ -435,7 +435,7 @@ define([
                 dTmp,
                 oldSelected = nodeSelected;
 
-            if (d === oldSelected) {    // Reset path since item was already selected.
+            if (visualization.enableRootZoom && d === oldSelected) {    // Reset path since item was already selected.
                 d = root;
             }
 

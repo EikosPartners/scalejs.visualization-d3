@@ -273,7 +273,8 @@ define([
             zoom: zoom,
             resize: resize,
             remove: remove,
-            enableRotate: false
+            enableRotate: false,
+            enableRootZoom: true
         };
     };
 });
