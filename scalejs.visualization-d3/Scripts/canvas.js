@@ -206,7 +206,7 @@ define([
                             canvasObj.context.rotate(this.radianAngle);   // Rotate group at center.
                             if (this.backFill) {
                                 canvasObj.context.fillStyle = this.backFill;
-                                canvasObj.context.fillRect(this.pos.left, this.pos.top, this.width, this.height);
+                                canvasObj.context.fillRect(0, 0, this.width, this.height);
                             }
                             if (this.font) {    // Set font if a global font is set.
                                 // Save previous family and size:
@@ -240,6 +240,9 @@ define([
                             posX = posX * cos - posY * sin;
                             posY = tposX * sin + posY * cos;
                             // Loop through all children and check if the point is in:
+                            if (this.backFill) {
+                                return posX >= 0 && posY >= 0 && posX <= this.width && posY <= this.height;
+                            }
                             return this.children.some(function (child) {
                                 return child.isPointIn(posX, posY, event);
                             });

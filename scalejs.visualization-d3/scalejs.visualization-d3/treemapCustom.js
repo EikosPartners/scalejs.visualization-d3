@@ -38,23 +38,16 @@ define([
                     // Create interpolations used for a nice slide:
                     var interpX = d3.interpolate(this.left, x(d.x)),
                         interpY = d3.interpolate(this.top, y(d.y)),
+                        interpWidth = d3.interpolate(this.width, Math.max(kx * d.dx - spacing, 0)),
+                        interpHeight = d3.interpolate(this.height, Math.max(ky * d.dy - spacing, 0)),
                         element = this;
                     return function (t) {
                         element.left = interpX(t);
                         element.top = interpY(t);
+                        element.width = interpWidth(t);
+                        element.height = interpHeight(t);
                     };
                 });
-
-            t.select("rect").tween("rectZoom", function (d) {
-                // Create interpolations used for a nice slide:
-                var interpWidth = d3.interpolate(this.width, Math.max(kx * d.dx - spacing, 0)),
-                    interpHeight = d3.interpolate(this.height, Math.max(ky * d.dy - spacing, 0)),
-                    element = this;
-                return function (t) {
-                    element.width = interpWidth(t);
-                    element.height = interpHeight(t);
-                };
-            });
 
             t.select("text").tween("textZoom", function (d) {
                 // Create interpolations used for a nice slide:
@@ -79,28 +72,19 @@ define([
             // Add nodes to Canvas:
             var cell = celSel.enter().append("group")
                 .each(function (d) {
-                //this.originX = "center";
-                //this.originY = "center";
-                this.left = d.x;
-                this.top = d.y;
-                });
-
-            // Add rectangle to each node:
-            cell.append("rect")
-                .each(function (d) {
+                    //this.originX = "center";
+                    //this.originY = "center";
+                    this.left = d.x;
+                    this.top = d.y;
                     this.width = Math.max(d.dx - spacing, 0);
                     this.height = Math.max(d.dy - spacing, 0);
-                    if (d.children) {
-                        this.fill = parentColor(d.lvl / (root.maxlvl - 1));
-                    } else {
-                        this.fill = d.color;
-                    }
+                    this.backFill = d.children ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color;
                 })
                 .filter(function (d) { return !d.children; })
-                .on("mousedown", function (d) { selectZoom(d.parent || root); });
+                    .on("mousedown", function (d) { selectZoom(d.parent || root); });
 
             // Add title to each node:
-            cell.filter(function (d) { return !d.children; }).append("text")
+            cell.append("text")
                 .each(function (d) {
                 this.originX = "center";
                 this.originY = "center";
@@ -139,27 +123,19 @@ define([
                     // Create interpolations used for a nice slide:
                     var interpX = d3.interpolate(this.left, d.x),
                         interpY = d3.interpolate(this.top, d.y),
+                        interpWidth = d3.interpolate(this.width, Math.max(d.dx - spacing, 0)),
+                        interpHeight = d3.interpolate(this.height, Math.max(d.dy - spacing, 0)),
+                        interpFill = d3.interpolate(this.backFill, (d.children ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color)),
                         element = this;
                     return function (t) {
                         element.left = interpX(t);
                         element.top = interpY(t);
+                        element.width = interpWidth(t);
+                        element.height = interpHeight(t);
+                        element.backFill = interpFill(t);
                     };
                 });
-
-            // Update each node's rectangle:
-            cell.select("rect").tween("rectTween", function (d) {
-                // Create interpolations used for a nice slide:
-                var interpWidth = d3.interpolate(this.width, Math.max(d.dx - spacing, 0)),
-                    interpHeight = d3.interpolate(this.height, Math.max(d.dy - spacing, 0)),
-                    interpFill = d3.interpolate(this.fill, (d.children ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color)),
-                    element = this;
-                return function (t) {
-                    element.width = interpWidth(t);
-                    element.height = interpHeight(t);
-                    element.fill = interpFill(t);
-                };
-            })
-                .filter(function (d) { return d.children; })
+            celSel.filter(function (d) { return d.children; })
                     .on("mousedown", null);
 
             // Update each node's title:
