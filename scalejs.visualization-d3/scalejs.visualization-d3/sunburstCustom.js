@@ -20,8 +20,7 @@ define([
             sunburstLayout,
             arc,
             canvasArea,
-            lastClickTime,
-            lastClickNode;
+            currentZoomNode;
 
         function startAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); }
         function endAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); }
@@ -118,7 +117,7 @@ define([
                         textElement.originX = rad > Math.PI ? "right" : "left";
 
                         // Change opacity:
-                        textElement.opacity = (outerRad - innerRad - 4 >= d.w) && ((arcWidth - 2 >= d.h) || p === d) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
+                        textElement.opacity = (outerRad - innerRad - 4 >= d.w) && ((arcWidth - 2 >= d.h) || (p === d && innerRad < 1)) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
                     } else {
                         angle -= 90;
                         // Change anchor based on side of Sunburst the text is on:
@@ -126,7 +125,7 @@ define([
                         textElement.originY = "top";
 
                         // Change opacity:
-                        textElement.opacity = (outerRad - innerRad - 4 >= d.h) && ((arcWidth - 2 >= d.w) || p === d) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
+                        textElement.opacity = (outerRad - innerRad - 4 >= d.h) && ((arcWidth - 2 >= d.w) || (p === d && innerRad < 1)) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
                     }
 
                     // Rotate text angle:
@@ -136,7 +135,7 @@ define([
         }
         // Zoom after click:
         function zoom(p) {
-            if (canvasArea === undefined) {
+            if (canvasArea === undefined || currentZoomNode === p) {
                 return; // Catch for if sunburst hasn't been setup.
             }
             // Animate sunburst nodes:
@@ -159,6 +158,9 @@ define([
 
             t.select("text")
                 .tween("textZoom", textTween(p));
+
+            // Set current zoomed node:
+            currentZoomNode = p;
 
             // Prevent event from firing more than once:
             if (d3.event) {
@@ -193,15 +195,7 @@ define([
                         yd: y.domain(),
                         yr: y.range()
                     };
-                }).on("mousedown", function (d) {
-                    /*var clickTime = (new Date()).getTime();
-                    if (clickTime - lastClickTime < 500 && lastClickNode === d) {
-                        selectZoom(d);
-                    }
-                    lastClickTime = clickTime;
-                    lastClickNode = d;*/
-                    selectZoom(d);
-                });
+                }).on("mousedown", selectZoom);
 
             // Add text to nodes:
             cell.append("text").each(function (d) {
@@ -214,7 +208,7 @@ define([
                     this.originX = "center";
                     this.originY = "top";
                 }
-                this.fontSize = 11;
+                //this.fontSize = 11;
                 this.setText(d.name);
                 d.bw = y(d.y + d.dy) - y(d.y);
                 d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
@@ -225,11 +219,11 @@ define([
                         ang = (ang + 180) % 360;
                     }
                     // Change opacity:
-                    this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || root === d) ? 1 : 0;
+                    this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? 1 : 0;
                 } else {
                     ang -= 90;
                     // Change opacity:
-                    this.opacity = (d.bw - 4 >= this.height) && ((d.bh - 2 >= this.width) || root === d) ? 1 : 0;
+                    this.opacity = (d.bw - 4 >= this.height) && ((d.bh - 2 >= this.width) || (root === d && y(d.y) < 1)) ? 1 : 0;
                 }
                 this.angle = ang;
                 this.left = (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2);
@@ -348,6 +342,7 @@ define([
 
             // Get sunburst data:
             root = json();
+            currentZoomNode = root;
 
             // This is a new sunburst:
             // Setup sunburst and Canvas:
@@ -356,6 +351,8 @@ define([
                             .children(function (d) { return d.children; });
 
             canvasArea = canvasElement.append("group").each(function () {
+                this.fontFamily = "Times New Roman";
+                this.fontSize = 11;
                 //this.originX = "center";
                 //this.originY = "center";
             });

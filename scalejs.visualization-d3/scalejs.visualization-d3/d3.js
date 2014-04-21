@@ -33,13 +33,13 @@ define([
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
         visualizations = {
-            treemap: treemap,
+            //treemap: treemap,
+            //sunburst: sunburst,
+            //voronoi: voronoi,
+            //testindiv: testindiv,
+            //testgroup: testgroup,
             treemapCustom: treemapCustom,
-            sunburst: sunburst,
-            sunburstCustom: sunburstCustom,
-            voronoi: voronoi,
-            testindiv: testindiv,
-            testgroup: testgroup
+            sunburstCustom: sunburstCustom
         };
 
     function blankVisualization(type) {
@@ -301,8 +301,12 @@ define([
             }
         }
         // Recursively traverse json data, and build it for rendering:
-        function createNodeJson(dat, lvls, ind) {
+        function createNodeJson(dat, lvls, ind, maxlvl) {
             var node = unwrap(dat), newNode, childNode, i, children, stepSize, lvl, color;
+
+            if (maxlvl.value < ind) {
+                maxlvl.value = ind;
+            }
 
             if (lvls.length === 0) {    // Out of defined levels, so use global parameters for node:
                 return {
@@ -331,6 +335,7 @@ define([
             // Set default properties of node with children:
             newNode = {
                 name: unwrap(node.name || ''),
+                lvl: ind,
                 children: [],
                 childrenReference: [],
                 size: unwrap(node[lvl.areaPath] || 1),
@@ -345,7 +350,7 @@ define([
             // Node has children, so set them up first:
             children = unwrap(node[lvl.childrenPath]);
             for (i = 0; i < children.length; i += 1) {
-                childNode = createNodeJson(children[i], lvls, ind + 1); // Get basic node-specific properties
+                childNode = createNodeJson(children[i], lvls, ind + 1, maxlvl); // Get basic node-specific properties
                 childNode.parent = newNode; // Set node's parent
                 childNode.index = i;    // Set node's index to match the index it appears in the original dataset.
 
@@ -400,6 +405,7 @@ define([
             return newNode;
         }
         json = ko.computed(function () {
+            var maxlvl = { value: 0 }, stepSize;
             // Get parameters (or defaults values):
             dataSource = parameters.data || { name: "Empty" };
             levelsSource = parameters.levels || [{}];
@@ -410,12 +416,13 @@ define([
 
             // Create copy of data in a easy structure for d3:
             createLevelParameters(levelsSource);
-            root = createNodeJson(dataSource, levels, 0);
+            root = createNodeJson(dataSource, levels, 0, maxlvl);
+            root.maxlvl = maxlvl.value;
 
             // Setup colorscale for the root:
             rootScale = d3.scale.linear()
                         .range(levels[0].colorScale.range());
-            var stepSize = 2 / Math.max(rootScale.range().length - 1, 1);
+            stepSize = 2 / Math.max(rootScale.range().length - 1, 1);
             rootScale.domain(d3.range(root.colorSize - stepSize / 2, root.colorSize + stepSize / 2, stepSize));
 
             // Set root's color:

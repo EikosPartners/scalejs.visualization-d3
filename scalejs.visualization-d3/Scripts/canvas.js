@@ -59,6 +59,10 @@ define([
                 pumpRender: function () {
                     // Reset transform:
                     canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
+                    // Clear globals:
+                    canvasObj.context.font = "40px Times New Roman";
+                    canvasObj.context.fontFamily = "Times New Roman";
+                    canvasObj.context.fontSize = 40;
                     // Calculate all objects' boundaries and parameters:
                     canvasObj.children.forEach(function (child) { child.calcBounds(); });
                     // Clear canvas:
@@ -114,6 +118,8 @@ define([
                         parent: opts.parent || canvasObj,
                         id: opts.id || opts.parent.children.length,
                         data: opts.data || {},
+                        fontFamily: opts.fontFamily || "",
+                        fontSize: opts.fontSize || 0,
                         originX: opts.originX || "left",
                         originY: opts.originY || "top",
                         left: opts.left || 0,
@@ -123,6 +129,7 @@ define([
                         angle: opts.angle || 0,
                         scaleX: opts.scaleX || 1,
                         scaleY: opts.scaleY || 1,
+                        backFill: opts.backFill || "",
                         offset: { left: 0, top: 0 },
                         pos: { left: 0, top: 0 },
                         extents: { left: 0, top: 0, right: 0, bottom: 0 },
@@ -131,6 +138,16 @@ define([
                             return this.extents;
                         },
                         calcBounds: function () {
+                            // Check if font is set on group:
+                            if (this.fontFamily && this.fontSize) {
+                                // Compile font:
+                                this.font = this.fontSize + "px " + this.fontFamily;
+                                canvasObj.context.font = this.font;
+                                canvasObj.context.fontFamily = this.fontFamily;
+                                canvasObj.context.fontSize = this.fontSize;
+                            } else {
+                                this.font = "";
+                            }
                             // Calculate children's boundaries and parameters:
                             this.children.forEach(function (child) { child.calcBounds(); });
                             if (this.children.length > 0) {
@@ -166,7 +183,7 @@ define([
                                 this.extents.bottom = 0;
                             }
                             // Calculate boundaries and additional parameters:
-                            this.width = (this.extents.right - this.extents.left) * this.scaleX;
+                            /*this.width = (this.extents.right - this.extents.left) * this.scaleX;
                             this.height = (this.extents.bottom - this.extents.top) * this.scaleY;
                             this.offset.left = getOffset[this.originX](this.width);
                             this.offset.top = getOffset[this.originY](this.height);
@@ -175,7 +192,11 @@ define([
                             this.extents.left += this.pos.left;
                             this.extents.top += this.pos.top;
                             this.extents.right += this.pos.left;
-                            this.extents.bottom += this.pos.top;
+                            this.extents.bottom += this.pos.top;*/
+                            this.offset.left = getOffset[this.originX](this.width);
+                            this.offset.top = getOffset[this.originY](this.height);
+                            this.pos.left = this.left + this.offset.left;
+                            this.pos.top = this.top + this.offset.top;
                             this.radianAngle = this.angle * Math.PI / 180;
                         },
                         render: function () {
@@ -183,7 +204,26 @@ define([
                             canvasObj.context.translate(this.pos.left, this.pos.top);   // Set group center.
                             canvasObj.context.scale(this.scaleX, this.scaleY);  // Scale group at center.
                             canvasObj.context.rotate(this.radianAngle);   // Rotate group at center.
-                            this.children.forEach(function (child) { child.render(); });    // Render children.
+                            if (this.backFill) {
+                                canvasObj.context.fillStyle = this.backFill;
+                                canvasObj.context.fillRect(this.pos.left, this.pos.top, this.width, this.height);
+                            }
+                            if (this.font) {    // Set font if a global font is set.
+                                // Save previous family and size:
+                                var pFontFamily = canvasObj.context.fontFamily,
+                                    pFontSize = canvasObj.context.fontSize;
+                                // Set font and family and size:
+                                canvasObj.context.font = this.font;
+                                canvasObj.context.fontFamily = this.fontFamily;
+                                canvasObj.context.fontSize = this.fontSize;
+                                this.children.forEach(function (child) { child.render(); });    // Render children.
+                                // Restore family and size:
+                                canvasObj.context.fontFamily = pFontFamily;
+                                canvasObj.context.fontSize = pFontSize;
+
+                            } else {
+                                this.children.forEach(function (child) { child.render(); });    // Render children.
+                            }
                             canvasObj.context.restore();
                         },
                         isPointIn: function (posX, posY, event) {
@@ -287,23 +327,27 @@ define([
                         parent: opts.parent || canvasObj,
                         id: opts.id || opts.parent.children.length,
                         data: opts.data || {},
-                        fontFamily: opts.fontFamily || "Times New Roman",
-                        fontSize: opts.fontSize || 40,
+                        fontFamily: opts.fontFamily || "",//"Times New Roman",
+                        fontSize: opts.fontSize || 0,//40,
                         text: opts.text || "",
                         setText: function (text) {
                             // Compile font:
-                            this.font = this.fontSize + "px " + this.fontFamily;
+                            if (this.fontFamily && this.fontSize) {
+                                this.font = this.fontSize + "px " + this.fontFamily;
+                                this.height = this.fontSize;
+                            } else {
+                                this.height = canvasObj.context.fontSize;
+                            }
                             // Check if text has changed, if so get width:
                             if (this.calcText !== this.text) {
                                 canvasObj.context.save();
-                                canvasObj.context.font = this.font;
-                                canvasObj.context.fillStyle = this.fill;
+                                this.font && (canvasObj.context.font = this.font);  // Only set font if not using the global font.
+                                //canvasObj.context.fillStyle = this.fill;  // not needed to compute width
                                 this.text = text;
                                 this.width = canvasObj.context.measureText(text || "").width;
                                 canvasObj.context.restore();
                                 this.calcText = this.text;
                             }
-                            this.height = this.fontSize;
                         },
                         originX: opts.originX || "left",
                         originY: opts.originY || "top",
@@ -324,7 +368,7 @@ define([
                             // Calculate boundaries and additional parameters:
                             this.setText(this.text);
                             this.offset.left = getOffset[this.originX](this.width);
-                            this.offset.top = getOffset[this.originY](this.height) + this.fontSize;
+                            this.offset.top = getOffset[this.originY](this.height) + this.height;
                             this.pos.left = this.left + this.offset.left;
                             this.pos.top = this.top + this.offset.top;
                             this.extents.left = this.pos.left;
@@ -336,7 +380,7 @@ define([
                             // Only render if text is visible (saves time):
                             if (this.opacity > 0) {
                                 canvasObj.context.save();   // Required to restore transform matrix after the following render:
-                                canvasObj.context.font = this.font;
+                                this.font && (canvasObj.context.font = this.font);
                                 canvasObj.context.fillStyle = this.fill;
                                 canvasObj.context.globalAlpha = this.opacity;
                                 canvasObj.context.translate(this.left, this.top);   // Set rotate center.
@@ -473,6 +517,24 @@ define([
                                     objs.push(child);   // Found, append to objs.
                                 }
                             });
+                        }
+                    });
+                    // Return a new selector with all objects matching objectClassName:
+                    return createSelector({
+                        transition: thisSelector.isTransition,
+                        duration: thisSelector.durationTime,
+                        ease: thisSelector.easeFunc,
+                        object: objs.length > 0 ? objs[0].parent : (thisSelector.objects.length > 0 ? thisSelector.objects[0] : thisSelector.object), //Should rework this to accept more than one parent...
+                        objects: objs
+                    });
+                },
+                filter: function (filterFunc) {
+                    var objs = [];
+                    // Get all objects where filterFunc returns true:
+                    thisSelector.objects.forEach(function (object) {
+                        // Check if object should be added to new selector:
+                        if (filterFunc.call(object, object.data.data)) {
+                            objs.push(object);
                         }
                     });
                     // Return a new selector with all objects matching objectClassName:
@@ -639,9 +701,11 @@ define([
                     // TODO: Register tweenFunc for all objects in this selector.
                     // Setup timeout:
                     var timeStart = new Date().getTime(),
-                        timeEnd = timeStart + thisSelector.durationTime;
+                        timeEnd = timeStart + thisSelector.durationTime,
+                        i;
                     // Register object on canvas's animation array. If object already is there, then replace the current tween.
-                    thisSelector.objects.forEach(function (object) {
+                    for (i = 0; i < thisSelector.objects.length; i += 1) {//thisSelector.objects.forEach(function (object) {
+                        var object = thisSelector.objects[i];
                         // TODO: Make animation's ID based to test speed.
                         var animationIndex = canvasObj.animations.indexOf(object);
                         if (animationIndex < 0) {
@@ -653,7 +717,7 @@ define([
                         object.timeStart = timeStart;
                         object.timeEnd = timeEnd;
                         object.duration = thisSelector.durationTime;
-                    });
+                    }//});
                     if (canvasObj.requestFrameID === undefined && canvasObj.animations.length > 0) {
                         canvasObj.requestFrameID = requestAnimFrame(canvasObj.onAnimationFrame);
                     }

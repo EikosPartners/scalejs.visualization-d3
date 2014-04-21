@@ -1,7 +1,6 @@
 ﻿param($installPath, $toolsPath, $package, $project)
 
 $project |
-	Remove-Paths 'canvas, d3, d3.colorbrewer, fabric, hammer, scalejs.d3-fabric, scalejs.visualization-d3, tweenLite' |
-	Remove-Shims 'fabric, tweenLite' |
+	Remove-Paths 'canvas, d3, d3.colorbrewer, hammer, scalejs.visualization-d3' |
 	Remove-ScalejsExtension 'scalejs.visualization-d3' |
 	Out-Null

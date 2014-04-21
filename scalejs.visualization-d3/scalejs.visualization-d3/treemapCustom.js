@@ -1,10 +1,8 @@
 ﻿/*global define*/
 define([
-    'd3',
-    'canvas'
+    'd3'
 ], function (
-    d3,
-    canvasSelect
+    d3
 ) {
     "use strict";
 
@@ -20,8 +18,8 @@ define([
             root,
             treemapLayout,
             canvasArea,
-            lastClickTime,
-            lastClickNode;
+            spacing = 3,
+            parentColor = d3.interpolate("#888", "#fff");
 
         // Zoom after click:
         function zoom(d) {
@@ -49,8 +47,8 @@ define([
 
             t.select("rect").tween("rectZoom", function (d) {
                 // Create interpolations used for a nice slide:
-                var interpWidth = d3.interpolate(this.width, Math.max(kx * d.dx - 1, 0)),
-                    interpHeight = d3.interpolate(this.height, Math.max(ky * d.dy - 1, 0)),
+                var interpWidth = d3.interpolate(this.width, Math.max(kx * d.dx - spacing, 0)),
+                    interpHeight = d3.interpolate(this.height, Math.max(ky * d.dy - spacing, 0)),
                     element = this;
                 return function (t) {
                     element.width = interpWidth(t);
@@ -75,41 +73,39 @@ define([
             if (d3.event) {
                 d3.event.stopPropagation();
             }
-
-            //canvasElement.pumpRender();
         }
 
         function addNodes(celSel) {
             // Add nodes to Canvas:
-            var cell = celSel.enter().append("group").each(function (d) {
+            var cell = celSel.enter().append("group")
+                .each(function (d) {
                 //this.originX = "center";
                 //this.originY = "center";
                 this.left = d.x;
                 this.top = d.y;
-            }).on("mousedown", function (d) {
-                /*var clickTime = (new Date()).getTime();
-                if (clickTime - lastClickTime < 500 && lastClickNode === d) {
-                    selectZoom(d.parent);
-                }
-                lastClickTime = clickTime;
-                lastClickNode = d;*/
-                selectZoom(d.parent);
-            });
+                });
 
             // Add rectangle to each node:
-            cell.append("rect").each(function (d) {
-                this.width = Math.max(d.dx - 1, 0);
-                this.height = Math.max(d.dy - 1, 0);
-                this.fill = d.color;
-            });
+            cell.append("rect")
+                .each(function (d) {
+                    this.width = Math.max(d.dx - spacing, 0);
+                    this.height = Math.max(d.dy - spacing, 0);
+                    if (d.children) {
+                        this.fill = parentColor(d.lvl / (root.maxlvl - 1));
+                    } else {
+                        this.fill = d.color;
+                    }
+                })
+                .filter(function (d) { return !d.children; })
+                .on("mousedown", function (d) { selectZoom(d.parent || root); });
 
             // Add title to each node:
-            cell.append("text").each(function (d) {
+            cell.filter(function (d) { return !d.children; }).append("text")
+                .each(function (d) {
                 this.originX = "center";
                 this.originY = "center";
                 this.left = d.dx / 2;
                 this.top = d.dy / 2;
-                this.fontSize = 11;
                 this.setText(d.name);
                 this.opacity = (d.dx - 4 >= this.width) && (d.dy - 2 >= this.height) ? 1 : 0;
             });
@@ -120,7 +116,7 @@ define([
                 return; // Catch for if treemap hasn't been setup.
             }
             // Define temp vars:
-            var celSel, cell, nodes;
+            var celSel, cell, nodes, textNodes;
 
             // Get treemap data:
             root = json();
@@ -129,7 +125,8 @@ define([
             // Filter out nodes with children:
             nodes = treemapLayout.size([canvasWidth, canvasHeight])
                     .nodes(root)
-                    .filter(function (d) { return !d.children; });
+                    .sort(function (a, b) { return b.size - a.size; });
+                    //.filter(function (d) { return !d.children; });
 
             // Select all nodes in Canvas, and apply data:
             celSel = canvasArea.selectAll("group")
@@ -152,19 +149,23 @@ define([
             // Update each node's rectangle:
             cell.select("rect").tween("rectTween", function (d) {
                 // Create interpolations used for a nice slide:
-                var interpWidth = d3.interpolate(this.width, Math.max(d.dx - 1, 0)),
-                    interpHeight = d3.interpolate(this.height, Math.max(d.dy - 1, 0)),
-                    interpFill = d3.interpolate(this.fill, d.color),
+                var interpWidth = d3.interpolate(this.width, Math.max(d.dx - spacing, 0)),
+                    interpHeight = d3.interpolate(this.height, Math.max(d.dy - spacing, 0)),
+                    interpFill = d3.interpolate(this.fill, (d.children ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color)),
                     element = this;
                 return function (t) {
                     element.width = interpWidth(t);
                     element.height = interpHeight(t);
                     element.fill = interpFill(t);
                 };
-            });
+            })
+                .filter(function (d) { return d.children; })
+                    .on("mousedown", null);
 
             // Update each node's title:
-            cell.select("text").tween("textTween", function (d) {
+            textNodes = cell.select("text");
+            textNodes.filter(function (d) { return d.children; }).remove();
+            textNodes.filter(function (d) { return !d.children; }).tween("textTween", function (d) {
                 // Create interpolations used for a nice slide:
                 var interpX = d3.interpolate(this.left, d.dx / 2),
                     interpY = d3.interpolate(this.top, d.dy / 2),
@@ -190,8 +191,6 @@ define([
 
             // Remove nodes from Canvas:
             cell = celSel.exit().remove();
-
-            //canvasElement.pumpRender();
         }
 
         function init(
@@ -199,14 +198,13 @@ define([
             width,
             height,
             jsonObservable,
-            selectZoomFunction,
-            trueElement
+            selectZoomFunction//,
+            //trueElement
         ) {
             if (canvasArea !== undefined) {
                 return; // Catch for if treemap has been setup.
             }
-            canvasElement = element;/*canvasSelect(trueElement.getElementsByTagName("canvas")[0])
-                                .ease(d3.ease("cubic-in-out"));*///element
+            canvasElement = element;
             json = jsonObservable;
             canvasWidth = width;
             canvasHeight = height;
@@ -225,19 +223,23 @@ define([
             treemapLayout = d3.layout.treemap()
                             .round(false)
                             .size([canvasWidth, canvasHeight])
+                            .padding(function (d) { return d.parent && d.parent.children.length > 1 ? spacing : 0; })
                             .sticky(false)
                             .mode('squarify')
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 
             canvasArea = canvasElement.append("group").each(function () {
+                this.fontFamily = "Times New Roman";
+                this.fontSize = 11;
                 //this.originX = "center";
                 //this.originY = "center";
             });
 
             // Filter out nodes with children:
             nodes = treemapLayout.nodes(root)
-                    .filter(function (d) { return !d.children; });
+                    .sort(function (a, b) { return b.size - a.size; });
+                    //.filter(function (d) { return !d.children; });
 
             // Join data with selection:
             celSel = canvasArea.selectAll("group")
@@ -245,8 +247,6 @@ define([
 
             // Add nodes to Canvas:
             addNodes(celSel);
-
-            //canvasElement.pumpRender();
         }
 
         function resize(width, height) {
@@ -260,8 +260,6 @@ define([
         function remove() {
             if (canvasArea !== undefined) {
                 canvasArea.remove();
-                //canvasElement.select("group").remove();
-                //canvasArea.selectAll("group").remove();
                 canvasArea = undefined;
             }
         }

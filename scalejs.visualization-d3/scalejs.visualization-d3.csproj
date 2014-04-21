@@ -25,10 +25,8 @@
     <Content Include="scalejs.visualization-d3\d3.js" />
     <Content Include="Scripts\d3.v3.js" />
     <Content Include="Scripts\d3.v3.min.js" />
-    <Content Include="Scripts\fabric-1.4.4.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
-    <Content Include="Scripts\scalejs.d3-fabric.js" />
     <Content Include="Scripts\scalejs.sandbox.js" />
     <Content Include="Scripts\_scalejs.intellisense.js" />
     <Content Include="tools\install.ps1" />
@@ -38,7 +36,6 @@
   <ItemGroup>
     <None Include="JSLintNet.json" />
     <None Include="packages.config" />
-    <Content Include="Scripts\TweenLite-1.11.4.js" />
     <Content Include="Scripts\canvas.js" />
     <Content Include="Scripts\hammer.js" />
   </ItemGroup>
