@@ -12,6 +12,7 @@ var require = {
         "d3":  "Scripts/d3.v3",
         "d3.colorbrewer":  "Scripts/d3.colorbrewer",
         "fabric":  "Scripts/fabric-1.4.4",
+        "hammer":  "Scripts/hammer",
         "jasmine":  "Scripts/jasmine",
         "jasmine-html":  "Scripts/jasmine-html",
         "knockout":  "Scripts/knockout-3.0.0.debug",
@@ -20,6 +21,7 @@ var require = {
         "normalize":  "Scripts/normalize",
         "sandbox":  "Scripts/scalejs.sandbox",
         "scalejs":  "Scripts/scalejs-0.3.3",
+        "scalejs.canvas":  "Scripts/scalejs.canvas-0.1.0.14",
         "scalejs.d3-fabric":  "Scripts/scalejs.d3-fabric",
         "scalejs.functional":  "Scripts/scalejs.functional-0.2.9.8",
         "scalejs.linq-linqjs":  "Scripts/scalejs.linq-linqjs-3.0.3.1",
@@ -34,6 +36,7 @@ var require = {
     },
     "scalejs":  {
         "extensions":  [
+            "scalejs.canvas",
             "scalejs.functional",
             "scalejs.linq-linqjs",
             "scalejs.mvvm",

@@ -1,11 +1,16 @@
 var require = {
     "paths":  {
-        "canvas": "empty:",
-        "d3": "empty:",
-        "d3.colorbrewer": "empty:",
-        "hammer": "empty:",
-        "knockout": "empty:",
-        "sandbox": "Scripts/scalejs.sandbox",
-        "scalejs": "Scripts/scalejs-0.3.3"
+        "d3":  "empty:",
+        "d3.colorbrewer":  "empty:",
+        "hammer":  "Scripts/hammer",
+        "knockout":  "empty:",
+        "sandbox":  "Scripts/scalejs.sandbox",
+        "scalejs":  "Scripts/scalejs-0.3.3",
+        "scalejs.canvas":  "Scripts/scalejs.canvas-0.1.0.14"
+    },
+    "scalejs":  {
+        "extensions":  [
+            "scalejs.canvas"
+        ]
     }
 };

@@ -25,8 +25,11 @@
     <Content Include="scalejs.visualization-d3\d3.js" />
     <Content Include="Scripts\d3.v3.js" />
     <Content Include="Scripts\d3.v3.min.js" />
+    <Content Include="Scripts\hammer.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.14.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.14.min.js" />
     <Content Include="Scripts\scalejs.sandbox.js" />
     <Content Include="Scripts\_scalejs.intellisense.js" />
     <Content Include="tools\install.ps1" />
@@ -36,8 +39,6 @@
   <ItemGroup>
     <None Include="JSLintNet.json" />
     <None Include="packages.config" />
-    <Content Include="Scripts\canvas.js" />
-    <Content Include="Scripts\hammer.js" />
   </ItemGroup>
   <PropertyGroup>
     <ScalejsProjectType>Extension</ScalejsProjectType>

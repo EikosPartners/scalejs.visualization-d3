@@ -6,7 +6,7 @@ define([
     'knockout',
     'd3',
     'd3.colorbrewer',
-    'canvas',
+    'scalejs.canvas',
     'scalejs.visualization-d3/treemap',
     'scalejs.visualization-d3/treemapCustom',
     'scalejs.visualization-d3/sunburst',
@@ -19,7 +19,7 @@ define([
     ko,
     d3,
     colorbrewer,
-    canvasSelect,
+    canvasRender,
     treemap,
     treemapCustom,
     sunburst,
@@ -201,7 +201,7 @@ define([
         }
 
         // Create fabric canvas:
-        canvas = canvasSelect(canvasElement)
+        canvas = canvasRender.select(canvasElement)
                     .ease(d3.ease("cubic-in-out"));
                 /*d3.select(element)
                 .style('overflow', 'hidden')
