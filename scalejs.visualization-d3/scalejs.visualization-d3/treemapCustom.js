@@ -110,7 +110,7 @@ define([
             nodes = treemapLayout.size([canvasWidth, canvasHeight])
                     .nodes(root)
                     .sort(function (a, b) {
-                        return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;//(b.maxSize ? b.maxSize : b.value) - (a.maxSize ? a.maxSize : a.value);
+                        return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
                     });
                     //.filter(function (d) { return !d.children; });
 
@@ -216,10 +216,10 @@ define([
 
             // Filter out nodes with children:
             nodes = treemapLayout.nodes(root)
-                    .sort(function (a, b) {
-                        return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;//(b.maxSize ? b.maxSize : b.value) - (a.maxSize ? a.maxSize : a.value);
-                    });
-                    //.filter(function (d) { return !d.children; });
+                .sort(function (a, b) {
+                    return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
+                });
+                //.filter(function (d) { return !d.children; });
 
             // Join data with selection:
             celSel = canvasArea.selectAll("group")

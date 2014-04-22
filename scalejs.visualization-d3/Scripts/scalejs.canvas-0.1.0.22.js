@@ -2104,7 +2104,7 @@ define('scalejs.canvas/selector',[
             // If nodes is a function, each object retrieves its data from nodes(curData)!
             // Else nodes contains the array of data for the objects.
             // TEMP FIX:
-            this.exitObjects = [];
+            /*this.exitObjects = [];
             // Map nodes data to match object data.
             nodes = nodes.map(function (node) {
                 return {
@@ -2127,7 +2127,36 @@ define('scalejs.canvas/selector',[
                 }
             }, this);
             // Nodes left are new, so mark for enter:
-            this.enterObjects = nodes;
+            this.enterObjects = nodes;*/
+            // Generate a table filled with the nodes:
+            var nodeTable = {};
+            nodes = nodes.map(function (node) {
+                var key = keyFunc(node);
+                node = {
+                    id: key,
+                    data: node
+                };
+                nodeTable[key] = node;
+                return node;
+            });
+            // Populate the objects and exitObjects arrays:
+            this.exitObjects = [];
+            this.objects = this.objects.filter(function (object) {
+                if (nodeTable[object.data.id]) {
+                    object.data.data = nodeTable[object.data.id].data;
+                    nodeTable[object.data.id] = undefined;
+                    return true;
+                } else {
+                    this.exitObjects.push(object);
+                    return false;
+                }
+            }, this);
+            // Populate enterObjects array:
+            this.enterObjects = nodes.filter(function (node) {
+                return nodeTable[node.id];
+            });
+            // Return current selection (update selection):
+            // TODO: Return new selection.
             return this;
         };
 
@@ -2166,7 +2195,7 @@ define('scalejs.canvas/selector',[
                     this.parentSelector.exitObjects.forEach(function (object) {
                         object.parent.children.splice(object.parent.children.indexOf(object), 1);
                         this.parentSelector.objects.splice(this.parentSelector.objects.indexOf(object), 1);
-                    });
+                    }, this);
                     this.parentSelector.exitObjects = [];
                     return this.parentSelector;
                 }
@@ -2278,7 +2307,7 @@ define('scalejs.canvas/selector',[
             // Register object on canvas's animation array. If object already is there, then replace the current tween.
             this.objects.forEach(function (object) {
                 // TODO: Make animation's ID based to test speed.
-                if (!object.animationIndex || object.animationIndex < 0) {
+                if (!(object.animationIndex >= 0)) {
                     object.animationIndex = canvasObj.animations.length;
                     canvasObj.animations[object.animationIndex] = object;
                 }
