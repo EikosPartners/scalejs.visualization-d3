@@ -80,6 +80,7 @@ define([
             visualizationTypeObservable,
             json,
             dataSource,
+            maxVisibleLevels,
             levelsSource,
             levels,
             childrenPath,
@@ -311,6 +312,7 @@ define([
             if (lvls.length === 0) {    // Out of defined levels, so use global parameters for node:
                 return {
                     name: unwrap(node.name || ''),
+                    lvl: ind,
                     size: unwrap(node[unwrap(areaPath)] || 1),
                     colorSize: unwrap(node[unwrap(colorPath)] || 0)
                 };
@@ -327,6 +329,7 @@ define([
             if (node[lvl.childrenPath] === undefined) {   // Use current level parameters for node:
                 return {
                     name: unwrap(node.name || ''),
+                    lvl: ind,
                     size: unwrap(node[lvl.areaPath] || 1),
                     colorSize: unwrap(node[lvl.colorPath] || 0)
                 };
@@ -407,6 +410,7 @@ define([
         json = ko.computed(function () {
             var maxlvl = { value: 0 }, stepSize;
             // Get parameters (or defaults values):
+            maxVisibleLevels = unwrap(parameters.maxVisibleLevels || 2);
             dataSource = parameters.data || { name: "Empty" };
             levelsSource = parameters.levels || [{}];
             childrenPath = parameters.childrenPath || 'children';
@@ -414,10 +418,19 @@ define([
             colorPath = parameters.colorPath || 'color';
             colorPalette = parameters.colorPalette || 'PuBu';
 
+
             // Create copy of data in a easy structure for d3:
             createLevelParameters(levelsSource);
             root = createNodeJson(dataSource, levels, 0, maxlvl);
+            if (nodeSelected) {
+                root.curLevel = nodeSelected.lvl;
+                root.curMaxLevel = nodeSelected.lvl + maxVisibleLevels - 1;
+            } else {
+                root.curLevel = 0;
+                root.curMaxLevel = maxVisibleLevels - 1;
+            }
             root.maxlvl = maxlvl.value;
+            root.maxVisibleLevels = maxVisibleLevels;
 
             // Setup colorscale for the root:
             rootScale = d3.scale.linear()
@@ -447,6 +460,9 @@ define([
             }
 
             nodeSelected = dTmp = d;
+            // Set selected node for use in calculating the max depth.
+            root.curLevel = nodeSelected.lvl;
+            root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
             // Check if selectedItemPath is an observable:
             if (isObservable(selectedItemPath)) {   // Path is an observable, so set path to the selected item:
                 while (dTmp.parent !== undefined) {
@@ -482,6 +498,8 @@ define([
             // Verify d exists:
             if (d) {
                 nodeSelected = d;       // Set nodeSelected to d
+                root.curLevel = nodeSelected.lvl;
+                root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
                 if (zoomEnabled) {
                     visualization.zoom(d);    // Animate zoom effect
                 }
@@ -523,6 +541,8 @@ define([
 
             // Set selected node to the root of the treemap:
             nodeSelected = root;
+            root.curLevel = nodeSelected.lvl;
+            root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
             // Set default selected item (do this after the data is set, and before modifying attributes):
             if (isObservable(selectedItemPath)) {
                 selectedItemPath([]);
@@ -542,6 +562,8 @@ define([
         function update() {
             // Set selected node to the root of the treemap:
             nodeSelected = root;
+            root.curLevel = nodeSelected.lvl;
+            root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
 
             // Set default selected item (do this after the data is set, and before modifying attributes):
             zoomEnabled = false;
@@ -551,7 +573,7 @@ define([
             zoomEnabled = true;
 
             // Update visualization:
-            visualization.update();
+            visualization.update(root);
             canvas.pumpRender();
         }
 
@@ -591,7 +613,7 @@ define([
                 // Call visualization's resize function to handle resizing internally:
                 visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
-                visualization.update();
+                visualization.update(root);
                 canvas.pumpRender();
             });
         }

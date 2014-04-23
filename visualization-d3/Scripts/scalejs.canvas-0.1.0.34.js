@@ -1600,6 +1600,7 @@ define('scalejs.canvas/group',[
             this.scaleX = opts.scaleX || 1;
             this.scaleY = opts.scaleY || 1;
             this.backFill = opts.backFill || "";
+            this.opacity = opts.opacity || 1;
             this.offset = { left: 0, top: 0 };
             this.pos = { left: 0, top: 0 };
             this.extents = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -1674,31 +1675,34 @@ define('scalejs.canvas/group',[
         };
 
         group.prototype.render = function () {
-            canvasObj.context.save();   // Required to restore transform matrix after the following render:
-            canvasObj.context.translate(this.pos.left, this.pos.top);   // Set group center.
-            canvasObj.context.scale(this.scaleX, this.scaleY);  // Scale group at center.
-            canvasObj.context.rotate(this.radianAngle);   // Rotate group at center.
-            if (this.backFill) {
-                canvasObj.context.fillStyle = this.backFill;
-                canvasObj.context.fillRect(0, 0, this.width, this.height);
-            }
-            if (this.font) {    // Set font if a global font is set.
-                // Save previous family and size:
-                var pFontFamily = canvasObj.context.fontFamily,
-                    pFontSize = canvasObj.context.fontSize;
-                // Set font and family and size:
-                canvasObj.context.font = this.font;
-                canvasObj.context.fontFamily = this.fontFamily;
-                canvasObj.context.fontSize = this.fontSize;
-                this.children.forEach(function (child) { child.render(); });    // Render children.
-                // Restore family and size:
-                canvasObj.context.fontFamily = pFontFamily;
-                canvasObj.context.fontSize = pFontSize;
+            if (this.opacity > 0) {
+                canvasObj.context.save();   // Required to restore transform matrix after the following render:
+                this.opacity < 1 && (canvasObj.context.globalAlpha *= this.opacity);
+                canvasObj.context.translate(this.pos.left, this.pos.top);   // Set group center.
+                canvasObj.context.scale(this.scaleX, this.scaleY);  // Scale group at center.
+                canvasObj.context.rotate(this.radianAngle);   // Rotate group at center.
+                if (this.backFill && this.width > 0 && this.height > 0) {
+                    canvasObj.context.fillStyle = this.backFill;
+                    canvasObj.context.fillRect(0, 0, this.width, this.height);
+                }
+                if (this.font) {    // Set font if a global font is set.
+                    // Save previous family and size:
+                    var pFontFamily = canvasObj.context.fontFamily,
+                        pFontSize = canvasObj.context.fontSize;
+                    // Set font and family and size:
+                    canvasObj.context.font = this.font;
+                    canvasObj.context.fontFamily = this.fontFamily;
+                    canvasObj.context.fontSize = this.fontSize;
+                    this.children.forEach(function (child) { child.render(); });    // Render children.
+                    // Restore family and size:
+                    canvasObj.context.fontFamily = pFontFamily;
+                    canvasObj.context.fontSize = pFontSize;
 
-            } else {
-                this.children.forEach(function (child) { child.render(); });    // Render children.
+                } else {
+                    this.children.forEach(function (child) { child.render(); });    // Render children.
+                }
+                canvasObj.context.restore();
             }
-            canvasObj.context.restore();
         };
 
         group.prototype.isPointIn = function (posX, posY, event) {
@@ -1752,6 +1756,10 @@ define('scalejs.canvas/group',[
             canvasObj.context.restore();
         };
 
+        group.prototype.remove = function () {
+            this.parent.children.splice(this.parent.children.indexOf(this), 1);
+        };
+
         return group;
     };
 });
@@ -1797,10 +1805,12 @@ define('scalejs.canvas/rect',[
         };
 
         rect.prototype.render = function () {
-            //canvasObj.context.save();
-            canvasObj.context.fillStyle = this.fill;
-            canvasObj.context.fillRect(this.pos.left, this.pos.top, this.width, this.height);
-            //canvasObj.context.restore();
+            if (this.width > 0 && this.height > 0) {
+                //canvasObj.context.save();
+                canvasObj.context.fillStyle = this.fill;
+                canvasObj.context.fillRect(this.pos.left, this.pos.top, this.width, this.height);
+                //canvasObj.context.restore();
+            }
         };
 
         rect.prototype.isPointIn = function (posX, posY, event) {
@@ -1810,6 +1820,10 @@ define('scalejs.canvas/rect',[
 
         rect.prototype.mouseDownEvent = function (posX, posY, event) {
             this.onmousedown && this.onmousedown.call(this, this.data.data);
+        };
+
+        rect.prototype.remove = function () {
+            this.parent.children.splice(this.parent.children.indexOf(this), 1);
         };
 
         return rect;
@@ -1887,10 +1901,10 @@ define('scalejs.canvas/text',[
             if (this.opacity > 0 && this.text.length > 0) {
                 canvasObj.context.save();   // Required to restore transform matrix after the following render:
                 this.font && (canvasObj.context.font = this.font);
-                canvasObj.context.fillStyle = this.fill;
-                canvasObj.context.globalAlpha = this.opacity;
-                canvasObj.context.translate(this.left, this.top);   // Set rotate center.
-                canvasObj.context.rotate(this.angle * Math.PI / 180);   // Rotate text.
+                this.fill && (canvasObj.context.fillStyle = this.fill);
+                this.opacity < 1 && (canvasObj.context.globalAlpha *= this.opacity);
+                canvasObj.context.translate(this.left, this.top);   // Set center.
+                this.angle && canvasObj.context.rotate(this.angle * Math.PI / 180);   // Rotate text around center.
                 canvasObj.context.fillText(this.text, this.offset.left, this.offset.top);   // Draw text at offset pos.
                 canvasObj.context.restore();
             }
@@ -1903,6 +1917,10 @@ define('scalejs.canvas/text',[
 
         text.prototype.mouseDownEvent = function (posX, posY, event) {
             this.onmousedown && this.onmousedown.call(this, this.data.data);
+        };
+
+        text.prototype.remove = function () {
+            this.parent.children.splice(this.parent.children.indexOf(this), 1);
         };
 
         return text;
@@ -1959,13 +1977,15 @@ define('scalejs.canvas/arc',[
         };
 
         arc.prototype.render = function () {
-            //canvasObj.context.save();
-            canvasObj.context.beginPath();
-            canvasObj.context.strokeStyle = this.fill;
-            canvasObj.context.lineWidth = this.thickness;
-            canvasObj.context.arc(this.offset.left, this.offset.top, this.radius, this.startAngle - deg90InRad, this.endAngle - deg90InRad);
-            canvasObj.context.stroke();
-            //canvasObj.context.restore();
+            if (this.thickness !== 0 && this.endAngle !== this.startAngle) {
+                //canvasObj.context.save();
+                canvasObj.context.beginPath();
+                canvasObj.context.strokeStyle = this.fill;
+                canvasObj.context.lineWidth = this.thickness;
+                canvasObj.context.arc(this.offset.left, this.offset.top, this.radius, this.startAngle - deg90InRad, this.endAngle - deg90InRad);
+                canvasObj.context.stroke();
+                //canvasObj.context.restore();
+            }
         };
 
         arc.prototype.isPointIn = function (posX, posY, event) {
@@ -1982,6 +2002,10 @@ define('scalejs.canvas/arc',[
 
         arc.prototype.mouseDownEvent = function (posX, posY, event) {
             this.onmousedown && this.onmousedown.call(this, this.data.data);
+        };
+
+        arc.prototype.remove = function () {
+            this.parent.children.splice(this.parent.children.indexOf(this), 1);
         };
 
         return arc;
@@ -2022,10 +2046,12 @@ define('scalejs.canvas/selector',[
         function Selector(opts) {
             this.isTransition = opts.isTransition || false;
             this.durationTime = opts.durationTime || 250;
-            this.easeFunc = opts.ease || function (t) { return t; };
+            this.easeFunc = opts.easeFunc || function (t) { return t; };
+            this.endFunc = undefined;
             this.object = opts.object || canvasObj;
             this.objects = opts.objects || [];
             this.enterObjects = opts.enterObjects || [];
+            this.updateObjects = opts.updateObjects || [];
             this.exitObjects = opts.exitObjects || [];
         }
 
@@ -2045,7 +2071,7 @@ define('scalejs.canvas/selector',[
             return new Selector({
                 isTransition: this.isTransition,
                 durationTime: this.durationTime,
-                ease: this.easeFunc,
+                easeFunc: this.easeFunc,
                 object: firstObj.length > 0 ? firstObj[0].parent : (this.objects.length > 0 ? this.objects[0] : this.object), //Should rework this to accept more than one parent...
                 objects: firstObj
             });
@@ -2067,9 +2093,9 @@ define('scalejs.canvas/selector',[
             });
             // Return a new selector with all objects matching objectClassName:
             return new Selector({
-                transition: this.isTransition,
-                duration: this.durationTime,
-                ease: this.easeFunc,
+                isTransition: this.isTransition,
+                durationTime: this.durationTime,
+                easeFunc: this.easeFunc,
                 object: objs.length > 0 ? objs[0].parent : (this.objects.length > 0 ? this.objects[0] : this.object), //Should rework this to accept more than one parent...
                 objects: objs
             });
@@ -2086,9 +2112,9 @@ define('scalejs.canvas/selector',[
             });
             // Return a new selector with all objects matching objectClassName:
             return new Selector({
-                transition: this.isTransition,
-                duration: this.durationTime,
-                ease: this.easeFunc,
+                isTransition: this.isTransition,
+                durationTime: this.durationTime,
+                easeFunc: this.easeFunc,
                 object: objs.length > 0 ? objs[0].parent : (this.objects.length > 0 ? this.objects[0] : this.object), //Should rework this to accept more than one parent...
                 objects: objs
             });
@@ -2169,9 +2195,9 @@ define('scalejs.canvas/selector',[
                 append: function (objectClassName, opts) {
                     opts = opts || {};
                     return new Selector({
-                        transition: this.parentSelector.isTransition,
-                        duration: this.parentSelector.durationTime,
-                        ease: this.parentSelector.easeFunc,
+                        isTransition: this.parentSelector.isTransition,
+                        durationTime: this.parentSelector.durationTime,
+                        easeFunc: this.parentSelector.easeFunc,
                         objects: this.parentSelector.enterObjects.map(function (object) {
                             opts.parent = this.parentSelector.object;  // Set parent of child to object.
                             opts.data = object;    // Pass data to child!
@@ -2185,11 +2211,18 @@ define('scalejs.canvas/selector',[
             // Rethink selectors in order to properly append items into the right parents!
         };
 
+        Selector.prototype.update = function () {
+            // Returns selector with updateObjects as objects:
+            var newSelector = new Selector(this);
+            newSelector.objects = this.updateObjects;
+            return newSelector;
+        }
+
         Selector.prototype.exit = function () {
             // TODO FINISH
             // Returns exitObjects custom selector, with it's parent as this selector.
             // The selector removes exitObjects from the objects list of this selector when it removes (only function supported with this yet).
-            return {
+            /*return {
                 parentSelector: this,
                 remove: function () {
                     this.parentSelector.exitObjects.forEach(function (object) {
@@ -2199,7 +2232,10 @@ define('scalejs.canvas/selector',[
                     this.parentSelector.exitObjects = [];
                     return this.parentSelector;
                 }
-            };
+            };*/
+            var newSelector = new Selector(this);
+            newSelector.objects = this.exitObjects;
+            return newSelector;
         };
 
         Selector.prototype.on = function (eventName, eventFunc) {
@@ -2215,18 +2251,15 @@ define('scalejs.canvas/selector',[
         Selector.prototype.append = function (objectClassName, opts) {
             opts = opts || {};  // Make sure opts exists.
             // Return a new selector of all appended objects:
-            return new Selector({
-                transition: this.isTransition,
-                duration: this.durationTime,
-                ease: this.easeFunc,
-                objects: this.objects.map(function (object) { // For each object in selector, append a new object:
-                    opts.parent = object;       // Set parent of child to object.
-                    opts.data = object.data;    // Pass data to child!
-                    var newObj = new createObject[objectClassName](opts);   // Create child.
-                    object.children.push(newObj);   // Add child to object.
-                    return newObj;  // Add child to new selector.
-                })
+            var newSelector = new Selector(this);
+            newSelector.objects = this.objects.map(function (object) { // For each object in selector, append a new object:
+                opts.parent = object;       // Set parent of child to object.
+                opts.data = object.data;    // Pass data to child!
+                var newObj = new createObject[objectClassName](opts);   // Create child.
+                object.children.push(newObj);   // Add child to object.
+                return newObj;  // Add child to new selector.
             });
+            return newSelector;
         };
 
         Selector.prototype.remove = function () {
@@ -2274,16 +2307,26 @@ define('scalejs.canvas/selector',[
             return this;
         };
 
-        Selector.prototype.each = function (func) {
+        Selector.prototype.each = function (func, listener) {
             // Execute a given function for each object:
-            this.objects.forEach(function (object) { func.call(object, object.data.data); });
+            if (listener === undefined || listener === "start") {
+                this.objects.forEach(function (object) { func.call(object, object.data.data); });
+            } else if (listener === "end") {
+                this.objects.forEach(function (object) { object.tweenEndFunc = func; });
+                //this.endFunc = func;
+            }
             return this;
         };
 
         Selector.prototype.transition = function () {
+            // Return a new selector with the first matching class in each object:
+            var newSelector = new Selector(this);
+            newSelector.isTransition = true;
+            newSelector.objects.forEach(function (object) { object.tweenEndFunc = undefined; });
+            return newSelector;
             // Mark selector as in a transition now:
-            this.isTransition = true;
-            return this;
+            /*this.isTransition = true;
+            return this;*/
         };
 
         Selector.prototype.duration = function (ms) {
@@ -2395,6 +2438,7 @@ define('scalejs.canvas/canvas',[
             // Filter out animations which exceeded the time:
             if (curTime >= animation.timeEnd) {
                 animation.animationIndex = undefined;
+                animation.tweenEndFunc && animation.tweenEndFunc.call(animation, animation.data.data);
             }
             return curTime < animation.timeEnd;
         });
