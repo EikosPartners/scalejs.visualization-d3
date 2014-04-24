@@ -105,7 +105,8 @@ define([
             topVal = 0,
             rotateVal = 0,
             scaleVal = 1,
-            touchHandler;
+            touchHandler,
+            zoomOutScale = 0.8;
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
@@ -147,6 +148,44 @@ define([
                 scale: scaleVal
             };
         }
+        function stepCallback(left, top, rotate, scale) {
+            if (!visualization.enableRotate) {
+                if (left > 0) {
+                    left = 0;
+                }
+                if (top > 0) {
+                    top = 0;
+                }
+                var right = left + scale * canvasWidth,
+                    bottom = top + scale * canvasHeight;
+                if (right < canvasWidth) {
+                    left += canvasWidth - right;
+                }
+                if (bottom < canvasHeight) {
+                    top += canvasHeight - bottom;
+                }
+            }
+            if (scale < 1) {   // Bounce back:
+                scale = Math.max(zoomOutScale, scale);
+                // Reset transform:
+                leftVal = (1 - scale) / 2 * canvasWidth;
+                topVal = (1 - scale) / 2 * canvasHeight;
+                rotateVal = 0;
+                scaleVal = scale;
+            } else {
+                // Update transform:
+                leftVal = left;
+                topVal = top;
+                rotateVal = rotate;
+                scaleVal = scale;
+            }
+            return {
+                left: leftVal,
+                top: topVal,
+                rotate: rotateVal,
+                scale: scaleVal
+            };
+        }
         function endCallback(left, top, rotate, scale) {    // Called when user finishes a touch gesture:
             if (!visualization.enableRotate) {
                 if (left > 0) {
@@ -170,6 +209,9 @@ define([
                 topVal = 0;
                 rotateVal = 0;
                 scaleVal = 1;
+                if (scale < zoomOutScale + (1 - zoomOutScale) / 4) {
+                    selectZoom(nodeSelected.parent || nodeSelected);
+                }
             } else {
                 // Update transform:
                 leftVal = left;
@@ -191,7 +233,7 @@ define([
                 canvas: canvasElement,
                 renderCallback: renderCallback,
                 startCallback: startCallback,
-                //stepCallback: endCallback,
+                stepCallback: stepCallback,
                 endCallback: endCallback,
                 enableRotate: enableRotate
             });
@@ -303,19 +345,23 @@ define([
         }
         // Recursively traverse json data, and build it for rendering:
         function createNodeJson(dat, lvls, ind, maxlvl) {
-            var node = unwrap(dat), newNode, childNode, i, children, stepSize, lvl, color;
+            var node = unwrap(dat), newNode, childNode, i, children, stepSize, lvl, color, newNode;
 
             if (maxlvl.value < ind) {
                 maxlvl.value = ind;
             }
 
             if (lvls.length === 0) {    // Out of defined levels, so use global parameters for node:
-                return {
+                newNode = {
                     name: unwrap(node.name || ''),
                     lvl: ind,
                     size: unwrap(node[unwrap(areaPath)] || 1),
                     colorSize: unwrap(node[unwrap(colorPath)] || 0)
                 };
+                if (newNode.name === nodeSelected.name) {
+                    nodeSelected = newNode;
+                }
+                return newNode;
             }
 
             lvl = lvls[ind] || {
@@ -327,12 +373,16 @@ define([
             };
 
             if (node[lvl.childrenPath] === undefined) {   // Use current level parameters for node:
-                return {
+                newNode = {
                     name: unwrap(node.name || ''),
                     lvl: ind,
                     size: unwrap(node[lvl.areaPath] || 1),
                     colorSize: unwrap(node[lvl.colorPath] || 0)
                 };
+                if (newNode.name === nodeSelected.name) {
+                    nodeSelected = newNode;
+                }
+                return newNode;
             }
 
             // Set default properties of node with children:
@@ -349,6 +399,9 @@ define([
                 minColor: 0,
                 maxColor: 1
             };
+            if (newNode.name === nodeSelected.name) {
+                nodeSelected = newNode;
+            }
 
             // Node has children, so set them up first:
             children = unwrap(node[lvl.childrenPath]);
@@ -421,11 +474,19 @@ define([
 
             // Create copy of data in a easy structure for d3:
             createLevelParameters(levelsSource);
+            if (!nodeSelected) {
+                nodeSelected = {
+                    name: null
+                };
+            } else {
+                nodeSelected.old = true;
+            }
             root = createNodeJson(dataSource, levels, 0, maxlvl);
-            if (nodeSelected) {
+            if (nodeSelected.name !== null && !nodeSelected.old) {
                 root.curLevel = nodeSelected.lvl;
                 root.curMaxLevel = nodeSelected.lvl + maxVisibleLevels - 1;
             } else {
+                nodeSelected = root;
                 root.curLevel = 0;
                 root.curMaxLevel = maxVisibleLevels - 1;
             }
@@ -471,7 +532,7 @@ define([
                 }
                 selectedItemPath(path);
             } else {    // Path is not an observable, so no need to push an update to it.
-                visualization.zoom(d);
+                visualization.zoom(nodeSelected);
             }
 
             // Prevent event from firing more than once:
@@ -501,7 +562,7 @@ define([
                 root.curLevel = nodeSelected.lvl;
                 root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
                 if (zoomEnabled) {
-                    visualization.zoom(d);    // Animate zoom effect
+                    visualization.zoom(nodeSelected);    // Animate zoom effect
                 }
             }
         });
@@ -520,7 +581,7 @@ define([
             visualization = blankVisualization(visualizationType);
         }
         // Run visualization's initialize code:
-        visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
+        visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
         // Start rendering the canvas
         canvas.startRender();
         canvas.pumpRender();
@@ -540,13 +601,13 @@ define([
             }
 
             // Set selected node to the root of the treemap:
-            nodeSelected = root;
+            /*nodeSelected = root;
             root.curLevel = nodeSelected.lvl;
             root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
             // Set default selected item (do this after the data is set, and before modifying attributes):
             if (isObservable(selectedItemPath)) {
                 selectedItemPath([]);
-            }
+            }*/
 
             // Reset transform:
             leftVal = 0;
@@ -555,25 +616,31 @@ define([
             scaleVal = 1;
 
             // Run visualization's initialize code:
-            visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, element);
+            visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
             canvas.pumpRender();
         });
 
         function update() {
             // Set selected node to the root of the treemap:
-            nodeSelected = root;
-            root.curLevel = nodeSelected.lvl;
-            root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
+            //nodeSelected = root;
+            //root.curLevel = nodeSelected.lvl;
+            //root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
 
             // Set default selected item (do this after the data is set, and before modifying attributes):
             zoomEnabled = false;
+            var dTmp = nodeSelected,
+                path = [];
             if (isObservable(selectedItemPath)) {
-                selectedItemPath([]);
+                while (dTmp.parent !== undefined) {
+                    path.unshift(dTmp.index);
+                    dTmp = dTmp.parent;
+                }
+                selectedItemPath(path);
             }   // selectedItemPath is reset here to prevent errors in zooming, need to reorder later.
             zoomEnabled = true;
 
             // Update visualization:
-            visualization.update(root);
+            visualization.update(nodeSelected);
             canvas.pumpRender();
         }
 
@@ -613,7 +680,10 @@ define([
                 // Call visualization's resize function to handle resizing internally:
                 visualization.resize(canvasWidth, canvasHeight);
                 // Update the visualization:
-                visualization.update(root);
+                //nodeSelected = root;
+                //root.curLevel = nodeSelected.lvl;
+                //root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
+                visualization.update(nodeSelected);
                 canvas.pumpRender();
             });
         }

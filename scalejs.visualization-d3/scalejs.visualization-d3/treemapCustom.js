@@ -76,17 +76,54 @@ define([
             return distance;
         }
 
+        function getNodeSpaced(d, origD) {
+            if (!d.parent) {
+                // Don't add margin to root nodes:
+                return {
+                    x: d.x,
+                    y: d.y,
+                    dx: d.dx,
+                    dy: d.dy,
+                };
+            }
+            var spx = spacing / kx,
+                spy = spacing / ky,
+                p = getNodeSpaced(d.parent);
+            if (origD) {
+                // If original node, halve the spacing to match the spacing between parent and children:
+                return {
+                    x: p.dx / d.parent.dx * (d.x - d.parent.x) + p.x + spx/2,
+                    y: p.dy / d.parent.dy * (d.y - d.parent.y) + p.y + spy / 2,
+                    dx: p.dx / d.parent.dx * d.dx - spx,
+                    dy: p.dy / d.parent.dy * d.dy - spy
+                };
+            }
+            return {
+                x: p.dx / d.parent.dx * (d.x - d.parent.x) + p.x + spx,
+                y: p.dy / d.parent.dy * (d.y - d.parent.y) + p.y + spy,
+                dx: p.dx / d.parent.dx * d.dx - spx * 2,
+                dy: p.dy / d.parent.dy * d.dy - spy * 2
+            };
+        }
+
         function groupTween(p, opacity) {
             return function (d) {
                 // Create interpolations used for a nice slide:
-                var interpX = d3.interpolate(this.left, x(d.x)),
-                    interpY = d3.interpolate(this.top, y(d.y)),
-                    interpWidth = d3.interpolate(this.width, Math.max(kx * d.dx - spacing, 0)),
-                    interpHeight = d3.interpolate(this.height, Math.max(ky * d.dy - spacing, 0)),
+                var nodeSpaced = getNodeSpaced(d, d),
+                    interpX, interpY,
+                    interpWidth, interpHeight,
                     newFill = (d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color),
                     interpFill = d3.interpolate(this.backFill, newFill),
                     interpOpacity = d3.interpolate(this.opacity, opacity),
                     element = this;
+                d.sx = x(nodeSpaced.x);
+                d.sy = y(nodeSpaced.y);
+                d.sdx = Math.max(kx * nodeSpaced.dx, 0);
+                d.sdy = Math.max(ky * nodeSpaced.dy, 0);
+                interpX = d3.interpolate(this.left, d.sx);
+                interpY = d3.interpolate(this.top, d.sy);
+                interpWidth = d3.interpolate(this.width, d.sdx);
+                interpHeight = d3.interpolate(this.height, d.sdy);
                 // Performance optimization:
                 if (newFill !== this.backFill) {
                     return function (t) {
@@ -112,9 +149,10 @@ define([
             return function (d) {
                 // Create interpolations used for a nice slide:
                 var sp = spacing * d.lvl,
-                    interpX = d3.interpolate(this.left, kx * d.dx / 2),
-                    interpY = d3.interpolate(this.top, ky * d.dy / 2),
-                    interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (kx * d.dx - sp * 2 >= this.width) && (ky * d.dy - sp * 2 >= this.height) ? 1 : 0),
+                    interpX = d3.interpolate(this.left, d.sdx / 2),//kx * d.dx / 2),
+                    interpY = d3.interpolate(this.top, d.sdy / 2),//ky * d.dy / 2),
+                    interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (d.sdx - 1 >= this.width) && (d.sdy - 1 >= this.height) ? 1 : 0),
+                    //interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (kx * d.dx - sp * 2 >= this.width) && (ky * d.dy - sp * 2 >= this.height) ? 1 : 0),
                     element = this;
                 return function (t) {
                     element.left = interpX(t);
@@ -139,36 +177,13 @@ define([
             }
         }
 
-        function addNodes(celSel) {
-            // Add nodes to Canvas:
-            var cell = celSel.enter().append("group")
-                .each(function (d) {
-                    this.left = d.x;
-                    this.top = d.y;
-                    this.width = Math.max(d.dx - spacing, 0);
-                    this.height = Math.max(d.dy - spacing, 0);
-                    this.backFill = d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color;
-                });
-            cell.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
-                .on("mousedown", function (d) { selectZoom(d.parent || root); });
-
-            // Add title to each node:
-            cell.append("text")
-                .each(function (d) {
-                    this.originX = "center";
-                    this.originY = "center";
-                    this.left = d.dx / 2;
-                    this.top = d.dy / 2;
-                    this.setText(d.name);
-                    //this.static = true;
-                    this.opacity = !(d.children && d.lvl < root.curMaxLevel) && (d.dx - spacing >= this.width) && (d.dy - spacing >= this.height) ? 1 : 0;
-                });
-        }
-
-        function update(p) {
+        function update(p, duration) {
             if (canvasArea === undefined) {
                 return; // Catch for if treemap hasn't been setup.
             }
+
+            // Get transition duration parameter:
+            duration = duration !== undefined ? duration : 1000;
 
             // Get treemap data:
             root = json();
@@ -195,8 +210,13 @@ define([
             // Add new nodes to Canvas:
             newGroupNodes = groupNodes.enter().append("group")
                 .each(function (d) {
-                    this.left = x(d.parent.x) + kx * d.parent.dx / 2;
-                    this.top = y(d.parent.y) + ky * d.parent.dy / 2;
+                    if (d.parent) {
+                        this.left = x(d.parent.x) + kx * d.parent.dx / 2;
+                        this.top = y(d.parent.y) + ky * d.parent.dy / 2;
+                    } else {
+                        this.left = x(d.x) + kx * d.dx / 2;
+                        this.top = y(d.y) + ky * d.dy / 2;
+                    }
                     this.backFill = d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color;
                     this.opacity = 0;
                 });
@@ -224,10 +244,10 @@ define([
 
 
             // Add tween to new groups:
-            newGroupNodes.transition().duration(1000)
+            newGroupNodes.transition().duration(duration)
                 .tween("groupTween", groupTween(p, 1));
             // Add tween to new text:
-            newTextNodes.transition().duration(1000)
+            newTextNodes.transition().duration(duration)
                 .tween("textTween", textTween(p));
 
             // Update current nodes on Canvas:
@@ -236,19 +256,20 @@ define([
             groupNodes.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
                 .on("mousedown", function (d) { selectZoom(d.parent || root); });
             // Add tween to current and new nodes on Canvas:
-            groupNodes.transition().duration(1000)
+            groupNodes.transition().duration(duration)
                 .tween("groupTween", groupTween(p, 1));
 
             // Update current text on Canvas:
-            textNodes = groupNodes.select("text").transition().duration(1000)
+            textNodes = groupNodes.select("text").transition().duration(duration)
                 .tween("textTween", textTween(p));
 
             // Remove missing nodes:
-            removeGroupNodes = groupNodes.exit().transition().duration(1000)
+            removeGroupNodes = groupNodes.exit().transition().duration(duration)
                 .tween("groupTween", function (d) {
                     // Create interpolations used for a nice slide:
-                    var interpX = d3.interpolate(this.left, x(d.parent.x) + kx * d.parent.dx / 2),
-                        interpY = d3.interpolate(this.top, y(d.parent.y) + ky * d.parent.dy / 2),
+                    var nodeSpaced = getNodeSpaced(d.parent || d, d.parent || d),
+                        interpX = d3.interpolate(this.left, x(nodeSpaced.x + nodeSpaced.dx / 2)),
+                        interpY = d3.interpolate(this.top, y(nodeSpaced.y + nodeSpaced.dy / 2)),
                         interpWidth = d3.interpolate(this.width, 0),
                         interpHeight = d3.interpolate(this.height, 0),
                         interpOpacity = d3.interpolate(this.opacity, 0),
@@ -266,8 +287,8 @@ define([
                 }, "end");
             removeTextNodes = removeGroupNodes.select("text")
                 .each(function (d) {
-                    d.dx = 0;
-                    d.dy = 0;
+                    d.sdx = 0;
+                    d.sdy = 0;
                 })
                 .tween("textTween", textTween(p));
         }
@@ -277,7 +298,8 @@ define([
             width,
             height,
             jsonObservable,
-            selectZoomFunction//,
+            selectZoomFunction,
+            nodeSelected//,
             //trueElement
         ) {
             if (canvasArea !== undefined) {
@@ -302,7 +324,7 @@ define([
             treemapLayout = d3.layout.treemap()
                             .round(false)
                             .size([canvasWidth, canvasHeight])
-                            .padding(function (d) { return d.parent && d.parent.children.length > 1 ? spacing : 0; })
+                            //.padding(function (d) { return d.parent && d.parent.children.length > 1 ? spacing : 0; })
                             .sticky(false)
                             .mode('squarify')
                             .value(function (d) { return d.size; })
@@ -330,7 +352,12 @@ define([
                     .data(nodes, function (d) { return d.name; });
 
             // Add nodes to Canvas:
-            addNodes(celSel);
+            //addNodes(celSel);
+            kx = canvasWidth / nodeSelected.dx;
+            ky = canvasHeight / nodeSelected.dy;
+            x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
+            y.domain([nodeSelected.y, nodeSelected.y + nodeSelected.dy]);
+            update(nodeSelected, 0);
         }
 
         function resize(width, height) {
