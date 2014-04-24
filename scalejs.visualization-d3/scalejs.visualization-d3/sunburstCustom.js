@@ -345,7 +345,7 @@ define([
 
             // Get sunburst data:
             root = json();
-            currentZoomNode = root;
+            currentZoomNode = nodeSelected;
 
             // This is a new sunburst:
             // Setup sunburst and Canvas:
