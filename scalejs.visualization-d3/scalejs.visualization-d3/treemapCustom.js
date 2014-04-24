@@ -170,7 +170,7 @@ define([
 
             update(p);
 
-            lastZoomlvl = p.lvl;
+            //lastZoomlvl = p.lvl;
             // Prevent event from firing more than once:
             if (d3.event) {
                 d3.event.stopPropagation();
@@ -197,7 +197,7 @@ define([
             nodes = treemapLayout.size([canvasWidth, canvasHeight])
                 .nodes(root)
                 .filter(function (d) {
-                    return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels; // TODO: Filter out nodes where lvl > p.lvl, and is not a child of p.
+                    return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
                 })
                 .sort(function (a, b) {
                     return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
@@ -255,7 +255,7 @@ define([
                 .on("mousedown", null);
             groupNodes.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
                 .on("mousedown", function (d) { selectZoom(d.parent || root); });
-            // Add tween to current and new nodes on Canvas:
+            // Add tween to current nodes on Canvas:
             groupNodes.transition().duration(duration)
                 .tween("groupTween", groupTween(p, 1));
 
@@ -314,7 +314,8 @@ define([
             selectZoom = selectZoomFunction;
 
             // Define temp vars:
-            var celSel, nodes;
+            var celSel, nodes,
+                zoomTreePath = getNodeTreePath(nodeSelected);
 
             // Get treemap data:
             root = json();
@@ -340,7 +341,7 @@ define([
             // Filter out nodes with children:
             nodes = treemapLayout.nodes(root)
                 .filter(function (d) {
-                    return d.lvl <= root.curMaxLevel;
+                    return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
                 })
                 .sort(function (a, b) {
                     return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
