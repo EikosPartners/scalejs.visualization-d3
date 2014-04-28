@@ -6,7 +6,7 @@ var require = {
         "knockout":  "empty:",
         "sandbox":  "Scripts/scalejs.sandbox",
         "scalejs":  "Scripts/scalejs-0.3.3",
-        "scalejs.canvas":  "Scripts/scalejs.canvas-0.1.0.35"
+        "scalejs.canvas":  "Scripts/scalejs.canvas-0.1.0.37"
     },
     "scalejs":  {
         "extensions":  [

@@ -106,6 +106,21 @@ define([
             };
         }
 
+        function parseColor(color) {
+            var rgba, opacity = 1;
+            if (color.indexOf("rgba") === 0) {
+                rgba = color.substring(5, color.length - 1)
+                     .replace(/ /g, '')
+                     .split(',');
+                opacity = rgba.pop();
+                color = "rgb(" + rgba.join(",") + ")";
+            }
+            return {
+                color: color,
+                opacity: opacity
+            };
+        }
+
         function groupTween(p, opacity) {
             return function (d) {
                 // Create interpolations used for a nice slide:
@@ -113,8 +128,9 @@ define([
                     interpX, interpY,
                     interpWidth, interpHeight,
                     newFill = (d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color),
-                    interpFill = d3.interpolate(this.backFill, newFill),
-                    interpOpacity = d3.interpolate(this.opacity, opacity),
+                    newColor = parseColor(newFill),
+                    interpFill = d3.interpolate(this.backFill, newColor.color),
+                    interpOpacity = d3.interpolate(this.opacity, opacity * newColor.opacity),
                     element = this;
                 d.sx = x(nodeSpaced.x);
                 d.sy = y(nodeSpaced.y);
@@ -151,13 +167,18 @@ define([
                 var sp = spacing * d.lvl,
                     interpX = d3.interpolate(this.left, d.sdx / 2),//kx * d.dx / 2),
                     interpY = d3.interpolate(this.top, d.sdy / 2),//ky * d.dy / 2),
-                    interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (d.sdx - 1 >= this.width) && (d.sdy - 1 >= this.height) ? 1 : 0),
+                    newColor = parseColor(d.fontColor),
+                    interpFill = d3.interpolate(this.fill, newColor.color),
+                    interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (d.sdx - 1 >= this.width) && (d.sdy - 1 >= this.height) ? newColor.opacity : 0),
                     //interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (kx * d.dx - sp * 2 >= this.width) && (ky * d.dy - sp * 2 >= this.height) ? 1 : 0),
                     element = this;
+                this.fontFamily = d.fontFamily;
+                this.fontSize = d.fontSize;
                 return function (t) {
                     element.left = interpX(t);
                     element.top = interpY(t);
                     element.opacity = interpOpacity(t);
+                    element.fill = interpFill(t);
                 };
             };
         }
@@ -217,7 +238,8 @@ define([
                         this.left = x(d.x) + kx * d.dx / 2;
                         this.top = y(d.y) + ky * d.dy / 2;
                     }
-                    this.backFill = d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color;
+                    newColor = parseColor(d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color);
+                    this.backFill = newColor.color;
                     this.opacity = 0;
                 });
             // Add mousedown event to nodes that are treated as leaf nodes:
@@ -231,6 +253,8 @@ define([
                     this.originY = "center";
                     this.left = 0;
                     this.top = 0;
+                    this.fontFamily = d.fontFamily;
+                    this.fontSize = d.fontSize;
                     this.setText(d.name);
                     //this.static = true;
                     this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) && (kx * d.dx - spacing * 2 >= this.width) && (ky * d.dy - spacing * 2 >= this.height) ? 1 : 0;

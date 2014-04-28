@@ -1868,7 +1868,7 @@ define('scalejs.canvas/text',[
                 this.height = canvasObj.context.fontSize;
             }
             // Check if text has changed, if so get width:
-            if (this.calcText !== this.text) {
+            if (this.calcText !== this.text || this.font !== this.calcFont || canvasObj.context.font !== this.calcFont) {
                 canvasObj.context.save();
                 this.font && (canvasObj.context.font = this.font);  // Only set font if not using the global font.
                 //canvasObj.context.fillStyle = this.fill;  // not needed to compute width
@@ -1876,6 +1876,7 @@ define('scalejs.canvas/text',[
                 this.width = canvasObj.context.measureText(text || "").width;
                 canvasObj.context.restore();
                 this.calcText = this.text;
+                this.calcFont = canvasObj.context.font;
             }
         };
 
@@ -1954,6 +1955,7 @@ define('scalejs.canvas/arc',[
             this.startAngle = opts.startAngle || 0;
             this.endAngle = opts.endAngle || 0;
             this.fill = opts.fill || "#000";
+            this.opacity = opts.opacity || 1;
             this.offset = { left: 0, top: 0 };
             this.pos = { left: 0, top: 0 };
             this.extents = { left: 0, top: 0, right: 0, bottom: 0 };
@@ -1977,10 +1979,11 @@ define('scalejs.canvas/arc',[
         };
 
         arc.prototype.render = function () {
-            if (this.thickness !== 0 && this.endAngle !== this.startAngle) {
+            if (this.opacity > 0 && this.thickness !== 0 && this.endAngle !== this.startAngle) {
                 //canvasObj.context.save();
                 canvasObj.context.beginPath();
-                canvasObj.context.strokeStyle = this.fill;
+                this.fill && (canvasObj.context.strokeStyle = this.fill);
+                this.opacity < 1 && (canvasObj.context.globalAlpha *= this.opacity);
                 canvasObj.context.lineWidth = this.thickness;
                 canvasObj.context.arc(this.offset.left, this.offset.top, this.radius, this.startAngle - deg90InRad, this.endAngle - deg90InRad);
                 canvasObj.context.stroke();

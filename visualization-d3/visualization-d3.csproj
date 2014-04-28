@@ -48,8 +48,8 @@
     <Content Include="Scripts\require.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.35.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.35.min.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.37.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.37.min.js" />
     <Content Include="Scripts\scalejs.d3-fabric.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.min.js" />

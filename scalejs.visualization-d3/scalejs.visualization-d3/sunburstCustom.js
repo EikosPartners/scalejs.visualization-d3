@@ -64,6 +64,21 @@ define([
             return distance;
         }
 
+        function parseColor(color) {
+            var rgba, opacity = 1;
+            if (color.indexOf("rgba") === 0) {
+                rgba = color.substring(5, color.length - 1)
+                     .replace(/ /g, '')
+                     .split(',');
+                opacity = rgba.pop();
+                color = "rgb(" + rgba.join(",") + ")";
+            }
+            return {
+                color: color,
+                opacity: opacity
+            };
+        }
+
         function startAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); }
         function endAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); }
         function innerRadius(d) { return Math.max(0, y(d.y)); }
@@ -103,7 +118,9 @@ define([
                     interpY = d3.interpolate(this.old.y, d.y),
                     interpDX = d3.interpolate(this.old.dx, d.dx),
                     interpDY = d3.interpolate(this.old.dy, d.dy),
-                    interpFill = d3.interpolate(this.fill, d.color),
+                    newColor = parseColor(d.color),
+                    interpFill = d3.interpolate(this.fill, newColor.color),
+                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity),
                     // Remember this element:
                     element = this;
                 return function (t) { // Interpolate arc:
@@ -113,6 +130,7 @@ define([
                     element.old.dx = interpDX(t);
                     element.old.dy = interpDY(t);
                     element.fill = interpFill(t);
+                    element.opacity = interpOpacity(t);
                     this.innerRadius = innerRadius(element.old);
                     this.outerRadius = outerRadius(element.old);
                     this.startAngle = startAngle(element.old);
@@ -127,6 +145,9 @@ define([
                     interpY = d3.interpolate(this.old.y, d.y),
                     interpDX = d3.interpolate(this.old.dx, d.dx),
                     interpDY = d3.interpolate(this.old.dy, d.dy),
+                    newColor = parseColor(d.fontColor),
+                    interpFill = d3.interpolate(this.fill, newColor.color),
+                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity),
                     // Remember this element:
                     element = this,
                     // Interpolate attributes:
@@ -146,6 +167,9 @@ define([
                     arcEndAngle = endAngle(element.old);
                     arcWidth = (arcEndAngle - arcStartAngle) * innerRad;
 
+                    // Calculate color:
+                    element.fill = interpFill(t);
+
                     // Calculate text angle:
                     rad = x(element.old.x + element.old.dx / 2);
                     radless = rad - Math.PI / 2;
@@ -162,7 +186,7 @@ define([
                         element.originX = rad > Math.PI ? "right" : "left";
 
                         // Change opacity:
-                        element.opacity = (outerRad - innerRad - 4 >= this.width) && ((arcWidth - 2 >= this.height) || (p === d && innerRad < 1)) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
+                        element.opacity = (outerRad - innerRad - 4 >= this.width) && ((arcWidth - 2 >= this.height) || (p === d && innerRad < 1)) ? interpOpacity(t) : 0;
                     } else {
                         angle -= 90;
                         // Change anchor based on side of Sunburst the text is on:
@@ -170,7 +194,7 @@ define([
                         element.originY = "top";
 
                         // Change opacity:
-                        element.opacity = (outerRad - innerRad - 4 >= this.height) && ((arcWidth - 2 >= this.width) || (p === d && innerRad < 1)) ? 1 : 0;// isParentOf(p, d) && // || innerRad < 1
+                        element.opacity = (outerRad - innerRad - 4 >= this.height) && ((arcWidth - 2 >= this.width) || (p === d && innerRad < 1)) ? interpOpacity(t) : 0;
                     }
 
                     // Rotate text angle:
@@ -409,7 +433,9 @@ define([
             resize: resize,
             remove: remove,
             enableRotate: true,
-            enableRootZoom: false
+            enableRootZoom: false,
+            fontSize: 11,
+            fontFamily: "Times New Roman"
         };
     };
 });
