@@ -377,7 +377,7 @@ define([
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 
-            canvasArea = canvasElement.append("group").each(function () {
+            canvasArea = canvasElement.append("group").append("group").each(function () {
                 this.fontFamily = "Times New Roman";
                 this.fontSize = 11;
                 //this.originX = "center";
