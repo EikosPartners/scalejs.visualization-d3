@@ -520,6 +520,31 @@ define([
                 d = root;
             }
 
+            if (d !== oldSelected) {
+                // Reset transform:
+                leftVal = 0;
+                topVal = 0;
+                rotateVal = 0;
+                scaleVal = 1;
+                canvas.select("group").transition().duration(1000)
+                    .tween("canvasTween", function () {
+                        // Create interpolations used for a nice slide around the parent:
+                        var interpLeft = d3.interpolate(this.left, 0),
+                            interpTop = d3.interpolate(this.top, 0),
+                            interpAngle = d3.interpolate(this.angle, 0),
+                            interpScaleX = d3.interpolate(this.scaleX, 1),
+                            interpScaleY = d3.interpolate(this.scaleY, 1),
+                            element = this;
+                        return function (t) {
+                            element.left = interpLeft(t);
+                            element.top = interpTop(t);
+                            element.angle = interpAngle(t);
+                            element.scaleX = interpScaleX(t);
+                            element.scaleY = interpScaleY(t);
+                        }
+                    });
+            }
+
             nodeSelected = dTmp = d;
             // Set selected node for use in calculating the max depth.
             root.curLevel = nodeSelected.lvl;
