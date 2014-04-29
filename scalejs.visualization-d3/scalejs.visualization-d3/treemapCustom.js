@@ -408,7 +408,10 @@ define([
             resize: resize,
             remove: remove,
             enableRotate: false,
-            enableRootZoom: true
+            enableRotateDefault: false,
+            enableRootZoom: true,
+            fontSize: 11,
+            fontFamily: "Times New Roman"
         };
     };
 });

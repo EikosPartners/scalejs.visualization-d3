@@ -75,6 +75,8 @@ define([
     ) {
         var parameters = valueAccessor(),
             enableRotate = parameters.enableRotate,
+            enableZoom = parameters.enableZoom || false,
+            enableTouch = parameters.enableTouch || false,
             visualization,
             visualizationType,
             visualizationTypeObservable,
@@ -91,7 +93,7 @@ define([
             fontSize,
             fontFamily,
             fontColor,
-            selectedItemPath,
+            selectedItemPath = parameters.selectedItemPath || ko.observable([]),
             selectedItemPathObservable,
             rootScale = d3.scale.linear(),
             canvasElement,
@@ -142,6 +144,7 @@ define([
         }
         function startCallback() {  // Called when user initiates a touch gesture:
             // Set Rotate State:
+            visualization.enableRotate = unwrap(enableRotate) !== undefined ? unwrap(enableRotate) : visualization.enableRotateDefault;
             touchHandler.setRotateState(visualization.enableRotate);
 
             return {
@@ -230,20 +233,30 @@ define([
             };
         }
 
-        // Check if a canvas touch plugin exists (register before initializing visualization to avoid event handler conflicts):
-        if (core.canvas.touch) {
-            touchHandler = core.canvas.touch({
-                canvas: canvasElement,
-                renderCallback: renderCallback,
-                startCallback: startCallback,
-                stepCallback: stepCallback,
-                endCallback: endCallback,
-                enableRotate: enableRotate
+        function registerTouchHandler() {
+            // Check if a canvas touch plugin exists (register before initializing visualization to avoid event handler conflicts):
+            if (core.canvas.touch && unwrap(enableTouch)) {
+                touchHandler = core.canvas.touch({
+                    canvas: canvasElement,
+                    renderCallback: renderCallback,
+                    startCallback: startCallback,
+                    stepCallback: stepCallback,
+                    endCallback: endCallback
+                });
+            } else {
+                touchHandler = {
+                    setRotateState: function () { return; },
+                    remove: function () { return; }
+                };
+            }
+        }
+
+        registerTouchHandler();
+        if (isObservable(enableTouch)) {
+            enableTouch.subscribe(function () {
+                touchHandler.remove();
+                registerTouchHandler();
             });
-        } else {
-            touchHandler = {
-                setRotateState: function () { return; }
-            };
         }
 
         // Create fabric canvas:
@@ -261,7 +274,7 @@ define([
         // Loop through levels to determine parameters:
         function createLevelParameters(lvlsParam) {
             // Setup temp vars:
-            var colorPaletteType = Object.prototype.toString.call(unwrap(colorPalette)),
+            var colorPaletteType = Object.prototype.toString.call(colorPalette),
                 // Unwrap levels:
                 lvls = unwrap(lvlsParam),
                 i;
@@ -270,15 +283,18 @@ define([
             colorScale = d3.scale.linear();
             if (colorPaletteType === '[object Array]') {
                 //colorPalette is an array:
-                colorScale.range(unwrap(colorPalette));
+                colorScale.range(colorPalette);
             } else if (colorPaletteType === '[object String]') {
                 // Check if colorPalette is a predefined colorbrewer array:
-                if (colorbrewer[unwrap(colorPalette)] !== undefined) {
+                if (colorbrewer[colorPalette] !== undefined) {
                     // Use specified colorbrewer palette:
-                    colorScale.range(colorbrewer[unwrap(colorPalette)][3]);
+                    colorScale.range(colorbrewer[colorPalette][3]);
                 } else {
                     // Use default palette:
-                    colorScale.range(colorbrewer.PuBu[3]);
+                    //colorScale.range(colorbrewer.PuBu[3]);
+                    // Treat as a color:
+                    colorPalette = [colorPalette, colorPalette];
+                    colorScale.range(colorPalette);
                 }
             } else {
                 // Use default palette:
@@ -343,8 +359,11 @@ define([
                                 levels[i].colorScale.range(colorbrewer[levels[i].colorPalette][3]);
                             } else {
                                 // Use default palette:
-                                levels[i].colorPalette = colorPalette;
-                                levels[i].colorScale = colorScale;
+                                //levels[i].colorPalette = colorPalette;
+                                //levels[i].colorScale = colorScale;
+                                // Treat as a color:
+                                levels[i].colorPalette = [levels[i].colorPalette, levels[i].colorPalette];
+                                levels[i].colorScale.range(levels[i].colorPalette);
                             }
                         } else {
                             // Use default palette:
@@ -488,15 +507,15 @@ define([
             var maxlvl = { value: 0 }, stepSize;
             // Get parameters (or defaults values):
             maxVisibleLevels = unwrap(parameters.maxVisibleLevels || 2);
-            dataSource = parameters.data || { name: "Empty" };
-            levelsSource = parameters.levels || [{}];
-            childrenPath = parameters.childrenPath || 'children';
-            areaPath = parameters.areaPath || 'area';
-            colorPath = parameters.colorPath || 'color';
-            colorPalette = parameters.colorPalette || 'PuBu';
-            fontSize = parameters.fontSize || 11;
-            fontFamily = parameters.fontFamily || "Times New Roman";
-            fontColor = parameters.fontColor || "#000";
+            dataSource = unwrap(parameters.data) || { name: "Empty" };
+            levelsSource = unwrap(parameters.levels) || [{}];
+            childrenPath = unwrap(parameters.childrenPath) || 'children';
+            areaPath = unwrap(parameters.areaPath) || 'area';
+            colorPath = unwrap(parameters.colorPath) || 'color';
+            colorPalette = unwrap(parameters.colorPalette) || 'PuBu';
+            fontSize = unwrap(parameters.fontSize) || 11;
+            fontFamily = unwrap(parameters.fontFamily) || "Times New Roman";
+            fontColor = unwrap(parameters.fontColor) || "#000";
 
 
             // Create copy of data in a easy structure for d3:
@@ -533,7 +552,6 @@ define([
             return root;
         });
         selectedItemPathObservable = ko.computed(function () {
-            selectedItemPath = parameters.selectedItemPath || ko.observable([]);
             return unwrap(selectedItemPath);
         });
 
@@ -543,48 +561,51 @@ define([
                 dTmp,
                 oldSelected = nodeSelected;
 
-            if (visualization.enableRootZoom && d === oldSelected) {    // Reset path since item was already selected.
-                d = root;
-            }
-
-            if (d !== oldSelected) {
-                // Reset transform:
-                leftVal = 0;
-                topVal = 0;
-                rotateVal = 0;
-                scaleVal = 1;
-                canvas.select("group").transition().duration(1000)
-                    .tween("canvasTween", function () {
-                        // Create interpolations used for a nice slide around the parent:
-                        var interpLeft = d3.interpolate(this.left, 0),
-                            interpTop = d3.interpolate(this.top, 0),
-                            interpAngle = d3.interpolate(this.angle, 0),
-                            interpScaleX = d3.interpolate(this.scaleX, 1),
-                            interpScaleY = d3.interpolate(this.scaleY, 1),
-                            element = this;
-                        return function (t) {
-                            element.left = interpLeft(t);
-                            element.top = interpTop(t);
-                            element.angle = interpAngle(t);
-                            element.scaleX = interpScaleX(t);
-                            element.scaleY = interpScaleY(t);
-                        }
-                    });
-            }
-
-            nodeSelected = dTmp = d;
-            // Set selected node for use in calculating the max depth.
-            root.curLevel = nodeSelected.lvl;
-            root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-            // Check if selectedItemPath is an observable:
-            if (isObservable(selectedItemPath)) {   // Path is an observable, so set path to the selected item:
-                while (dTmp.parent !== undefined) {
-                    path.unshift(dTmp.index);
-                    dTmp = dTmp.parent;
+            // Only zoom if enabled:
+            if (unwrap(enableZoom)) {
+                if (visualization.enableRootZoom && d === oldSelected) {    // Reset path since item was already selected.
+                    d = root;
                 }
-                selectedItemPath(path);
-            } else {    // Path is not an observable, so no need to push an update to it.
-                visualization.zoom(nodeSelected);
+
+                if (d !== oldSelected) {
+                    // Reset transform:
+                    leftVal = 0;
+                    topVal = 0;
+                    rotateVal = 0;
+                    scaleVal = 1;
+                    canvas.select("group").transition().duration(1000)
+                        .tween("canvasTween", function () {
+                            // Create interpolations used for a nice slide around the parent:
+                            var interpLeft = d3.interpolate(this.left, 0),
+                                interpTop = d3.interpolate(this.top, 0),
+                                interpAngle = d3.interpolate(this.angle, 0),
+                                interpScaleX = d3.interpolate(this.scaleX, 1),
+                                interpScaleY = d3.interpolate(this.scaleY, 1),
+                                el = this;
+                            return function (t) {
+                                el.left = interpLeft(t);
+                                el.top = interpTop(t);
+                                el.angle = interpAngle(t);
+                                el.scaleX = interpScaleX(t);
+                                el.scaleY = interpScaleY(t);
+                            };
+                        });
+                }
+
+                nodeSelected = dTmp = d;
+                // Set selected node for use in calculating the max depth.
+                root.curLevel = nodeSelected.lvl;
+                root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
+                // Check if selectedItemPath is an observable:
+                if (isObservable(selectedItemPath)) {   // Path is an observable, so set path to the selected item:
+                    while (dTmp.parent !== undefined) {
+                        path.unshift(dTmp.index);
+                        dTmp = dTmp.parent;
+                    }
+                    selectedItemPath(path);
+                } else {    // Path is not an observable, so no need to push an update to it.
+                    visualization.zoom(nodeSelected);
+                }
             }
 
             // Prevent event from firing more than once:

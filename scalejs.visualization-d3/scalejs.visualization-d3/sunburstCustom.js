@@ -433,6 +433,7 @@ define([
             resize: resize,
             remove: remove,
             enableRotate: true,
+            enableRotateDefault: true,
             enableRootZoom: false,
             fontSize: 11,
             fontFamily: "Times New Roman"
