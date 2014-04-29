@@ -32,6 +32,7 @@ define([
 
     return function () {
         var //Sunburst variables
+            visualization,
             canvasElement,
             json,
             selectZoom,
@@ -147,12 +148,17 @@ define([
                     interpDY = d3.interpolate(this.old.dy, d.dy),
                     newColor = parseColor(d.fontColor),
                     interpFill = d3.interpolate(this.fill, newColor.color),
-                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity),
+                    interpOpacity,// = d3.interpolate(this.opacity, newColor.opacity),
                     // Remember this element:
                     element = this,
                     // Interpolate attributes:
                     rad, radless, offsety, angle,
                     outerRad, innerRad, arcStartAngle, arcEndAngle, arcWidth;
+                if (visualization.allowTextOverflow) {
+                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity);
+                } else {
+                    interpOpacity = d3.interpolate(this.opacity, (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? 1 : 0);
+                }
                 return function (t) {
                     // Store new data in the old property:
                     element.old.x = interpX(t);
@@ -185,8 +191,13 @@ define([
                         // Change anchor based on side of Sunburst the text is on:
                         element.originX = rad > Math.PI ? "right" : "left";
 
+
                         // Change opacity:
-                        element.opacity = (outerRad - innerRad - 4 >= this.width) && ((arcWidth - 2 >= this.height) || (p === d && innerRad < 1)) ? interpOpacity(t) : 0;
+                        if (visualization.allowTextOverflow) {
+                            this.opacity = interpOpacity(t);
+                        } else {
+                            this.opacity = (outerRad - innerRad - 4 >= this.width) && ((arcWidth - 2 >= this.height) || (p === d && innerRad < 1)) ? interpOpacity(t) : 0;
+                        }
                     } else {
                         angle -= 90;
                         // Change anchor based on side of Sunburst the text is on:
@@ -194,7 +205,11 @@ define([
                         element.originY = "top";
 
                         // Change opacity:
-                        element.opacity = (outerRad - innerRad - 4 >= this.height) && ((arcWidth - 2 >= this.width) || (p === d && innerRad < 1)) ? interpOpacity(t) : 0;
+                        if (visualization.allowTextOverflow) {
+                            this.opacity = interpOpacity(t);
+                        } else {
+                            this.opacity = (outerRad - innerRad - 4 >= this.height) && ((arcWidth - 2 >= this.width) || (p === d && innerRad < 1)) ? interpOpacity(t) : 0;
+                        }
                     }
 
                     // Rotate text angle:
@@ -291,16 +306,26 @@ define([
                         if (ang > 90) {
                             ang = (ang + 180) % 360;
                         }
+
                         // Change opacity:
-                        this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? 1 : 0;
+                        if (visualization.allowTextOverflow) {
+                            this.opacity = 1;
+                        } else {
+                            this.opacity = (d.bw - 4 >= this.height) && ((d.bh - 2 >= this.width) || (root === d && y(d.y) < 1)) ? 1 : 0;
+                        }
                     } else {
                         ang -= 90;
+
                         // Change opacity:
-                        this.opacity = (d.bw - 4 >= this.height) && ((d.bh - 2 >= this.width) || (root === d && y(d.y) < 1)) ? 1 : 0;
+                        if (visualization.allowTextOverflow) {
+                            this.opacity = 1;
+                        } else {
+                            this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? 1 : 0;
+                        }
                     }
                     this.angle = ang;
-                    this.left = (y(d.y) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2);
-                    this.top = (y(d.y) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2);
+                    this.left = (Math.max(y(d.y), 0) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2);
+                    this.top = (Math.max(y(d.y), 0) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2);
                     this.old = {
                         x: d.x,
                         y: d.y,
@@ -344,6 +369,7 @@ define([
         }
 
         function init(
+            parameters,
             element,
             width,
             height,
@@ -386,10 +412,10 @@ define([
 
             // Setup arc function:
             arc = d3.svg.arc()
-                .startAngle(function (d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); })
-                .endAngle(function (d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); })
-                .innerRadius(function (d) { return Math.max(0, y(d.y)); })
-                .outerRadius(function (d) { return Math.max(0, y(d.y + d.dy)); });
+                .startAngle(startAngle)
+                .endAngle(endAngle)
+                .innerRadius(innerRadius)
+                .outerRadius(outerRadius);
 
             // Filter out nodes with children:
             nodes = sunburstLayout.nodes(root)
@@ -426,7 +452,7 @@ define([
         }
 
         // Return sunburst object:
-        return {
+        visualization = {
             init: init,
             update: update,
             zoom: zoom,
@@ -436,7 +462,9 @@ define([
             enableRotateDefault: true,
             enableRootZoom: false,
             fontSize: 11,
-            fontFamily: "Times New Roman"
+            fontFamily: "Times New Roman",
+            allowTextOverflow: false
         };
+        return visualization;
     };
 });

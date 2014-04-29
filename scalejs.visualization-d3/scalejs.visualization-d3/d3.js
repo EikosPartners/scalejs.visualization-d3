@@ -77,6 +77,8 @@ define([
             enableRotate = parameters.enableRotate,
             enableZoom = parameters.enableZoom || false,
             enableTouch = parameters.enableTouch || false,
+            allowTextOverflow = parameters.allowTextOverflow || false,
+            sunburstCustomParams = parameters.sunburstCustom || {},
             visualization,
             visualizationType,
             visualizationTypeObservable,
@@ -654,10 +656,19 @@ define([
             visualization = blankVisualization(visualizationType);
         }
         // Run visualization's initialize code:
-        visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
+        visualization.allowTextOverflow = unwrap(allowTextOverflow);
+        visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
         // Start rendering the canvas
         canvas.startRender();
         canvas.pumpRender();
+
+        // Subscribe to allowTextOverflow changes:
+        if (isObservable(allowTextOverflow)) {
+            allowTextOverflow.subscribe(function () {
+                visualization.allowTextOverflow = unwrap(allowTextOverflow);
+                visualization.update(nodeSelected);
+            });
+        }
 
         // Subscribe to visualization type changes:
         visualizationTypeObservable.subscribe(function () {
@@ -689,7 +700,8 @@ define([
             scaleVal = 1;
 
             // Run visualization's initialize code:
-            visualization.init(canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
+            visualization.allowTextOverflow = unwrap(allowTextOverflow);
+            visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
             canvas.pumpRender();
         });
 

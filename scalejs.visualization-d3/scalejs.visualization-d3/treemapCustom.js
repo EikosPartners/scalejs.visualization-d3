@@ -32,6 +32,7 @@ define([
 
     return function () {
         var //Treemap variables
+            visualization,
             canvasElement,
             json,
             selectZoom,
@@ -169,9 +170,14 @@ define([
                     interpY = d3.interpolate(this.top, d.sdy / 2),//ky * d.dy / 2),
                     newColor = parseColor(d.fontColor),
                     interpFill = d3.interpolate(this.fill, newColor.color),
-                    interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (d.sdx - 1 >= this.width) && (d.sdy - 1 >= this.height) ? newColor.opacity : 0),
+                    interpOpacity,// = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (d.sdx - 1 >= this.width) && (d.sdy - 1 >= this.height) ? newColor.opacity : 0),
                     //interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (kx * d.dx - sp * 2 >= this.width) && (ky * d.dy - sp * 2 >= this.height) ? 1 : 0),
                     element = this;
+                if (visualization.allowTextOverflow) {
+                    interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) ? newColor.opacity : 0);
+                } else {
+                    interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (d.sdx - 1 >= this.width) && (d.sdy - 1 >= this.height) ? newColor.opacity : 0);
+                }
                 this.fontFamily = d.fontFamily;
                 this.fontSize = d.fontSize;
                 return function (t) {
@@ -257,7 +263,11 @@ define([
                     this.fontSize = d.fontSize;
                     this.setText(d.name);
                     //this.static = true;
-                    this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) && (kx * d.dx - spacing * 2 >= this.width) && (ky * d.dy - spacing * 2 >= this.height) ? 1 : 0;
+                    if (visualization.allowTextOverflow) {
+                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) ? 1 : 0;
+                    } else {
+                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) && (kx * d.dx - spacing * 2 >= this.width) && (ky * d.dy - spacing * 2 >= this.height) ? 1 : 0;
+                    }
                 });
 
             // Set zoom domain to d's area:
@@ -318,6 +328,7 @@ define([
         }
 
         function init(
+            parameters,
             element,
             width,
             height,
@@ -401,7 +412,7 @@ define([
         }
 
         // Return treemap object:
-        return {
+        visualization = {
             init: init,
             update: update,
             zoom: zoom,
@@ -411,7 +422,9 @@ define([
             enableRotateDefault: false,
             enableRootZoom: true,
             fontSize: 11,
-            fontFamily: "Times New Roman"
+            fontFamily: "Times New Roman",
+            allowTextOverflow: false
         };
+        return visualization;
     };
 });
