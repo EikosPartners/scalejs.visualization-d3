@@ -232,7 +232,7 @@ define([
 
             // Select all nodes in Canvas, and apply data:
             groupNodes = canvasArea.selectAll("group")
-                .data(nodes, function (d) { return d.name; });
+                .data(nodes, function (d) { return d.id; });
 
             // Add new nodes to Canvas:
             newGroupNodes = groupNodes.enter().append("group")
@@ -385,7 +385,7 @@ define([
 
             // Join data with selection:
             celSel = canvasArea.selectAll("group")
-                    .data(nodes, function (d) { return d.name; });
+                    .data(nodes, function (d) { return d.id; });
 
             // Add nodes to Canvas:
             //addNodes(celSel);

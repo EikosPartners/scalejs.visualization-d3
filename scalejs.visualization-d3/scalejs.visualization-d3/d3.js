@@ -87,6 +87,8 @@ define([
             maxVisibleLevels,
             levelsSource,
             levels,
+            idPath,
+            namePath,
             childrenPath,
             areaPath,
             colorPath,
@@ -113,7 +115,8 @@ define([
             rotateVal = 0,
             scaleVal = 1,
             touchHandler,
-            zoomOutScale = 0.8;
+            zoomOutScale = 0.8,
+            radialTotalFrac;
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
@@ -285,6 +288,12 @@ define([
             colorScale = d3.scale.linear();
             if (colorPaletteType === '[object Array]') {
                 //colorPalette is an array:
+                if (colorPalette.length === 0) {
+                    // Use default palette:
+                    colorPalette = colorbrewer.PuBu[3];
+                } else if (colorPalette.length === 1) {
+                    colorPalette = [colorPalette[0], colorPalette[0]];
+                }
                 colorScale.range(colorPalette);
             } else if (colorPaletteType === '[object String]') {
                 // Check if colorPalette is a predefined colorbrewer array:
@@ -293,10 +302,7 @@ define([
                     colorScale.range(colorbrewer[colorPalette][3]);
                 } else {
                     // Use default palette:
-                    //colorScale.range(colorbrewer.PuBu[3]);
-                    // Treat as a color:
-                    colorPalette = [colorPalette, colorPalette];
-                    colorScale.range(colorPalette);
+                    colorScale.range(colorbrewer.PuBu[3]);
                 }
             } else {
                 // Use default palette:
@@ -309,6 +315,8 @@ define([
             // Loop through all levels and parse the parameters:
             if (typeof lvls !== 'array' || lvls.length === 0) {
                 levels[0] = {   // Use global parameters for the level:
+                    idPath: unwrap(idPath),
+                    namePath: unwrap(namePath),
                     childrenPath: unwrap(childrenPath),
                     areaPath: unwrap(areaPath),
                     colorPath: unwrap(colorPath),
@@ -322,6 +330,8 @@ define([
             for (i = 0; i < lvls.length; i += 1) {
                 if (typeof lvls[i] === 'string') {
                     levels[i] = {   // Level just defines the childrenPath, use global parameters for the rest:
+                        idPath: unwrap(idPath),
+                        namePath: unwrap(namePath),
                         childrenPath: unwrap(lvls[i]),
                         areaPath: unwrap(areaPath),
                         colorPath: unwrap(colorPath),
@@ -331,9 +341,12 @@ define([
                         fontFamily: unwrap(fontFamily),
                         fontColor: unwrap(fontColor)
                     };
+                    radialTotalFrac += 1;
                 } else {
                     // Level has parameters:
                     levels[i] = {   // Use global parameters for parameters not defined:
+                        idPath: unwrap(lvls[i].idPath || idPath),
+                        namePath: unwrap(lvls[i].namePath || lvls[i].idPath || namePath),
                         childrenPath: unwrap(lvls[i].childrenPath || childrenPath),
                         areaPath: unwrap(lvls[i].areaPath || areaPath),
                         colorPath: unwrap(lvls[i].colorPath || colorPath),
@@ -341,6 +354,7 @@ define([
                         fontFamily: unwrap(lvls[i].fontFamily || fontFamily),
                         fontColor: unwrap(lvls[i].fontColor || fontColor)
                     };
+                    radialTotalFrac += levels[i].radialFraction;
                     if (lvls[i].colorPalette === undefined) {
                         // Use global colorScale and Palette for this Level:
                         levels[i].colorPalette = colorPalette;
@@ -353,7 +367,16 @@ define([
                         colorPaletteType = Object.prototype.toString.call(levels[i].colorPalette);
                         if (colorPaletteType === '[object Array]') {
                             //colorPalette is an array:
-                            levels[i].colorScale.range(levels[i].colorPalette);
+                            if (levels[i].colorPalette.length === 0) {
+                                // Use default palette:
+                                levels[i].colorPalette = colorPalette;
+                                levels[i].colorScale = colorScale;
+                            } else {
+                                if (levels[i].colorPalette.length === 1) {
+                                    levels[i].colorPalette = [levels[i].colorPalette[0], levels[i].colorPalette[0]];
+                                }
+                                levels[i].colorScale.range(levels[i].colorPalette);
+                            }
                         } else if (colorPaletteType === '[object String]') {
                             // Check if colorPalette is a predefined colorbrewer array:
                             if (colorbrewer[levels[i].colorPalette] !== undefined) {
@@ -361,11 +384,8 @@ define([
                                 levels[i].colorScale.range(colorbrewer[levels[i].colorPalette][3]);
                             } else {
                                 // Use default palette:
-                                //levels[i].colorPalette = colorPalette;
-                                //levels[i].colorScale = colorScale;
-                                // Treat as a color:
-                                levels[i].colorPalette = [levels[i].colorPalette, levels[i].colorPalette];
-                                levels[i].colorScale.range(levels[i].colorPalette);
+                                levels[i].colorPalette = colorPalette;
+                                levels[i].colorScale = colorScale;
                             }
                         } else {
                             // Use default palette:
@@ -386,13 +406,14 @@ define([
 
             if (lvls.length === 0) {    // Out of defined levels, so use global parameters for node:
                 newNode = {
-                    name: unwrap(node.name || ''),
+                    id: unwrap(node[idPath] || ''),
+                    name: unwrap(node[namePath] || ''),
                     lvl: ind,
-                    size: unwrap(node[unwrap(areaPath)] !== undefined ? node[unwrap(areaPath)] : 1),
-                    colorSize: unwrap(node[unwrap(colorPath)] || 0),
-                    fontSize: unwrap(fontSize),
-                    fontFamily: unwrap(fontFamily),
-                    fontColor: unwrap(fontColor)
+                    size: unwrap(node[areaPath] !== undefined ? node[areaPath] : 1),
+                    colorSize: unwrap(node[colorPath] || 0),
+                    fontSize: fontSize,
+                    fontFamily: fontFamily,
+                    fontColor: fontColor
                 };
                 if (newNode.name === nodeSelected.name) {
                     nodeSelected = newNode;
@@ -401,19 +422,22 @@ define([
             }
 
             lvl = lvls[ind] || {
-                childrenPath: unwrap(childrenPath),
-                areaPath: unwrap(areaPath),
-                colorPath: unwrap(colorPath),
-                colorPalette: unwrap(colorPalette),
+                idPath: idPath,
+                namePath: namePath,
+                childrenPath: childrenPath,
+                areaPath: areaPath,
+                colorPath: colorPath,
+                colorPalette: colorPalette,
                 colorScale: colorScale,
-                fontSize: unwrap(fontSize),
-                fontFamily: unwrap(fontFamily),
-                fontColor: unwrap(fontColor)
+                fontSize: fontSize,
+                fontFamily: fontFamily,
+                fontColor: fontColor
             };
 
             if (node[lvl.childrenPath] === undefined) {   // Use current level parameters for node:
                 newNode = {
-                    name: unwrap(node.name || ''),
+                    id: unwrap(node[lvl.idPath] || ''),
+                    name: unwrap(node[lvl.namePath] || ''),
                     lvl: ind,
                     size: unwrap(node[lvl.areaPath] !== undefined ? node[lvl.areaPath] : 1),
                     colorSize: unwrap(node[lvl.colorPath] || 0),
@@ -429,7 +453,8 @@ define([
 
             // Set default properties of node with children:
             newNode = {
-                name: unwrap(node.name || ''),
+                id: unwrap(node[lvl.idPath] || ''),
+                name: unwrap(node[lvl.namePath] || ''),
                 lvl: ind,
                 children: [],
                 childrenReference: [],
@@ -511,6 +536,8 @@ define([
             maxVisibleLevels = unwrap(parameters.maxVisibleLevels || 2);
             dataSource = unwrap(parameters.data) || { name: "Empty" };
             levelsSource = unwrap(parameters.levels) || [{}];
+            idPath = unwrap(parameters.idPath) || 'id';
+            namePath = unwrap(parameters.namePath) || idPath;
             childrenPath = unwrap(parameters.childrenPath) || 'children';
             areaPath = unwrap(parameters.areaPath) || 'area';
             colorPath = unwrap(parameters.colorPath) || 'color';
@@ -529,7 +556,7 @@ define([
             } else {
                 nodeSelected.old = true;
             }
-            root = createNodeJson(dataSource, levels, 0, maxlvl);
+            root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
             if (nodeSelected.name !== null && !nodeSelected.old) {
                 root.curLevel = nodeSelected.lvl;
                 root.curMaxLevel = nodeSelected.lvl + maxVisibleLevels - 1;
@@ -540,6 +567,8 @@ define([
             }
             root.maxlvl = maxlvl.value;
             root.maxVisibleLevels = maxVisibleLevels;
+            root.radialTotalFrac = radialTotalFrac;
+            root.levels = levels;
 
             // Setup colorscale for the root:
             rootScale = d3.scale.linear()

@@ -157,7 +157,7 @@ define([
                 if (visualization.allowTextOverflow) {
                     interpOpacity = d3.interpolate(this.opacity, newColor.opacity);
                 } else {
-                    interpOpacity = d3.interpolate(this.opacity, (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? 1 : 0);
+                    interpOpacity = d3.interpolate(this.opacity, (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? newColor.opacity : 0);
                 }
                 return function (t) {
                     // Store new data in the old property:
@@ -257,7 +257,7 @@ define([
 
             // Select all nodes in Canvas, and apply data:
             groupNodes = canvasArea.selectAll("group")
-                .data(nodes, function (d) { return d.name; });
+                .data(nodes, function (d) { return d.id; });
 
             // Add new nodes to Canvas:
             newGroupNodes = groupNodes.enter().append("group")
@@ -425,7 +425,7 @@ define([
 
             // Join data with selection:
             celSel = canvasArea.selectAll("group")
-                .data(nodes, function (d) { return d.name; });
+                .data(nodes, function (d) { return d.id; });
 
             // Add nodes to Canvas:
             x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
