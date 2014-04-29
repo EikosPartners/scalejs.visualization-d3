@@ -99,11 +99,12 @@ define([
             };
         }
         function groupTween(p, opacity) {
-            return function () {
+            return function (d) {
                 // Create interpolations used for a nice slide:
                 var interpX = d3.interpolate(this.left, canvasWidth / 2),
                     interpY = d3.interpolate(this.top, canvasHeight / 2),
-                    interpOpacity = d3.interpolate(this.opacity, opacity),
+                    newColor = parseColor(d.color),
+                    interpOpacity = d3.interpolate(this.opacity, opacity * newColor.opacity),
                     element = this;
                 return function (t) {
                     element.left = interpX(t);

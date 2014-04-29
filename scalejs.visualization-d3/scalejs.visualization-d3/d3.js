@@ -97,6 +97,7 @@ define([
             fontSize,
             fontFamily,
             fontColor,
+            globalLevel,
             selectedItemPath = parameters.selectedItemPath || ko.observable([]),
             selectedItemPathObservable,
             rootScale = d3.scale.linear(),
@@ -315,44 +316,44 @@ define([
             // Loop through all levels and parse the parameters:
             if (typeof lvls !== 'array' || lvls.length === 0) {
                 levels[0] = {   // Use global parameters for the level:
-                    idPath: unwrap(idPath),
-                    namePath: unwrap(namePath),
-                    childrenPath: unwrap(childrenPath),
-                    areaPath: unwrap(areaPath),
-                    colorPath: unwrap(colorPath),
-                    colorPalette: unwrap(colorPalette),
+                    idPath: idPath,
+                    namePath: namePath,
+                    childrenPath: childrenPath,
+                    areaPath: areaPath,
+                    colorPath: colorPath,
+                    colorPalette: colorPalette,
                     colorScale: colorScale,
-                    fontSize: unwrap(fontSize),
-                    fontFamily: unwrap(fontFamily),
-                    fontColor: unwrap(fontColor)
+                    fontSize: fontSize,
+                    fontFamily: fontFamily,
+                    fontColor: fontColor
                 };
             }
             for (i = 0; i < lvls.length; i += 1) {
                 if (typeof lvls[i] === 'string') {
                     levels[i] = {   // Level just defines the childrenPath, use global parameters for the rest:
-                        idPath: unwrap(idPath),
-                        namePath: unwrap(namePath),
+                        idPath: idPath,
+                        namePath: namePath,
                         childrenPath: unwrap(lvls[i]),
-                        areaPath: unwrap(areaPath),
-                        colorPath: unwrap(colorPath),
-                        colorPalette: unwrap(colorPalette),
+                        areaPath: areaPath,
+                        colorPath: colorPath,
+                        colorPalette: colorPalette,
                         colorScale: colorScale,
-                        fontSize: unwrap(fontSize),
-                        fontFamily: unwrap(fontFamily),
-                        fontColor: unwrap(fontColor)
+                        fontSize: fontSize,
+                        fontFamily: fontFamily,
+                        fontColor: fontColor
                     };
                     radialTotalFrac += 1;
                 } else {
                     // Level has parameters:
                     levels[i] = {   // Use global parameters for parameters not defined:
-                        idPath: unwrap(lvls[i].idPath || idPath),
-                        namePath: unwrap(lvls[i].namePath || lvls[i].idPath || namePath),
-                        childrenPath: unwrap(lvls[i].childrenPath || childrenPath),
-                        areaPath: unwrap(lvls[i].areaPath || areaPath),
-                        colorPath: unwrap(lvls[i].colorPath || colorPath),
-                        fontSize: unwrap(lvls[i].fontSize || fontSize),
-                        fontFamily: unwrap(lvls[i].fontFamily || fontFamily),
-                        fontColor: unwrap(lvls[i].fontColor || fontColor)
+                        idPath: unwrap(lvls[i].idPath) || idPath,
+                        namePath: unwrap(lvls[i].namePath || lvls[i].idPath) || namePath,
+                        childrenPath: unwrap(lvls[i].childrenPath) || childrenPath,
+                        areaPath: unwrap(lvls[i].areaPath) || areaPath,
+                        colorPath: unwrap(lvls[i].colorPath) || colorPath,
+                        fontSize: unwrap(lvls[i].fontSize) || fontSize,
+                        fontFamily: unwrap(lvls[i].fontFamily) || fontFamily,
+                        fontColor: unwrap(lvls[i].fontColor) || fontColor
                     };
                     radialTotalFrac += levels[i].radialFraction;
                     if (lvls[i].colorPalette === undefined) {
@@ -404,46 +405,18 @@ define([
                 maxlvl.value = ind;
             }
 
-            if (lvls.length === 0) {    // Out of defined levels, so use global parameters for node:
-                newNode = {
-                    id: unwrap(node[idPath] || ''),
-                    name: unwrap(node[namePath] || ''),
-                    lvl: ind,
-                    size: unwrap(node[areaPath] !== undefined ? node[areaPath] : 1),
-                    colorSize: unwrap(node[colorPath] || 0),
-                    fontSize: fontSize,
-                    fontFamily: fontFamily,
-                    fontColor: fontColor
-                };
-                if (newNode.name === nodeSelected.name) {
-                    nodeSelected = newNode;
-                }
-                return newNode;
-            }
-
-            lvl = lvls[ind] || {
-                idPath: idPath,
-                namePath: namePath,
-                childrenPath: childrenPath,
-                areaPath: areaPath,
-                colorPath: colorPath,
-                colorPalette: colorPalette,
-                colorScale: colorScale,
-                fontSize: fontSize,
-                fontFamily: fontFamily,
-                fontColor: fontColor
-            };
+            lvl = lvls[ind] || globalLevel;
 
             if (node[lvl.childrenPath] === undefined) {   // Use current level parameters for node:
                 newNode = {
-                    id: unwrap(node[lvl.idPath] || ''),
-                    name: unwrap(node[lvl.namePath] || ''),
+                    id: unwrap(node[lvl.idPath]) || '',
+                    name: unwrap(node[lvl.namePath]) || '',
                     lvl: ind,
                     size: unwrap(node[lvl.areaPath] !== undefined ? node[lvl.areaPath] : 1),
-                    colorSize: unwrap(node[lvl.colorPath] || 0),
-                    fontSize: unwrap(lvl.fontSize),
-                    fontFamily: unwrap(lvl.fontFamily),
-                    fontColor: unwrap(lvl.fontColor)
+                    colorSize: unwrap(node[lvl.colorPath]) || 0,
+                    fontSize: lvl.fontSize,
+                    fontFamily: lvl.fontFamily,
+                    fontColor: lvl.fontColor
                 };
                 if (newNode.name === nodeSelected.name) {
                     nodeSelected = newNode;
@@ -453,17 +426,17 @@ define([
 
             // Set default properties of node with children:
             newNode = {
-                id: unwrap(node[lvl.idPath] || ''),
-                name: unwrap(node[lvl.namePath] || ''),
+                id: unwrap(node[lvl.idPath]) || '',
+                name: unwrap(node[lvl.namePath]) || '',
                 lvl: ind,
                 children: [],
                 childrenReference: [],
                 size: unwrap(node[lvl.areaPath] !== undefined ? node[lvl.areaPath] : 1),
-                colorSize: unwrap(node[lvl.colorPath] || 0),
+                colorSize: unwrap(node[lvl.colorPath]) || 0,
                 colorScale: d3.scale.linear(),
-                fontSize: unwrap(lvl.fontSize),
-                fontFamily: unwrap(lvl.fontFamily),
-                fontColor: unwrap(lvl.fontColor),
+                fontSize: lvl.fontSize,
+                fontFamily: lvl.fontFamily,
+                fontColor: lvl.fontColor,
                 minSize: 0,
                 maxSize: 1,
                 minColor: 0,
@@ -545,6 +518,19 @@ define([
             fontSize = unwrap(parameters.fontSize) || 11;
             fontFamily = unwrap(parameters.fontFamily) || "Times New Roman";
             fontColor = unwrap(parameters.fontColor) || "#000";
+
+            globalLevel = {
+                idPath: idPath,
+                namePath: namePath,
+                childrenPath: childrenPath,
+                areaPath: areaPath,
+                colorPath: colorPath,
+                colorPalette: colorPalette,
+                colorScale: colorScale,
+                fontSize: fontSize,
+                fontFamily: fontFamily,
+                fontColor: fontColor
+            };
 
 
             // Create copy of data in a easy structure for d3:
