@@ -78,7 +78,6 @@ define([
             enableZoom = parameters.enableZoom || false,
             enableTouch = parameters.enableTouch || false,
             allowTextOverflow = parameters.allowTextOverflow || false,
-            sunburstCustomParams = parameters.sunburstCustom || {},
             visualization,
             visualizationType,
             visualizationTypeObservable,
@@ -117,7 +116,8 @@ define([
             scaleVal = 1,
             touchHandler,
             zoomOutScale = 0.8,
-            radialTotalFrac;
+            radialTotalFrac,
+            layout;
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
@@ -752,7 +752,7 @@ define([
         // Check if a layout plugin exists:
         if (core.layout) {
             // Add event listener for on layout change:
-            core.layout.onLayoutDone(function () {
+            layout = core.layout.onLayoutDone(function () {
                 // Get element's width and height:
                 elementStyle = window.getComputedStyle(element);
                 canvasWidth = parseInt(elementStyle.width, 10);
@@ -785,6 +785,10 @@ define([
                 //root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
                 visualization.update(nodeSelected);
                 canvas.pumpRender();
+            });
+            ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
+                layout();
+                layout = undefined;
             });
         }
 

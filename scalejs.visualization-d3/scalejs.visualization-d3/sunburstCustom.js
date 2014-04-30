@@ -44,6 +44,7 @@ define([
             root,
             sunburstLayout,
             arc,
+            canvasZoom,
             canvasArea,
             currentZoomNode;
 
@@ -404,7 +405,8 @@ define([
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 
-            canvasArea = canvasElement.append("group").append("group").each(function () {
+            canvasZoom = canvasElement.append("group");
+            canvasArea = canvasZoom.append("group").each(function () {
                 this.fontFamily = "Times New Roman";
                 this.fontSize = 11;
                 //this.originX = "center";
@@ -445,9 +447,10 @@ define([
 
         function remove() {
             if (canvasArea !== undefined) {
-                canvasArea.remove();
+                canvasZoom.remove();
                 //canvasElement.select("group").remove();
                 //canvasArea.selectAll("group").remove();
+                canvasZoom = undefined;
                 canvasArea = undefined;
             }
         }
