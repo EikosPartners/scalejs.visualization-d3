@@ -31,7 +31,6 @@
     <Content Include="Scripts\d3.v3.js" />
     <Content Include="Scripts\d3.v3.min.js" />
     <Content Include="Scripts\domReady.js" />
-    <Content Include="Scripts\fabric-1.4.4.js" />
     <Content Include="Scripts\hammer.js" />
     <Content Include="Scripts\jasmine-html.js" />
     <Content Include="Scripts\jasmine.js" />
@@ -48,9 +47,8 @@
     <Content Include="Scripts\require.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.47.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.47.min.js" />
-    <Content Include="Scripts\scalejs.d3-fabric.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.50.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.50.min.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.min.js" />
     <Content Include="Scripts\scalejs.linq-linqjs-3.0.3.1.js" />
@@ -63,11 +61,10 @@
     <Content Include="Scripts\scalejs.statechart-scion-0.3.0.0.js" />
     <Content Include="Scripts\scalejs.statechart-scion-0.3.0.0.min.js" />
     <Content Include="Scripts\scalejs.styles.js" />
-    <Content Include="Scripts\scalejs.visualization-d3-0.1.4.400.js" />
-    <Content Include="Scripts\scalejs.visualization-d3-0.1.4.400.min.js" />
+    <Content Include="Scripts\scalejs.visualization-d3-0.1.5.619.js" />
+    <Content Include="Scripts\scalejs.visualization-d3-0.1.5.619.min.js" />
     <Content Include="Scripts\scion.js" />
     <Content Include="Scripts\text.js" />
-    <Content Include="Scripts\TweenLite-1.11.4.js" />
     <Content Include="Scripts\_references.js" />
     <Content Include="app\app.js" />
     <Content Include="app\main\bindings\mainBindings.js" />

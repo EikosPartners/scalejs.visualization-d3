@@ -40,6 +40,17 @@ define([
             //testgroup: testgroup,
             treemapCustom: treemapCustom,
             sunburstCustom: sunburstCustom
+        },
+        sortByFuncs = {
+            unordered: function (a, b) {
+                return a.index - b.index;
+            },
+            ascendingSize: function (a, b) {
+                return a.size - b.size;
+            },
+            descendingSize: function (a, b) {
+                return b.size - a.size;
+            }
         };
 
     function blankVisualization(type) {
@@ -504,7 +515,8 @@ define([
             return newNode;
         }
         json = ko.computed(function () {
-            var maxlvl = { value: 0 }, stepSize;
+            var maxlvl = { value: 0 }, stepSize,
+                sortByParam = unwrap(parameters.sortBy) || "unordered";
             // Get parameters (or defaults values):
             maxVisibleLevels = unwrap(parameters.maxVisibleLevels || 2);
             dataSource = unwrap(parameters.data) || { name: "Empty" };
@@ -555,6 +567,15 @@ define([
             root.maxVisibleLevels = maxVisibleLevels;
             root.radialTotalFrac = radialTotalFrac;
             root.levels = levels;
+            root.index = 0;
+            if (typeof (sortByParam) === "function") {
+                root.sortBy = sortByParam;
+            } else if (sortByFuncs[sortByParam]) {
+                root.sortBy = sortByFuncs[sortByParam];
+            } else {
+                root.sortBy = sortByParam["unordered"];
+            }
+            
 
             // Setup colorscale for the root:
             rootScale = d3.scale.linear()
@@ -572,6 +593,31 @@ define([
             return unwrap(selectedItemPath);
         });
 
+        function resetTransormAnimation() {
+            // Reset transform:
+            leftVal = 0;
+            topVal = 0;
+            rotateVal = 0;
+            scaleVal = 1;
+            canvas.select("group").transition().duration(1000)
+                .tween("canvasTween", function () {
+                    // Create interpolations used for a nice slide around the parent:
+                    var interpLeft = d3.interpolate(this.left, 0),
+                        interpTop = d3.interpolate(this.top, 0),
+                        interpAngle = d3.interpolate(this.angle, 0),
+                        interpScaleX = d3.interpolate(this.scaleX, 1),
+                        interpScaleY = d3.interpolate(this.scaleY, 1),
+                        el = this;
+                    return function (t) {
+                        el.left = interpLeft(t);
+                        el.top = interpTop(t);
+                        el.angle = interpAngle(t);
+                        el.scaleX = interpScaleX(t);
+                        el.scaleY = interpScaleY(t);
+                    };
+                });
+        }
+
         // Zoom after click, and set the path:
         function selectZoom(d) {
             var path = [],
@@ -586,27 +632,7 @@ define([
 
                 if (d !== oldSelected) {
                     // Reset transform:
-                    leftVal = 0;
-                    topVal = 0;
-                    rotateVal = 0;
-                    scaleVal = 1;
-                    canvas.select("group").transition().duration(1000)
-                        .tween("canvasTween", function () {
-                            // Create interpolations used for a nice slide around the parent:
-                            var interpLeft = d3.interpolate(this.left, 0),
-                                interpTop = d3.interpolate(this.top, 0),
-                                interpAngle = d3.interpolate(this.angle, 0),
-                                interpScaleX = d3.interpolate(this.scaleX, 1),
-                                interpScaleY = d3.interpolate(this.scaleY, 1),
-                                el = this;
-                            return function (t) {
-                                el.left = interpLeft(t);
-                                el.top = interpTop(t);
-                                el.angle = interpAngle(t);
-                                el.scaleX = interpScaleX(t);
-                                el.scaleY = interpScaleY(t);
-                            };
-                        });
+                    resetTransormAnimation();
                 }
 
                 nodeSelected = dTmp = d;
@@ -753,6 +779,8 @@ define([
         if (core.layout) {
             // Add event listener for on layout change:
             layout = core.layout.onLayoutDone(function () {
+                var lastWidth = canvasWidth,
+                    lastHeight = canvasHeight;
                 // Get element's width and height:
                 elementStyle = window.getComputedStyle(element);
                 canvasWidth = parseInt(elementStyle.width, 10);
@@ -760,22 +788,17 @@ define([
                 if (canvasHeight <= 0) {
                     canvasHeight = 1;   // Temp fix for drawImage.
                 }
+                if (canvasWidth === lastWidth && canvasHeight === lastHeight) {
+                    // Element size didn't change, ignore event.
+                    return;
+                }
 
                 // Resize canvas:
                 canvas.attr('width', canvasWidth);
                 canvas.attr('height', canvasHeight);
 
                 // Reset transform:
-                leftVal = 0;
-                topVal = 0;
-                rotateVal = 0;
-                scaleVal = 1;
-                canvas.select("group")
-                    .attr("scaleX", scaleVal)
-                    .attr("scaleY", scaleVal)
-                    .attr("angle", rotateVal)
-                    .attr("left", leftVal)
-                    .attr("top", topVal);
+                resetTransormAnimation();
 
                 // Call visualization's resize function to handle resizing internally:
                 visualization.resize(canvasWidth, canvasHeight);

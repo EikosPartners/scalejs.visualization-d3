@@ -150,17 +150,12 @@ define([
                     interpDY = d3.interpolate(this.old.dy, d.dy),
                     newColor = parseColor(d.fontColor),
                     interpFill = d3.interpolate(this.fill, newColor.color),
-                    interpOpacity,// = d3.interpolate(this.opacity, newColor.opacity),
+                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity),
                     // Remember this element:
                     element = this,
                     // Interpolate attributes:
                     rad, radless, offsety, angle,
                     outerRad, innerRad, arcStartAngle, arcEndAngle, arcWidth;
-                if (visualization.allowTextOverflow) {
-                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity);
-                } else {
-                    interpOpacity = d3.interpolate(this.opacity, (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? newColor.opacity : 0);
-                }
                 return function (t) {
                     // Store new data in the old property:
                     element.old.x = interpX(t);
@@ -192,7 +187,6 @@ define([
                         }
                         // Change anchor based on side of Sunburst the text is on:
                         element.originX = rad > Math.PI ? "right" : "left";
-
 
                         // Change opacity:
                         if (visualization.allowTextOverflow) {
@@ -252,7 +246,7 @@ define([
 
             // This is a sunburst being updated:
             // Filter out nodes with children:
-            nodes = sunburstLayout.nodes(root)
+            nodes = sunburstLayout.sort(root.sortBy).nodes(root)
                 .filter(function (d) {
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
                 });
@@ -402,6 +396,7 @@ define([
             // This is a new sunburst:
             // Setup sunburst and Canvas:
             sunburstLayout = d3.layout.partition()
+                            .sort(root.sortBy)
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 

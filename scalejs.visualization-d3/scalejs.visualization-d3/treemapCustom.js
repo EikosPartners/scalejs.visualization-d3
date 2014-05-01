@@ -222,6 +222,7 @@ define([
             // This is a treemap being updated:
             // Filter out nodes with children:
             nodes = treemapLayout.size([canvasWidth, canvasHeight])
+                .sort(root.sortBy)
                 .nodes(root)
                 .filter(function (d) {
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
@@ -359,6 +360,7 @@ define([
             // Setup treemap and SVG:
             treemapLayout = d3.layout.treemap()
                             .round(false)
+                            .sort(root.sortBy)
                             .size([canvasWidth, canvasHeight])
                             //.padding(function (d) { return d.parent && d.parent.children.length > 1 ? spacing : 0; })
                             .sticky(false)
