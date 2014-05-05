@@ -20,7 +20,7 @@ var require = {
         "normalize":  "Scripts/normalize",
         "sandbox":  "Scripts/scalejs.sandbox",
         "scalejs":  "Scripts/scalejs-0.3.3",
-        "scalejs.canvas":  "Scripts/scalejs.canvas-0.1.0.50",
+        "scalejs.canvas":  "Scripts/scalejs.canvas-0.1.0.58",
         "scalejs.functional":  "Scripts/scalejs.functional-0.2.9.8",
         "scalejs.linq-linqjs":  "Scripts/scalejs.linq-linqjs-3.0.3.1",
         "scalejs.mvvm":  "Scripts/scalejs.mvvm-0.3.4.4",

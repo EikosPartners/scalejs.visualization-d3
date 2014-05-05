@@ -35,7 +35,10 @@ define([
             visualization,
             canvasElement,
             json,
-            selectZoom,
+            touchFunc,
+            zoomFunc,
+            heldFunc,
+            releaseFunc,
             canvasWidth,
             canvasHeight,
             radius,
@@ -72,7 +75,7 @@ define([
                 rgba = color.substring(5, color.length - 1)
                      .replace(/ /g, '')
                      .split(',');
-                opacity = rgba.pop();
+                opacity = Number(rgba.pop());
                 color = "rgb(" + rgba.join(",") + ")";
             }
             return {
@@ -278,7 +281,10 @@ define([
                         dy: d.dy
                     };
                 })
-                .on("mousedown", selectZoom);
+                .on("touch", touchFunc)
+                .on("tap", zoomFunc)
+                .on("hold", heldFunc)
+                .on("release", releaseFunc);
 
             // Add text to each node:
             newTextNodes = newGroupNodes.append("text")
@@ -293,6 +299,8 @@ define([
                         this.originY = "top";
                     }
                     //this.fontSize = 11;
+                    var newColor = parseColor(d.fontColor);
+                    this.fill = newColor.color;
                     this.setText(d.name);
                     d.bw = y(d.y + d.dy) - y(d.y);
                     d.bh = (x(d.x + d.dx) - x(d.x)) * y(d.y);
@@ -305,18 +313,18 @@ define([
 
                         // Change opacity:
                         if (visualization.allowTextOverflow) {
-                            this.opacity = 1;
+                            this.opacity = newColor.opacity;
                         } else {
-                            this.opacity = (d.bw - 4 >= this.height) && ((d.bh - 2 >= this.width) || (root === d && y(d.y) < 1)) ? 1 : 0;
+                            this.opacity = (d.bw - 4 >= this.height) && ((d.bh - 2 >= this.width) || (root === d && y(d.y) < 1)) ? newColor.opacity : 0;
                         }
                     } else {
                         ang -= 90;
 
                         // Change opacity:
                         if (visualization.allowTextOverflow) {
-                            this.opacity = 1;
+                            this.opacity = newColor.opacity;
                         } else {
-                            this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? 1 : 0;
+                            this.opacity = (d.bw - 4 >= this.width) && ((d.bh - 2 >= this.height) || (root === d && y(d.y) < 1)) ? newColor.opacity : 0;
                         }
                     }
                     this.angle = ang;
@@ -370,7 +378,10 @@ define([
             width,
             height,
             jsonObservable,
+            selectTouchFunction,
             selectZoomFunction,
+            selectHeldFunction,
+            selectReleaseFunction,
             nodeSelected
         ) {
             if (canvasArea !== undefined) {
@@ -383,7 +394,10 @@ define([
             radius = Math.min(canvasWidth, canvasHeight) / 2;
             x = mapValue().range([0, 2 * Math.PI]);//d3.scale.linear().range([0, 2 * Math.PI]);
             y = mapValue().range([0, radius]);//d3.scale.linear().range([0, radius]);//sqrt
-            selectZoom = selectZoomFunction;
+            touchFunc = selectTouchFunction;
+            zoomFunc = selectZoomFunction;
+            heldFunc = selectHeldFunction;
+            releaseFunc = selectReleaseFunction;
 
             // Define temp vars:
             var celSel, nodes,

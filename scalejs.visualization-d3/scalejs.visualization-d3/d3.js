@@ -108,8 +108,11 @@ define([
             fontFamily,
             fontColor,
             globalLevel,
+            zoomedItemPath = parameters.zoomedItemPath || ko.observable([]),
+            zoomedItemPathObservable,
             selectedItemPath = parameters.selectedItemPath || ko.observable([]),
             selectedItemPathObservable,
+            heldItemPath = parameters.heldItemPath || ko.observable([]),
             rootScale = d3.scale.linear(),
             canvasElement,
             canvas,
@@ -129,6 +132,9 @@ define([
             zoomOutScale = 0.8,
             radialTotalFrac,
             layout;
+
+        isObservable(selectedItemPath) && selectedItemPath(undefined);
+        isObservable(heldItemPath) && heldItemPath(undefined);
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
@@ -568,14 +574,13 @@ define([
             root.radialTotalFrac = radialTotalFrac;
             root.levels = levels;
             root.index = 0;
-            if (typeof (sortByParam) === "function") {
+            if (typeof sortByParam === 'function') {
                 root.sortBy = sortByParam;
             } else if (sortByFuncs[sortByParam]) {
                 root.sortBy = sortByFuncs[sortByParam];
             } else {
-                root.sortBy = sortByParam["unordered"];
+                root.sortBy = sortByParam['unordered'];
             }
-            
 
             // Setup colorscale for the root:
             rootScale = d3.scale.linear()
@@ -589,11 +594,14 @@ define([
             // Return the new json data:
             return root;
         });
+        zoomedItemPathObservable = ko.computed(function () {
+            return unwrap(zoomedItemPath);
+        });
         selectedItemPathObservable = ko.computed(function () {
             return unwrap(selectedItemPath);
         });
 
-        function resetTransormAnimation() {
+        function resetTransformAnimation() {
             // Reset transform:
             leftVal = 0;
             topVal = 0;
@@ -618,6 +626,68 @@ define([
                 });
         }
 
+        // This function resets the selected node:
+        function selectRelease() {
+            // Reset selectedItemPath:
+            heldItemPath(undefined);
+        }
+
+        // This function resets the selected node:
+        function selectTouch(d) {
+            var path = [],
+                dTmp = d;
+            // Check if selectedItemPath is an observable:
+            if (isObservable(selectedItemPath)) {   // Path is an observable, so set path to the selected item:
+                while (dTmp.parent !== undefined) {
+                    path.unshift(dTmp.index);
+                    dTmp = dTmp.parent;
+                }
+                selectedItemPath(path);
+            }
+        }
+
+        // This function resets the selected node:
+        function selectHeld(d) {
+            var path = [],
+                dTmp = d;
+            // Check if selectedItemPath is an observable:
+            if (isObservable(heldItemPath)) {   // Path is an observable, so set path to the selected item:
+                while (dTmp.parent !== undefined) {
+                    path.unshift(dTmp.index);
+                    dTmp = dTmp.parent;
+                }
+                heldItemPath(path);
+            }
+        }
+
+        // Subscribe to zoomedItemPath changes from outside of the extension (and then zoom):
+        selectedItemPathObservable.subscribe(function (path) {
+            var d = json(), i;
+            if (Object.prototype.toString.call(path) === '[object Array]') {
+                for (i = 0; i < path.length; i += 1) {
+                    if (d.childrenReference === undefined) {
+                        d = json(); // Path doesn't exist, so reset path.
+                        break;
+                    }
+                    if (d.childrenReference[path[i]] === undefined) {
+                        d = json(); // Path doesn't exist, so reset path.
+                        break;
+                    }
+                    d = d.childrenReference[path[i]];
+                }
+            }
+            // Verify d exists:
+            /*if (d) {
+                nodeSelected = d;       // Set nodeSelected to d
+                root.curLevel = nodeSelected.lvl;
+                root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
+                if (zoomEnabled) {
+                    visualization.zoom(nodeSelected);    // Animate zoom effect
+                }
+            }*/
+            // TODO: rename nodeSelected in other functions to zoomedNode, and use selectedNode here which is used for highlighting (if enabled).
+        });
+
         // Zoom after click, and set the path:
         function selectZoom(d) {
             var path = [],
@@ -632,20 +702,20 @@ define([
 
                 if (d !== oldSelected) {
                     // Reset transform:
-                    resetTransormAnimation();
+                    resetTransformAnimation();
                 }
 
                 nodeSelected = dTmp = d;
                 // Set selected node for use in calculating the max depth.
                 root.curLevel = nodeSelected.lvl;
                 root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-                // Check if selectedItemPath is an observable:
-                if (isObservable(selectedItemPath)) {   // Path is an observable, so set path to the selected item:
+                // Check if zoomedItemPath is an observable:
+                if (isObservable(zoomedItemPath)) {   // Path is an observable, so set path to the selected item:
                     while (dTmp.parent !== undefined) {
                         path.unshift(dTmp.index);
                         dTmp = dTmp.parent;
                     }
-                    selectedItemPath(path);
+                    zoomedItemPath(path);
                 } else {    // Path is not an observable, so no need to push an update to it.
                     visualization.zoom(nodeSelected);
                 }
@@ -656,8 +726,8 @@ define([
                 d3.event.stopPropagation();
             }
         }
-        // Subscribe to selectedItemPath changes from outside of the extension (and then zoom):
-        selectedItemPathObservable.subscribe(function (path) {
+        // Subscribe to zoomedItemPath changes from outside of the extension (and then zoom):
+        zoomedItemPathObservable.subscribe(function (path) {
             var d = json(), i;
             if (Object.prototype.toString.call(path) === '[object Array]') {
                 for (i = 0; i < path.length; i += 1) {
@@ -698,7 +768,7 @@ define([
         }
         // Run visualization's initialize code:
         visualization.allowTextOverflow = unwrap(allowTextOverflow);
-        visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
+        visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, nodeSelected, element);
         // Start rendering the canvas
         canvas.startRender();
         canvas.pumpRender();
@@ -730,8 +800,8 @@ define([
             root.curLevel = nodeSelected.lvl;
             root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
             // Set default selected item (do this after the data is set, and before modifying attributes):
-            if (isObservable(selectedItemPath)) {
-                selectedItemPath([]);
+            if (isObservable(zoomedItemPath)) {
+                zoomedItemPath([]);
             }*/
 
             // Reset transform:
@@ -742,7 +812,7 @@ define([
 
             // Run visualization's initialize code:
             visualization.allowTextOverflow = unwrap(allowTextOverflow);
-            visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectZoom, nodeSelected, element);
+            visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, nodeSelected, element);
             canvas.pumpRender();
         });
 
@@ -756,13 +826,13 @@ define([
             zoomEnabled = false;
             var dTmp = nodeSelected,
                 path = [];
-            if (isObservable(selectedItemPath)) {
+            if (isObservable(zoomedItemPath)) {
                 while (dTmp.parent !== undefined) {
                     path.unshift(dTmp.index);
                     dTmp = dTmp.parent;
                 }
-                selectedItemPath(path);
-            }   // selectedItemPath is reset here to prevent errors in zooming, need to reorder later.
+                zoomedItemPath(path);
+            }   // zoomedItemPath is reset here to prevent errors in zooming, need to reorder later.
             zoomEnabled = true;
 
             // Update visualization:
@@ -798,7 +868,7 @@ define([
                 canvas.attr('height', canvasHeight);
 
                 // Reset transform:
-                resetTransormAnimation();
+                resetTransformAnimation();
 
                 // Call visualization's resize function to handle resizing internally:
                 visualization.resize(canvasWidth, canvasHeight);

@@ -1744,7 +1744,7 @@ define('scalejs.canvas/group',[
             //return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
         };
 
-        group.prototype.mouseDownEvent = function (posX, posY, event) {
+        group.prototype.eventHandler = function (posX, posY, event) {
             canvasObj.context.save();   // Required to restore transform matrix after the following transform:
             // Translate position:
             //canvasObj.context.translate(this.pos.left, this.pos.top);
@@ -1764,10 +1764,10 @@ define('scalejs.canvas/group',[
             // Loop through all children and check if they have been clicked:
             this.children.forEach(function (child) {
                 if (child.isPointIn(posX, posY, event)) {
-                    child.mouseDownEvent.call(child, posX, posY, event);
+                    child.eventHandler(posX, posY, event);
                 }
             });
-            this.onmousedown && this.onmousedown.call(this, this.data.data);
+            this[event.name] && this[event.name](this.data.data);
             canvasObj.context.restore();
         };
 
@@ -1833,8 +1833,8 @@ define('scalejs.canvas/rect',[
             return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
         };
 
-        rect.prototype.mouseDownEvent = function (posX, posY, event) {
-            this.onmousedown && this.onmousedown.call(this, this.data.data);
+        rect.prototype.eventHandler = function (posX, posY, event) {
+            this[event.name] && this[event.name](this.data.data);
         };
 
         rect.prototype.remove = function () {
@@ -1936,8 +1936,8 @@ define('scalejs.canvas/text',[
             return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
         };
 
-        text.prototype.mouseDownEvent = function (posX, posY, event) {
-            this.onmousedown && this.onmousedown.call(this, this.data.data);
+        text.prototype.eventHandler = function (posX, posY, event) {
+            this[event.name] && this[event.name](this.data.data);
         };
 
         text.prototype.remove = function () {
@@ -2067,8 +2067,8 @@ define('scalejs.canvas/arc',[
             return distance <= this.outerRadius * this.outerRadius && distance >= this.innerRadius * this.innerRadius && angle >= this.startAngle && angle <= this.endAngle;
         };
 
-        arc.prototype.mouseDownEvent = function (posX, posY, event) {
-            this.onmousedown && this.onmousedown.call(this, this.data.data);
+        arc.prototype.eventHandler = function (posX, posY, event) {
+            this[event.name] && this[event.name](this.data.data);
         };
 
         arc.prototype.remove = function () {
@@ -2545,7 +2545,7 @@ define('scalejs.canvas/canvas',[
         var // Canvas object (unique to each canvas):
             canvasObj = new canvas(canvasElement);
 
-        function clickHandler(event) {
+        /*function clickHandler(event) {
             // Ignore event with no gesture:
             if (!event.gesture) {
                 return;
@@ -2577,12 +2577,50 @@ define('scalejs.canvas/canvas',[
                 });
                 canvasObj.context.restore();
             }
+        }*/
+
+        function eventHandler(event) {
+            // Ignore event with no gesture:
+            if (!event.gesture) {
+                return;
+            }
+            event.gesture.preventDefault();
+
+            // Ignore events with more than one touch.
+            if (event.gesture.touches.length === 1) {
+                // Calculate offset from target's top-left corner:
+                var touch = event.gesture.touches[0],       // Get touch location on page.
+                    display = touch.target.style.display,   // Save display property.
+                    pagePos;                                // Get target position on page.
+                touch.target.style.display = "";    // Make visible
+                pagePos = touch.target.getBoundingClientRect(); // Get visible coords.
+                touch.target.style.display = display;   // Restore display property.
+                event.offsetX = touch.pageX - pagePos.left;
+                event.offsetY = touch.pageY - pagePos.top;
+                event.name = "on" + event.type;
+
+                canvasObj.context.save();
+                // Reset transform:
+                canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
+                // Loop through every child object on canvas:
+                canvasObj.children.forEach(function (child) {
+                    // Check if mouse is in child:
+                    if (child.isPointIn(event.offsetX, event.offsetY)) {
+                        // If so, propagate event down to child.
+                        child.eventHandler(event.offsetX, event.offsetY, event);
+                    }
+                });
+                canvasObj.context.restore();
+            }
         }
 
         var hammerObj = hammer(canvasObj.element, {
-            prevent_default: true
+            prevent_default: true,
+            drag_min_distance: 10,
+            hold_threshold: 10
         });
-        hammerObj.on("click tap", clickHandler);
+        hammerObj.on("hold tap doubletap touch release", eventHandler);
+        //hammerObj.on("click tap", clickHandler);
 
         // Return the canvas selector:
         return selector(canvasObj);

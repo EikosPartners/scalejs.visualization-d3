@@ -28,8 +28,8 @@
     <Content Include="Scripts\hammer.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.50.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.50.min.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.58.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.58.min.js" />
     <Content Include="Scripts\scalejs.sandbox.js" />
     <Content Include="Scripts\_scalejs.intellisense.js" />
     <Content Include="tools\install.ps1" />

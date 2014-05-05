@@ -35,7 +35,10 @@ define([
             visualization,
             canvasElement,
             json,
-            selectZoom,
+            touchFunc,
+            zoomFunc,
+            heldFunc,
+            releaseFunc,
             canvasWidth,
             canvasHeight,
             x,
@@ -214,6 +217,7 @@ define([
 
             // Get treemap data:
             root = json();
+            //p = p.parent || root;
 
             // Define temp vars:
             var nodes, groupNodes, newGroupNodes, removeGroupNodes, textNodes, newTextNodes, removeTextNodes,
@@ -251,7 +255,10 @@ define([
                 });
             // Add mousedown event to nodes that are treated as leaf nodes:
             newGroupNodes.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
-                .on("mousedown", function (d) { selectZoom(d.parent || root); });
+                .on("touch", touchFunc)
+                .on("tap", function (d) { zoomFunc(d.parent || d); })
+                .on("hold", heldFunc)
+                .on("release", releaseFunc);
 
             // Add text to each node:
             newTextNodes = newGroupNodes.append("text")
@@ -262,12 +269,14 @@ define([
                     this.top = 0;
                     this.fontFamily = d.fontFamily;
                     this.fontSize = d.fontSize;
+                    var newColor = parseColor(d.fontColor);
+                    this.fill = newColor.color;
                     this.setText(d.name);
                     //this.static = true;
                     if (visualization.allowTextOverflow) {
-                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) ? 1 : 0;
+                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) ? newColor.opacity : 0;
                     } else {
-                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) && (kx * d.dx - spacing * 2 >= this.width) && (ky * d.dy - spacing * 2 >= this.height) ? 1 : 0;
+                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) && (kx * d.dx - spacing * 2 >= this.width) && (ky * d.dy - spacing * 2 >= this.height) ? newColor.opacity : 0;
                     }
                 });
 
@@ -287,9 +296,15 @@ define([
 
             // Update current nodes on Canvas:
             groupNodes.filter(function (d) { return d.children && d.lvl < root.curMaxLevel; })
-                .on("mousedown", null);
+                .on("touch", null)
+                .on("tap", null)
+                .on("hold", null)
+                .on("release", releaseFunc);
             groupNodes.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
-                .on("mousedown", function (d) { selectZoom(d.parent || root); });
+                .on("touch", touchFunc)
+                .on("tap", function (d) { zoomFunc(d.parent || d); })
+                .on("hold", heldFunc)
+                .on("release", releaseFunc);
             // Add tween to current nodes on Canvas:
             groupNodes.transition().duration(duration)
                 .tween("groupTween", groupTween(p, 1));
@@ -334,7 +349,10 @@ define([
             width,
             height,
             jsonObservable,
+            selectTouchFunction,
             selectZoomFunction,
+            selectHeldFunction,
+            selectReleaseFunction,
             nodeSelected//,
             //trueElement
         ) {
@@ -347,7 +365,10 @@ define([
             canvasHeight = height;
             x = mapValue().range([0, canvasWidth]);//d3.scale.linear().range([0, canvasWidth]);
             y = mapValue().range([0, canvasHeight]);//d3.scale.linear().range([0, canvasHeight]);
-            selectZoom = selectZoomFunction;
+            touchFunc = selectTouchFunction;
+            zoomFunc = selectZoomFunction;
+            heldFunc = selectHeldFunction;
+            releaseFunc = selectReleaseFunction;
 
             // Define temp vars:
             var celSel, nodes,
