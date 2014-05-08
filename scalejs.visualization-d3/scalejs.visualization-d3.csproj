@@ -14,22 +14,17 @@
       <SubType>Designer</SubType>
     </Content>
     <Content Include="scalejs.visualization-d3.js" />
-    <Content Include="scalejs.visualization-d3\sunburstCustom.js" />
     <Content Include="scalejs.visualization-d3\sunburst.js" />
-    <Content Include="scalejs.visualization-d3\testgroup.js" />
-    <Content Include="scalejs.visualization-d3\testindiv.js" />
-    <Content Include="scalejs.visualization-d3\treemapCustom.js" />
-    <Content Include="scalejs.visualization-d3\voronoi.js" />
-    <Content Include="Scripts\d3.colorbrewer.js" />
     <Content Include="scalejs.visualization-d3\treemap.js" />
+    <Content Include="Scripts\d3.colorbrewer.js" />
     <Content Include="scalejs.visualization-d3\d3.js" />
     <Content Include="Scripts\d3.v3.js" />
     <Content Include="Scripts\d3.v3.min.js" />
     <Content Include="Scripts\hammer.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.58.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.58.min.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.61.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.61.min.js" />
     <Content Include="Scripts\scalejs.sandbox.js" />
     <Content Include="Scripts\_scalejs.intellisense.js" />
     <Content Include="tools\install.ps1" />

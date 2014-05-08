@@ -1624,19 +1624,25 @@ define('scalejs.canvas/group',[
                     canvasObj.curFont = this.font;
                     canvasObj.curFontSize = this.fontSize;
                     // Calculate children's boundaries and parameters:
-                    this.children.forEach(function (child) { child.calcBounds(); });
+                    for (var i = 0; i < this.children.length; i += 1) {
+                        this.children[i].calcBounds();
+                    }
                     
                     // Restore font:
                     this.curFont = pFont;
                     canvasObj.context.restore();
                 } else {
                     // Calculate children's boundaries and parameters:
-                    this.children.forEach(function (child) { child.calcBounds(); });
+                    for (var i = 0; i < this.children.length; i += 1) {
+                        this.children[i].calcBounds();
+                    }
                 }
             } else {
                 this.font = undefined;
                 // Calculate children's boundaries and parameters:
-                this.children.forEach(function (child) { child.calcBounds(); });
+                for (var i = 0; i < this.children.length; i += 1) {
+                    this.children[i].calcBounds();
+                }
             }
             if (this.children.length > 0) {
                 // Get first child's extents:
@@ -1708,13 +1714,19 @@ define('scalejs.canvas/group',[
                     //canvasObj.context.fontFamily = this.fontFamily;
                     canvasObj.curFont = this.font;
                     canvasObj.curFontSize = this.fontSize;
-                    this.children.forEach(function (child) { child.render(); });    // Render children.
+                    // Render children:
+                    for (var i = 0; i < this.children.length; i += 1) {
+                        this.children[i].render();
+                    }
                     // Restore family and size:
                     canvasObj.curFont = pFont;
                     canvasObj.curFontSize = pFontSize;
 
                 } else {
-                    this.children.forEach(function (child) { child.render(); });    // Render children.
+                    // Render children:
+                    for (var i = 0; i < this.children.length; i += 1) {
+                        this.children[i].render();
+                    }
                 }
                 canvasObj.context.restore();
             }
@@ -1737,9 +1749,11 @@ define('scalejs.canvas/group',[
             if (this.backFill) {
                 return posX >= 0 && posY >= 0 && posX <= this.width && posY <= this.height;
             }
-            return this.children.some(function (child) {
-                return child.isPointIn(posX, posY, event);
-            });
+            // Check if point in children:
+            for (var i = 0; i < this.children.length; i += 1) {
+                if (this.children[i].isPointIn(posX, posY, event)) return true;
+            }
+            return false;
             // Use the last extents (as it was last visible to user for click event):
             //return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
         };
@@ -1762,11 +1776,11 @@ define('scalejs.canvas/group',[
             posX = posX * cos - posY * sin;
             posY = tposX * sin + posY * cos;
             // Loop through all children and check if they have been clicked:
-            this.children.forEach(function (child) {
-                if (child.isPointIn(posX, posY, event)) {
-                    child.eventHandler(posX, posY, event);
+            for (var i = 0; i < this.children.length; i += 1) {
+                if (this.children[i].isPointIn(posX, posY, event)) {
+                    this.children[i].eventHandler(posX, posY, event);
                 }
-            });
+            }
             this[event.name] && this[event.name](this.data.data);
             canvasObj.context.restore();
         };
@@ -2473,6 +2487,8 @@ define('scalejs.canvas/canvas',[
         this.element = element;
         this.context = element.getContext("2d");
         this.parent = this;
+        this.width = element.width;
+        this.height = element.height;
         this.children = [];
         this.animations = [];
         this.requestFrameID = undefined;
@@ -2482,15 +2498,17 @@ define('scalejs.canvas/canvas',[
 
     canvas.prototype.setwidth = function (width) {
         this.element.width = width;
+        this.width = width;
     };
 
     canvas.prototype.setheight = function (height) {
         this.element.height = height;
+        this.height = height;
     };
 
     canvas.prototype.onAnimationFrame = function () {
         // Check if there is anything to animate:
-        if (this.animations.length <= 0) {
+        if (this.animations.length <= 0 || this.width <= 0 || this.height <= 0) {
             this.requestFrameID = undefined;
             return;
         }
@@ -2498,9 +2516,11 @@ define('scalejs.canvas/canvas',[
         var thisCanvas = this;
         this.requestFrameID = requestAnimFrame(function () { thisCanvas.onAnimationFrame(); });
         // Get current time to test if animations are over:
-        var curTime = new Date().getTime();
+        var curTime = new Date().getTime(),
+            animation;
         // Execute all animations, remove any that are finished:
-        this.animations = this.animations.filter(function (animation, index) {
+        for (var i = 0; i < this.animations.length; i++) {
+            animation = this.animations[i];
             // Call tween function for object:
             var timeRatio = Math.min((curTime - animation.timeStart) / animation.duration, 1);  // Get the current animation fram which is can be [0, 1).
             animation.tweenFunc.call(animation, animation.easeFunc(timeRatio)); // Call animation tween function.
@@ -2508,18 +2528,19 @@ define('scalejs.canvas/canvas',[
             if (curTime >= animation.timeEnd) {
                 animation.animationIndex = undefined;
                 animation.tweenEndFunc && animation.tweenEndFunc.call(animation, animation.data.data);
+                this.animations.splice(i, 1);
+                i--;
+            } else {
+                // Update index:
+                animation.animationIndex = i;
             }
-            return curTime < animation.timeEnd;
-        });
-        // Update index of each object:
-        this.animations.forEach(function (animation, index) {
-            animation.animationIndex = index;
-        })
+        }
         // Render objects:
         this.pumpRender();
     };
 
     canvas.prototype.pumpRender = function () {
+        if (this.width <= 0 || this.height <= 0) return;
         // Reset transform:
         this.context.setTransform(1, 0, 0, 1, 0, 0);
         // Clear globals:
@@ -2527,12 +2548,16 @@ define('scalejs.canvas/canvas',[
         this.curFont = "40px Times New Roman";
         //this.curFontFamily = "Times New Roman";
         this.curFontSize = 40;
-        // Calculate all objects' boundaries and parameters:
-        this.children.forEach(function (child) { child.calcBounds(); });
+        // Calculate children's boundaries and parameters:
+        for (var i = 0; i < this.children.length; i += 1) {
+            this.children[i].calcBounds();
+        }
         // Clear canvas:
         this.context.clearRect(0, 0, this.element.width, this.element.height);
-        // Render all objects:
-        this.children.forEach(function (child) { child.render(); });
+        // Render children:
+        for (var i = 0; i < this.children.length; i += 1) {
+            this.children[i].render();
+        }
     };
 
     canvas.prototype.startRender = function () { };
@@ -2544,40 +2569,6 @@ define('scalejs.canvas/canvas',[
     function select(canvasElement) {
         var // Canvas object (unique to each canvas):
             canvasObj = new canvas(canvasElement);
-
-        /*function clickHandler(event) {
-            // Ignore event with no gesture:
-            if (!event.gesture) {
-                return;
-            }
-            event.gesture.preventDefault();
-
-            // Ignore events with more than one touch.
-            if (event.gesture.touches.length === 1) {
-                // Calculate offset from target's top-left corner:
-                var touch = event.gesture.touches[0],       // Get touch location on page.
-                    display = touch.target.style.display,   // Save display property.
-                    pagePos;                                // Get target position on page.
-                touch.target.style.display = "";    // Make visible
-                pagePos = touch.target.getBoundingClientRect(); // Get visible coords.
-                touch.target.style.display = display;   // Restore display property.
-                event.offsetX = touch.pageX - pagePos.left;
-                event.offsetY = touch.pageY - pagePos.top;
-
-                canvasObj.context.save();
-                // Reset transform:
-                canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
-                // Loop through every child object on canvas:
-                canvasObj.children.forEach(function (child) {
-                    // Check if mouse is in child:
-                    if (child.isPointIn(event.offsetX, event.offsetY)) {
-                        // If so, propagate event down to child.
-                        child.mouseDownEvent.call(child, event.offsetX, event.offsetY, event);
-                    }
-                });
-                canvasObj.context.restore();
-            }
-        }*/
 
         function eventHandler(event) {
             // Ignore event with no gesture:
@@ -2602,14 +2593,14 @@ define('scalejs.canvas/canvas',[
                 canvasObj.context.save();
                 // Reset transform:
                 canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
-                // Loop through every child object on canvas:
-                canvasObj.children.forEach(function (child) {
+                // Loop through every child object on canvas and check if they have been clicked:
+                for (var i = 0; i < canvasObj.children.length; i += 1) {
                     // Check if mouse is in child:
-                    if (child.isPointIn(event.offsetX, event.offsetY)) {
+                    if (canvasObj.children[i].isPointIn(event.offsetX, event.offsetY, event)) {
                         // If so, propagate event down to child.
-                        child.eventHandler(event.offsetX, event.offsetY, event);
+                        canvasObj.children[i].eventHandler(event.offsetX, event.offsetY, event);
                     }
-                });
+                }
                 canvasObj.context.restore();
             }
         }
@@ -2620,7 +2611,6 @@ define('scalejs.canvas/canvas',[
             hold_threshold: 10
         });
         hammerObj.on("hold tap doubletap touch release", eventHandler);
-        //hammerObj.on("click tap", clickHandler);
 
         // Return the canvas selector:
         return selector(canvasObj);

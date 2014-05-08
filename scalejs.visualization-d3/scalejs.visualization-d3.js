@@ -3,8 +3,7 @@
 define([
     'scalejs!core',
     'knockout',
-    'scalejs.visualization-d3/d3',
-    'd3'
+    'scalejs.visualization-d3/d3'
 ], function (
     core,
     ko,

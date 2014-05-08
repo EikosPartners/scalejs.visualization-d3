@@ -8,12 +8,7 @@ define([
     'd3.colorbrewer',
     'scalejs.canvas',
     'scalejs.visualization-d3/treemap',
-    'scalejs.visualization-d3/treemapCustom',
-    'scalejs.visualization-d3/sunburst',
-    'scalejs.visualization-d3/sunburstCustom',
-    'scalejs.visualization-d3/voronoi',
-    'scalejs.visualization-d3/testindiv',
-    'scalejs.visualization-d3/testgroup'
+    'scalejs.visualization-d3/sunburst'
 ], function (
     core,
     ko,
@@ -21,25 +16,17 @@ define([
     colorbrewer,
     canvasRender,
     treemap,
-    treemapCustom,
-    sunburst,
-    sunburstCustom,
-    voronoi,
-    testindiv,
-    testgroup
+    sunburst
 ) {
     "use strict";
     var //imports
+        observable = ko.observable,
+        computed = ko.computed,
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
         visualizations = {
-            //treemap: treemap,
-            //sunburst: sunburst,
-            //voronoi: voronoi,
-            //testindiv: testindiv,
-            //testgroup: testgroup,
-            treemapCustom: treemapCustom,
-            sunburstCustom: sunburstCustom
+            treemap: treemap,
+            sunburst: sunburst
         },
         sortByFuncs = {
             unordered: function (a, b) {
@@ -90,29 +77,14 @@ define([
             enableTouch = parameters.enableTouch || false,
             allowTextOverflow = parameters.allowTextOverflow || false,
             visualization,
-            visualizationType,
-            visualizationTypeObservable,
+            visualizationType = computed(function () {
+                return unwrap(parameters.visualization) || "";
+            }),
             json,
-            dataSource,
-            maxVisibleLevels,
-            levelsSource,
-            levels,
-            idPath,
-            namePath,
-            childrenPath,
-            areaPath,
-            colorPath,
-            colorPalette,
-            colorScale,
-            fontSize,
-            fontFamily,
-            fontColor,
-            globalLevel,
-            zoomedItemPath = parameters.zoomedItemPath || ko.observable([]),
-            zoomedItemPathObservable,
-            selectedItemPath = parameters.selectedItemPath || ko.observable([]),
-            selectedItemPathObservable,
-            heldItemPath = parameters.heldItemPath || ko.observable([]),
+            globalParam = {},
+            zoomedItemPath = isObservable(parameters.zoomedItemPath) ? parameters.zoomedItemPath : observable(parameters.zoomedItemPath),
+            selectedItemPath = isObservable(parameters.selectedItemPath) ? parameters.selectedItemPath : observable(parameters.selectedItemPath),
+            heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath),
             rootScale = d3.scale.linear(),
             canvasElement,
             canvas,
@@ -120,29 +92,74 @@ define([
             canvasWidth,
             canvasHeight,
             root,
-            nodeSelected,
-            zooms,
-            zoomObservable,
+            zoomedNode = {
+                name: null
+            },
             zoomEnabled = true, // Temporary fix to errors with NaN widths during adding/removing nodes.
-            leftVal = 0,
-            topVal = 0,
-            rotateVal = 0,
-            scaleVal = 1,
+            transform = {
+                left: 0,
+                top: 0,
+                rotate: 0,
+                scale: 1
+            },
             touchHandler,
             zoomOutScale = 0.8,
-            radialTotalFrac,
             layout;
 
-        isObservable(selectedItemPath) && selectedItemPath(undefined);
-        isObservable(heldItemPath) && heldItemPath(undefined);
+        // Attempts to find a node when given a path
+        // 1. If the Path is found, it returns the node
+        // 2. If the Path does not exist, it returns undefined
+        // 3. If the Path has a length of 0, it returns the root node
+        // 4. If the Path is not an array, it returns undefined
+        function getNode(path) {
+            var curNode = json();
+            if (path instanceof Array) {
+                for (var i = 0; i < path.length; i += 1) {
+                    if (curNode.childrenReference[path[i]] === undefined) {
+                        return;
+                    }
+                    curNode = curNode.childrenReference[path[i]];
+                }
+                return curNode;
+            }
+            return;
+        }
+
+        // Subscribe to zoomedItemPath changes, verify path and then zoom:
+        zoomedItemPath.subscribe(function (path) {
+            var node = getNode(path);
+            // even if there is no node, the zoom must still be set to something
+            if (!node) {
+                zoomedItemPath([]);
+                // if there is no node, that means our zoomed node is the root
+                node = json();
+            }
+            if (node) {
+                zoomedNode = node;
+                root.curLevel = zoomedNode.lvl;
+                root.curMaxLevel = zoomedNode.lvl + root.maxVisibleLevels - 1;
+                if (zoomEnabled) {
+                    visualization.update(zoomedNode);    // Animate zoom effect
+                    canvas.pumpRender();
+                }
+            }
+        });
+
+        // Subscribe to selectedItemPath changes from outside:
+        selectedItemPath.subscribe(function (path) {
+            // if there is no node, there is no path
+            if (!getNode(path)) {
+                selectedItemPath(undefined);
+            }
+        });
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
+        // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
         canvasWidth = parseInt(elementStyle.width, 10);
+        canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
         canvasHeight = parseInt(elementStyle.height, 10);
-        if (canvasHeight <= 0) {
-            canvasHeight = 1;   // Temp fix for drawImage.
-        }
+        canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
 
         canvasElement = d3.select(element)
                         .style('overflow', 'hidden')
@@ -151,109 +168,168 @@ define([
                             .attr("height", canvasHeight)
                             .node();
 
+        // Clear the canvas's transform and animate from current to cleared state:
+        function resetTransformAnimation() {
+            // Reset target transform:
+            transform.left = 0;
+            transform.top = 0;
+            transform.rotate = 0;
+            transform.scale = 1;
+            canvas.select("group").transition().duration(1000)
+                .tween("canvasTween", function () {
+                    // Create interpolations used for a nice slide around the parent:
+                    var interpLeft = d3.interpolate(this.left, 0),
+                        interpTop = d3.interpolate(this.top, 0),
+                        interpAngle = d3.interpolate(this.angle, 0),
+                        interpScaleX = d3.interpolate(this.scaleX, 1),
+                        interpScaleY = d3.interpolate(this.scaleY, 1),
+                        el = this;
+                    return function (t) {
+                        el.left = interpLeft(t);
+                        el.top = interpTop(t);
+                        el.angle = interpAngle(t);
+                        el.scaleX = interpScaleX(t);
+                        el.scaleY = interpScaleY(t);
+                    };
+                });
+        }
+
+        // This function resets the selected node:
+        function selectRelease() {
+            // Reset selectedItemPath:
+            heldItemPath(undefined);
+        }
+
+        // This function resets the selected node:
+        function selectTouch(node) {
+            var path = [],
+                tmpNode = node;
+            // Set selectedItemPath:
+            while (tmpNode.parent !== undefined) {
+                path.unshift(tmpNode.index);
+                tmpNode = tmpNode.parent;
+            }
+            selectedItemPath(path);
+        }
+
+        // This function resets the selected node:
+        function selectHeld(node) {
+            var path = [],
+                tmpNode = node;
+            // Set heldItemPath:
+            while (tmpNode.parent !== undefined) {
+                path.unshift(tmpNode.index);
+                tmpNode = tmpNode.parent;
+            }
+            heldItemPath(path);
+        }
+
+        // Zoom after click, and set the path:
+        function selectZoom(node) {
+            var path = [],
+                tmpNode,
+                curZoomedNode = zoomedNode;
+
+            // Only zoom if enabled:
+            if (unwrap(enableZoom)) {
+                if (visualization.enableRootZoom && node === curZoomedNode) {    // Reset path since item was already selected.
+                    node = root;
+                }
+
+                if (node !== curZoomedNode) {
+                    // Reset transform:
+                    resetTransformAnimation();
+                }
+
+                zoomedNode = tmpNode = node;
+                // Set selected node for use in calculating the max depth.
+                root.curLevel = zoomedNode.lvl;
+                root.curMaxLevel = zoomedNode.lvl + root.maxVisibleLevels - 1;
+
+                // Set zoomedItemPath:
+                while (tmpNode.parent !== undefined) {
+                    path.unshift(tmpNode.index);
+                    tmpNode = tmpNode.parent;
+                }
+                zoomedItemPath(path);
+            }
+
+            // Prevent event from firing more than once:
+            if (d3.event) {
+                d3.event.stopPropagation();
+            }
+        }
+
+        // The following set of callbacks are for the pinch&zoom touch handler:
         function renderCallback(left, top, rotate, scale) { // Called on beginning and end of touch gestures:
             // Update transform:
-            leftVal = left;
-            topVal = top;
-            rotateVal = rotate;
-            scaleVal = scale;
+            transform.left = left;
+            transform.top = top;
+            transform.rotate = rotate;
+            transform.scale = scale;
             canvas.select("group")
-                .attr("scaleX", scaleVal)
-                .attr("scaleY", scaleVal)
-                .attr("angle", rotateVal)
-                .attr("left", leftVal)
-                .attr("top", topVal);
+                .attr("scaleX", transform.scale)
+                .attr("scaleY", transform.scale)
+                .attr("angle", transform.rotate)
+                .attr("left", transform.left)
+                .attr("top", transform.top);
             canvas.pumpRender();
         }
+        
         function startCallback() {  // Called when user initiates a touch gesture:
             // Set Rotate State:
             visualization.enableRotate = unwrap(enableRotate) !== undefined ? unwrap(enableRotate) : visualization.enableRotateDefault;
             touchHandler.setRotateState(visualization.enableRotate);
 
-            return {
-                left: leftVal,
-                top: topVal,
-                rotate: rotateVal,
-                scale: scaleVal
-            };
+            return transform;
         }
-        function stepCallback(left, top, rotate, scale) {
-            if (!visualization.enableRotate) {
-                if (left > 0) {
-                    left = 0;
+
+        function transformCallback(scaleFunc) {   // Called for every update to a touch gesture's transform (end and step):
+            return function (left, top, rotate, scale) {
+                // If rotate is not enabled on visualization, lock the visualization to not go off of the screen:
+                if (!visualization.enableRotate) {
+                    left > 0 && (left = 0);
+                    top > 0 && (top = 0);
+                    var right = left + scale * canvasWidth,
+                        bottom = top + scale * canvasHeight;
+                    right < canvasWidth && (left += canvasWidth - right);
+                    bottom < canvasHeight && (top += canvasHeight - bottom);
                 }
-                if (top > 0) {
-                    top = 0;
+                if (scale < 1) {   // scaling is handled differently for step and end
+                    scaleFunc(left, top, rotate, scale);
+                } else {
+                    // Update transform:
+                    transform.left = left;
+                    transform.top = top;
+                    transform.rotate = rotate;
+                    transform.scale = scale;
                 }
-                var right = left + scale * canvasWidth,
-                    bottom = top + scale * canvasHeight;
-                if (right < canvasWidth) {
-                    left += canvasWidth - right;
-                }
-                if (bottom < canvasHeight) {
-                    top += canvasHeight - bottom;
-                }
+                // Return updated transform to canvas-touch:
+                return transform;
             }
-            if (scale < 1) {   // Bounce back:
-                scale = Math.max(zoomOutScale, scale);
-                // Reset transform:
-                leftVal = (1 - scale) / 2 * canvasWidth;
-                topVal = (1 - scale) / 2 * canvasHeight;
-                rotateVal = 0;
-                scaleVal = scale;
-            } else {
-                // Update transform:
-                leftVal = left;
-                topVal = top;
-                rotateVal = rotate;
-                scaleVal = scale;
-            }
-            return {
-                left: leftVal,
-                top: topVal,
-                rotate: rotateVal,
-                scale: scaleVal
-            };
         }
-        function endCallback(left, top, rotate, scale) {    // Called when user finishes a touch gesture:
-            if (!visualization.enableRotate) {
-                if (left > 0) {
-                    left = 0;
-                }
-                if (top > 0) {
-                    top = 0;
-                }
-                var right = left + scale * canvasWidth,
-                    bottom = top + scale * canvasHeight;
-                if (right < canvasWidth) {
-                    left += canvasWidth - right;
-                }
-                if (bottom < canvasHeight) {
-                    top += canvasHeight - bottom;
-                }
+
+        // passed to transformCallback to create step-specific transform callback function
+        function stepScaleHandler(left, top, rotate, scale) {
+            scale = Math.max(zoomOutScale, scale);
+            // Reset transform:
+            transform.left = (1 - scale) / 2 * canvasWidth;
+            transform.top = (1 - scale) / 2 * canvasHeight;
+            transform.rotate = 0;
+            transform.scale = scale;
+        };
+
+        // passed to transformCallback to create end-specific transform callback function
+        function endScaleHandler(left, top, rotate, scale) {
+            // Bounce back
+            transform.left = 0;
+            transform.top = 0;
+            transform.rotate = 0;
+            transform.scale = 1;
+            if (scale < zoomOutScale + (1 - zoomOutScale) / 4) {
+                // zoom to parent
+                selectZoom(zoomedNode.parent || zoomedNode);
             }
-            if (scale < 1) {   // Bounce back:
-                // Reset transform:
-                leftVal = 0;
-                topVal = 0;
-                rotateVal = 0;
-                scaleVal = 1;
-                if (scale < zoomOutScale + (1 - zoomOutScale) / 4) {
-                    selectZoom(nodeSelected.parent || nodeSelected);
-                }
-            } else {
-                // Update transform:
-                leftVal = left;
-                topVal = top;
-                rotateVal = rotate;
-                scaleVal = scale;
-            }
-            return {
-                left: leftVal,
-                top: topVal,
-                rotate: rotateVal,
-                scale: scaleVal
-            };
         }
 
         function registerTouchHandler() {
@@ -263,8 +339,8 @@ define([
                     canvas: canvasElement,
                     renderCallback: renderCallback,
                     startCallback: startCallback,
-                    stepCallback: stepCallback,
-                    endCallback: endCallback
+                    stepCallback: transformCallback(stepScaleHandler),
+                    endCallback: transformCallback(endScaleHandler)
                 });
             } else {
                 touchHandler = {
@@ -274,155 +350,93 @@ define([
             }
         }
 
+        // Register pinch&zoom extension to canvas:
         registerTouchHandler();
         if (isObservable(enableTouch)) {
+            // Subscribe to changes in enableTouch to dynamically enable and disable the pinch&zoom touch handler:
             enableTouch.subscribe(function () {
                 touchHandler.remove();
                 registerTouchHandler();
             });
         }
 
-        // Create fabric canvas:
+        // Select canvas and set default ease function:
+        // This is done after the touch handler, because select registers touch events on top of the touch handler.
         canvas = canvasRender.select(canvasElement)
                     .ease(d3.ease("cubic-in-out"));
-                /*d3.select(element)
-                .style('overflow', 'hidden')
-                .append("fabric:staticcanvas")
-                    .property("renderOnAddRemove", false)
-                    .property("selection", false)
-                    .property("targetFindTolerance", 1)
-                    .attr("width", canvasWidth)
-                    .attr("height", canvasHeight);*/
 
-        // Loop through levels to determine parameters:
-        function createLevelParameters(lvlsParam) {
-            // Setup temp vars:
-            var colorPaletteType = Object.prototype.toString.call(colorPalette),
-                // Unwrap levels:
-                lvls = unwrap(lvlsParam),
+        // Loop through levels to parse parameters:
+        function parseParameters(lvls) {
+            // Clear levels:
+            var levels = [],
                 i;
 
-            // Set colorPalette parameters:
-            colorScale = d3.scale.linear();
-            if (colorPaletteType === '[object Array]') {
-                //colorPalette is an array:
-                if (colorPalette.length === 0) {
-                    // Use default palette:
-                    colorPalette = colorbrewer.PuBu[3];
-                } else if (colorPalette.length === 1) {
-                    colorPalette = [colorPalette[0], colorPalette[0]];
-                }
-                colorScale.range(colorPalette);
-            } else if (colorPaletteType === '[object String]') {
-                // Check if colorPalette is a predefined colorbrewer array:
-                if (colorbrewer[colorPalette] !== undefined) {
-                    // Use specified colorbrewer palette:
-                    colorScale.range(colorbrewer[colorPalette][3]);
-                } else {
-                    // Use default palette:
-                    colorScale.range(colorbrewer.PuBu[3]);
-                }
+            // Set global colorPalette parameters:
+            if (globalParam.colorPalette.length > 0) {
+                globalParam.colorPalette = globalParam.colorPalette instanceof Array
+                                            ? (globalParam.colorPalette.length === 1 ? [globalParam.colorPalette[0], globalParam.colorPalette[0]] : globalParam.colorPalette)
+                                            : colorbrewer[globalParam.colorPalette][3];
             } else {
-                // Use default palette:
-                colorScale.range(colorbrewer.PuBu[3]);
+                globalParam.colorPalette = colorbrewer.PuBu[3];
             }
-
-            // Clear levels:
-            levels = [];
+            globalParam.colorScale.range(globalParam.colorPalette);
 
             // Loop through all levels and parse the parameters:
-            if (typeof lvls !== 'array' || lvls.length === 0) {
-                levels[0] = {   // Use global parameters for the level:
-                    idPath: idPath,
-                    namePath: namePath,
-                    childrenPath: childrenPath,
-                    areaPath: areaPath,
-                    colorPath: colorPath,
-                    colorPalette: colorPalette,
-                    colorScale: colorScale,
-                    fontSize: fontSize,
-                    fontFamily: fontFamily,
-                    fontColor: fontColor
-                };
-            }
             for (i = 0; i < lvls.length; i += 1) {
-                if (typeof lvls[i] === 'string') {
-                    levels[i] = {   // Level just defines the childrenPath, use global parameters for the rest:
-                        idPath: idPath,
-                        namePath: namePath,
-                        childrenPath: unwrap(lvls[i]),
-                        areaPath: areaPath,
-                        colorPath: colorPath,
-                        colorPalette: colorPalette,
-                        colorScale: colorScale,
-                        fontSize: fontSize,
-                        fontFamily: fontFamily,
-                        fontColor: fontColor
-                    };
-                    radialTotalFrac += 1;
-                } else {
+                if (lvls[i] instanceof Object) {
                     // Level has parameters:
                     levels[i] = {   // Use global parameters for parameters not defined:
-                        idPath: unwrap(lvls[i].idPath) || idPath,
-                        namePath: unwrap(lvls[i].namePath || lvls[i].idPath) || namePath,
-                        childrenPath: unwrap(lvls[i].childrenPath) || childrenPath,
-                        areaPath: unwrap(lvls[i].areaPath) || areaPath,
-                        colorPath: unwrap(lvls[i].colorPath) || colorPath,
-                        fontSize: unwrap(lvls[i].fontSize) || fontSize,
-                        fontFamily: unwrap(lvls[i].fontFamily) || fontFamily,
-                        fontColor: unwrap(lvls[i].fontColor) || fontColor
+                        idPath: unwrap(lvls[i].idPath) || globalParam.idPath,
+                        namePath: unwrap(lvls[i].namePath || lvls[i].idPath) || globalParam.namePath,
+                        childrenPath: unwrap(lvls[i].childrenPath) || globalParam.childrenPath,
+                        areaPath: unwrap(lvls[i].areaPath) || globalParam.areaPath,
+                        colorPath: unwrap(lvls[i].colorPath) || globalParam.colorPath,
+                        colorPalette: unwrap(lvls[i].colorPalette),
+                        fontSize: unwrap(lvls[i].fontSize) || globalParam.fontSize,
+                        fontFamily: unwrap(lvls[i].fontFamily) || globalParam.fontFamily,
+                        fontColor: unwrap(lvls[i].fontColor) || globalParam.fontColor
                     };
-                    radialTotalFrac += levels[i].radialFraction;
-                    if (lvls[i].colorPalette === undefined) {
-                        // Use global colorScale and Palette for this Level:
-                        levels[i].colorPalette = colorPalette;
-                        levels[i].colorScale = colorScale;
-                    } else {
-                        // Create colorScale and Palette for this Level:
-                        levels[i].colorPalette = unwrap(lvls[i].colorPalette);
-                        levels[i].colorScale = d3.scale.linear();
 
-                        colorPaletteType = Object.prototype.toString.call(levels[i].colorPalette);
-                        if (colorPaletteType === '[object Array]') {
-                            //colorPalette is an array:
-                            if (levels[i].colorPalette.length === 0) {
-                                // Use default palette:
-                                levels[i].colorPalette = colorPalette;
-                                levels[i].colorScale = colorScale;
-                            } else {
-                                if (levels[i].colorPalette.length === 1) {
-                                    levels[i].colorPalette = [levels[i].colorPalette[0], levels[i].colorPalette[0]];
-                                }
-                                levels[i].colorScale.range(levels[i].colorPalette);
-                            }
-                        } else if (colorPaletteType === '[object String]') {
-                            // Check if colorPalette is a predefined colorbrewer array:
-                            if (colorbrewer[levels[i].colorPalette] !== undefined) {
-                                // Use specified colorbrewer palette:
-                                levels[i].colorScale.range(colorbrewer[levels[i].colorPalette][3]);
-                            } else {
-                                // Use default palette:
-                                levels[i].colorPalette = colorPalette;
-                                levels[i].colorScale = colorScale;
-                            }
-                        } else {
-                            // Use default palette:
-                            levels[i].colorPalette = colorPalette;
-                            levels[i].colorScale = colorScale;
-                        }
+                    // Set level's colorPalette and colorScale parameters:
+                    if (levels[i].colorPalette && levels[i].colorPalette.length > 0) {
+                        levels[i].colorScale = d3.scale.linear();
+                        levels[i].colorPalette = levels[i].colorPalette instanceof Array
+                                                // colorPalette is custom:
+                                                ? (levels[i].colorPalette.length === 1 ? [levels[i].colorPalette[0], levels[i].colorPalette[0]] : levels[i].colorPalette)
+                                                // colorPalette is pre-defined:
+                                                : colorbrewer[levels[i].colorPalette][3];
+                        levels[i].colorScale.range(levels[i].colorPalette);
+                    } else {
+                        // Use global colorPalette:
+                        levels[i].colorPalette = globalParam.colorPalette;
+                        levels[i].colorScale = globalParam.colorScale;
                     }
+                } else {
+                    levels[i] = {   // Level just defines the childrenPath, use global parameters for the rest:
+                        idPath: globalParam.idPath,
+                        namePath: globalParam.namePath,
+                        childrenPath: unwrap(lvls[i]) || globalParam.childrenPath,
+                        areaPath: globalParam.areaPath,
+                        colorPath: globalParam.colorPath,
+                        colorPalette: globalParam.colorPalette,
+                        colorScale: globalParam.colorScale,
+                        fontSize: globalParam.fontSize,
+                        fontFamily: globalParam.fontFamily,
+                        fontColor: globalParam.fontColor
+                    };
                 }
             }
+            return levels;
         }
         // Recursively traverse json data, and build it for rendering:
         function createNodeJson(dat, lvls, ind, maxlvl) {
-            var node = unwrap(dat), newNode, childNode, i, children, stepSize, lvl, color, newNode;
+            var node = unwrap(dat), newNode, childNode, i, children, stepSize, lvl, color;
 
             if (maxlvl.value < ind) {
                 maxlvl.value = ind;
             }
 
-            lvl = lvls[ind] || globalLevel;
+            lvl = lvls[ind] || globalParam;
 
             if (node[lvl.childrenPath] === undefined) {   // Use current level parameters for node:
                 newNode = {
@@ -435,8 +449,8 @@ define([
                     fontFamily: lvl.fontFamily,
                     fontColor: lvl.fontColor
                 };
-                if (newNode.name === nodeSelected.name) {
-                    nodeSelected = newNode;
+                if (newNode.name === zoomedNode.name) {
+                    zoomedNode = newNode;
                 }
                 return newNode;
             }
@@ -459,8 +473,8 @@ define([
                 minColor: 0,
                 maxColor: 1
             };
-            if (newNode.name === nodeSelected.name) {
-                nodeSelected = newNode;
+            if (newNode.name === zoomedNode.name) {
+                zoomedNode = newNode;
             }
 
             // Node has children, so set them up first:
@@ -503,7 +517,7 @@ define([
 
             // Set parent node's colorScale range (Palette):
             if (lvls.length <= ind + 1) {    // Set to global Palette:
-                newNode.colorScale.range(colorScale.range());
+                newNode.colorScale.range(globalParam.colorScale.range());
             } else {    // Set to node's Level color Palette:
                 newNode.colorScale.range(lvls[ind + 1].colorScale.range());
             }
@@ -522,64 +536,50 @@ define([
         }
         json = ko.computed(function () {
             var maxlvl = { value: 0 }, stepSize,
-                sortByParam = unwrap(parameters.sortBy) || "unordered";
-            // Get parameters (or defaults values):
-            maxVisibleLevels = unwrap(parameters.maxVisibleLevels || 2);
-            dataSource = unwrap(parameters.data) || { name: "Empty" };
-            levelsSource = unwrap(parameters.levels) || [{}];
-            idPath = unwrap(parameters.idPath) || 'id';
-            namePath = unwrap(parameters.namePath) || idPath;
-            childrenPath = unwrap(parameters.childrenPath) || 'children';
-            areaPath = unwrap(parameters.areaPath) || 'area';
-            colorPath = unwrap(parameters.colorPath) || 'color';
-            colorPalette = unwrap(parameters.colorPalette) || 'PuBu';
-            fontSize = unwrap(parameters.fontSize) || 11;
-            fontFamily = unwrap(parameters.fontFamily) || "Times New Roman";
-            fontColor = unwrap(parameters.fontColor) || "#000";
+                // Get parameters (or defaults values):
+                sortByParam = unwrap(parameters.sortBy) || "unordered",
+                maxVisibleLevels = unwrap(parameters.maxVisibleLevels || 2),
+                dataSource = unwrap(parameters.data) || { name: "Empty" },
+                levelsSource = unwrap(parameters.levels) || [{}],
+                levels;
 
-            globalLevel = {
-                idPath: idPath,
-                namePath: namePath,
-                childrenPath: childrenPath,
-                areaPath: areaPath,
-                colorPath: colorPath,
-                colorPalette: colorPalette,
-                colorScale: colorScale,
-                fontSize: fontSize,
-                fontFamily: fontFamily,
-                fontColor: fontColor
-            };
+            // Get global parameters:
+            globalParam.idPath = unwrap(parameters.idPath) || 'id';
+            globalParam.namePath = unwrap(parameters.namePath) || globalParam.idPath;
+            globalParam.childrenPath = unwrap(parameters.childrenPath) || 'children';
+            globalParam.areaPath = unwrap(parameters.areaPath) || 'area';
+            globalParam.colorPath = unwrap(parameters.colorPath) || 'color';
+            globalParam.colorPalette = unwrap(parameters.colorPalette) || 'PuBu';
+            globalParam.colorScale = d3.scale.linear();
+            globalParam.fontSize = unwrap(parameters.fontSize) || 11;
+            globalParam.fontFamily = unwrap(parameters.fontFamily) || "Times New Roman";
+            globalParam.fontColor = unwrap(parameters.fontColor) || "#000";
 
 
             // Create copy of data in a easy structure for d3:
-            createLevelParameters(levelsSource);
-            if (!nodeSelected) {
-                nodeSelected = {
-                    name: null
-                };
-            } else {
-                nodeSelected.old = true;
-            }
+            levels = parseParameters(levelsSource);
+            // Generate Json:
             root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
-            if (nodeSelected.name !== null && !nodeSelected.old) {
-                root.curLevel = nodeSelected.lvl;
-                root.curMaxLevel = nodeSelected.lvl + maxVisibleLevels - 1;
-            } else {
-                nodeSelected = root;
-                root.curLevel = 0;
-                root.curMaxLevel = maxVisibleLevels - 1;
+            if (zoomedNode.name === null) {
+                // No node is zoomed to, so zoom to root:
+                zoomedNode = root;
             }
+
+            // Set root-specific properties:
+            root.curLevel = zoomedNode.lvl;
+            root.curMaxLevel = zoomedNode.lvl + maxVisibleLevels - 1;
             root.maxlvl = maxlvl.value;
             root.maxVisibleLevels = maxVisibleLevels;
-            root.radialTotalFrac = radialTotalFrac;
             root.levels = levels;
             root.index = 0;
-            if (typeof sortByParam === 'function') {
+
+            // Set root's sortBy function used to sort nodes.
+            if (sortByParam instanceof Function) {
                 root.sortBy = sortByParam;
             } else if (sortByFuncs[sortByParam]) {
                 root.sortBy = sortByFuncs[sortByParam];
             } else {
-                root.sortBy = sortByParam['unordered'];
+                root.sortBy = sortByParam.unordered;
             }
 
             // Setup colorscale for the root:
@@ -593,256 +593,56 @@ define([
 
             // Return the new json data:
             return root;
-        });
-        zoomedItemPathObservable = ko.computed(function () {
-            return unwrap(zoomedItemPath);
-        });
-        selectedItemPathObservable = ko.computed(function () {
-            return unwrap(selectedItemPath);
-        });
+        }).extend({ throttle: 500 });;
 
-        function resetTransformAnimation() {
+        // Change/Set visualization:
+        function setVisualization(type) {
+            // Retrieve new visualization type:
+            if (visualizations[type] !== undefined) {
+                visualization = visualizations[type]();
+            } else {
+                // Visualization doesn't exist, so create blank visualization:
+                visualization = blankVisualization(type);
+            }
+
             // Reset transform:
-            leftVal = 0;
-            topVal = 0;
-            rotateVal = 0;
-            scaleVal = 1;
-            canvas.select("group").transition().duration(1000)
-                .tween("canvasTween", function () {
-                    // Create interpolations used for a nice slide around the parent:
-                    var interpLeft = d3.interpolate(this.left, 0),
-                        interpTop = d3.interpolate(this.top, 0),
-                        interpAngle = d3.interpolate(this.angle, 0),
-                        interpScaleX = d3.interpolate(this.scaleX, 1),
-                        interpScaleY = d3.interpolate(this.scaleY, 1),
-                        el = this;
-                    return function (t) {
-                        el.left = interpLeft(t);
-                        el.top = interpTop(t);
-                        el.angle = interpAngle(t);
-                        el.scaleX = interpScaleX(t);
-                        el.scaleY = interpScaleY(t);
-                    };
-                });
+            transform.left = 0;
+            transform.top = 0;
+            transform.rotate = 0;
+            transform.scale = 1;
+
+            // Run visualization's initialize code:
+            visualization.allowTextOverflow = unwrap(allowTextOverflow);
+            visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, zoomedNode, element);
+            canvas.pumpRender();
         }
 
-        // This function resets the selected node:
-        function selectRelease() {
-            // Reset selectedItemPath:
-            heldItemPath(undefined);
-        }
-
-        // This function resets the selected node:
-        function selectTouch(d) {
-            var path = [],
-                dTmp = d;
-            // Check if selectedItemPath is an observable:
-            if (isObservable(selectedItemPath)) {   // Path is an observable, so set path to the selected item:
-                while (dTmp.parent !== undefined) {
-                    path.unshift(dTmp.index);
-                    dTmp = dTmp.parent;
-                }
-                selectedItemPath(path);
-            }
-        }
-
-        // This function resets the selected node:
-        function selectHeld(d) {
-            var path = [],
-                dTmp = d;
-            // Check if selectedItemPath is an observable:
-            if (isObservable(heldItemPath)) {   // Path is an observable, so set path to the selected item:
-                while (dTmp.parent !== undefined) {
-                    path.unshift(dTmp.index);
-                    dTmp = dTmp.parent;
-                }
-                heldItemPath(path);
-            }
-        }
-
-        // Subscribe to zoomedItemPath changes from outside of the extension (and then zoom):
-        selectedItemPathObservable.subscribe(function (path) {
-            var d = json(), i;
-            if (Object.prototype.toString.call(path) === '[object Array]') {
-                for (i = 0; i < path.length; i += 1) {
-                    if (d.childrenReference === undefined) {
-                        d = json(); // Path doesn't exist, so reset path.
-                        break;
-                    }
-                    if (d.childrenReference[path[i]] === undefined) {
-                        d = json(); // Path doesn't exist, so reset path.
-                        break;
-                    }
-                    d = d.childrenReference[path[i]];
-                }
-            }
-            // Verify d exists:
-            /*if (d) {
-                nodeSelected = d;       // Set nodeSelected to d
-                root.curLevel = nodeSelected.lvl;
-                root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-                if (zoomEnabled) {
-                    visualization.zoom(nodeSelected);    // Animate zoom effect
-                }
-            }*/
-            // TODO: rename nodeSelected in other functions to zoomedNode, and use selectedNode here which is used for highlighting (if enabled).
-        });
-
-        // Zoom after click, and set the path:
-        function selectZoom(d) {
-            var path = [],
-                dTmp,
-                oldSelected = nodeSelected;
-
-            // Only zoom if enabled:
-            if (unwrap(enableZoom)) {
-                if (visualization.enableRootZoom && d === oldSelected) {    // Reset path since item was already selected.
-                    d = root;
-                }
-
-                if (d !== oldSelected) {
-                    // Reset transform:
-                    resetTransformAnimation();
-                }
-
-                nodeSelected = dTmp = d;
-                // Set selected node for use in calculating the max depth.
-                root.curLevel = nodeSelected.lvl;
-                root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-                // Check if zoomedItemPath is an observable:
-                if (isObservable(zoomedItemPath)) {   // Path is an observable, so set path to the selected item:
-                    while (dTmp.parent !== undefined) {
-                        path.unshift(dTmp.index);
-                        dTmp = dTmp.parent;
-                    }
-                    zoomedItemPath(path);
-                } else {    // Path is not an observable, so no need to push an update to it.
-                    visualization.zoom(nodeSelected);
-                }
-            }
-
-            // Prevent event from firing more than once:
-            if (d3.event) {
-                d3.event.stopPropagation();
-            }
-        }
-        // Subscribe to zoomedItemPath changes from outside of the extension (and then zoom):
-        zoomedItemPathObservable.subscribe(function (path) {
-            var d = json(), i;
-            if (Object.prototype.toString.call(path) === '[object Array]') {
-                for (i = 0; i < path.length; i += 1) {
-                    if (d.childrenReference === undefined) {
-                        d = json(); // Path doesn't exist, so reset path.
-                        break;
-                    }
-                    if (d.childrenReference[path[i]] === undefined) {
-                        d = json(); // Path doesn't exist, so reset path.
-                        break;
-                    }
-                    d = d.childrenReference[path[i]];
-                }
-            }
-            // Verify d exists:
-            if (d) {
-                nodeSelected = d;       // Set nodeSelected to d
-                root.curLevel = nodeSelected.lvl;
-                root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-                if (zoomEnabled) {
-                    visualization.zoom(nodeSelected);    // Animate zoom effect
-                }
-            }
-        });
-
-        visualizationTypeObservable = ko.computed(function () {
-            visualizationType = parameters.visualization || ko.observable("");
-            return unwrap(visualizationType);
-        });
-
-        // Retrieve new visualization type:
-        visualizationType = visualizationTypeObservable();
-        if (visualizations[visualizationType] !== undefined) {
-            visualization = visualizations[visualizationType]();
-        } else {
-            // Visualization doesn't exist, so create blank visualization:
-            visualization = blankVisualization(visualizationType);
-        }
-        // Run visualization's initialize code:
-        visualization.allowTextOverflow = unwrap(allowTextOverflow);
-        visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, nodeSelected, element);
-        // Start rendering the canvas
-        canvas.startRender();
-        canvas.pumpRender();
+        // Initialize visualization:
+        setVisualization(visualizationType());
 
         // Subscribe to allowTextOverflow changes:
         if (isObservable(allowTextOverflow)) {
             allowTextOverflow.subscribe(function () {
                 visualization.allowTextOverflow = unwrap(allowTextOverflow);
-                visualization.update(nodeSelected);
+                visualization.update(zoomedNode);
+                canvas.pumpRender();
             });
         }
 
         // Subscribe to visualization type changes:
-        visualizationTypeObservable.subscribe(function () {
+        visualizationType.subscribe(function (type) {
             // Remove visualization:
             visualization.remove();
 
-            // Retrieve new visualization type:
-            visualizationType = visualizationTypeObservable();
-            if (visualizations[visualizationType] !== undefined) {
-                visualization = visualizations[visualizationType]();
-            } else {
-                // Visualization doesn't exist, so create blank visualization:
-                visualization = blankVisualization(visualizationType);
-            }
-
-            // Set selected node to the root of the treemap:
-            /*nodeSelected = root;
-            root.curLevel = nodeSelected.lvl;
-            root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-            // Set default selected item (do this after the data is set, and before modifying attributes):
-            if (isObservable(zoomedItemPath)) {
-                zoomedItemPath([]);
-            }*/
-
-            // Reset transform:
-            leftVal = 0;
-            topVal = 0;
-            rotateVal = 0;
-            scaleVal = 1;
-
-            // Run visualization's initialize code:
-            visualization.allowTextOverflow = unwrap(allowTextOverflow);
-            visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, nodeSelected, element);
-            canvas.pumpRender();
+            // Change visualization:
+            setVisualization(type);
         });
-
-        function update() {
-            // Set selected node to the root of the treemap:
-            //nodeSelected = root;
-            //root.curLevel = nodeSelected.lvl;
-            //root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-
-            // Set default selected item (do this after the data is set, and before modifying attributes):
-            zoomEnabled = false;
-            var dTmp = nodeSelected,
-                path = [];
-            if (isObservable(zoomedItemPath)) {
-                while (dTmp.parent !== undefined) {
-                    path.unshift(dTmp.index);
-                    dTmp = dTmp.parent;
-                }
-                zoomedItemPath(path);
-            }   // zoomedItemPath is reset here to prevent errors in zooming, need to reorder later.
-            zoomEnabled = true;
-
-            // Update visualization:
-            visualization.update(nodeSelected);
-            canvas.pumpRender();
-        }
-
+        
         // Subscribe to data changes:
         json.subscribe(function () {
-            update();   // Re-render on change
+            // Update visualization:
+            visualization.update(zoomedNode);
+            canvas.pumpRender();
         });
 
         // Check if a layout plugin exists:
@@ -853,11 +653,11 @@ define([
                     lastHeight = canvasHeight;
                 // Get element's width and height:
                 elementStyle = window.getComputedStyle(element);
+                // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
                 canvasWidth = parseInt(elementStyle.width, 10);
+                canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
                 canvasHeight = parseInt(elementStyle.height, 10);
-                if (canvasHeight <= 0) {
-                    canvasHeight = 1;   // Temp fix for drawImage.
-                }
+                canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
                 if (canvasWidth === lastWidth && canvasHeight === lastHeight) {
                     // Element size didn't change, ignore event.
                     return;
@@ -866,17 +666,14 @@ define([
                 // Resize canvas:
                 canvas.attr('width', canvasWidth);
                 canvas.attr('height', canvasHeight);
+                // Call visualization's resize function to handle resizing internally:
+                visualization.resize(canvasWidth, canvasHeight);
 
                 // Reset transform:
                 resetTransformAnimation();
 
-                // Call visualization's resize function to handle resizing internally:
-                visualization.resize(canvasWidth, canvasHeight);
-                // Update the visualization:
-                //nodeSelected = root;
-                //root.curLevel = nodeSelected.lvl;
-                //root.curMaxLevel = nodeSelected.lvl + root.maxVisibleLevels - 1;
-                visualization.update(nodeSelected);
+                // Update visualization:
+                visualization.update(zoomedNode);
                 canvas.pumpRender();
             });
             ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
@@ -884,16 +681,6 @@ define([
                 layout = undefined;
             });
         }
-
-        // Subscribe to zoomPath changes:
-        zoomObservable = ko.computed(function () {
-            zooms = parameters.scale || ko.observable(1);
-            return unwrap(zooms);
-        });
-        zoomObservable.subscribe(function (val) {
-            visualization.scale(val);
-            canvas.pumpRender();
-        });
     }
 
     return {
