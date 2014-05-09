@@ -3,11 +3,11 @@
 define([
     'scalejs!core',
     'knockout',
-    'scalejs.visualization-d3/d3'
+    'scalejs.visualization-d3/visualization'
 ], function (
     core,
     ko,
-    d3
+    visualization
 ) {
     'use strict';
     if (ko.bindingHandlers.d3) {
@@ -15,11 +15,11 @@ define([
         return false;
     }
 
-    ko.bindingHandlers.d3 = d3;
+    ko.bindingHandlers.d3 = visualization;
     ko.virtualElements.allowedBindings.d3 = true;
 
     core.registerExtension({
-        d3: d3
+        d3: visualization
     });
 });
 

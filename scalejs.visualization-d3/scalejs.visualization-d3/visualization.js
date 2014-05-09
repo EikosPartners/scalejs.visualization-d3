@@ -29,39 +29,22 @@ define([
             sunburst: sunburst
         },
         sortByFuncs = {
-            unordered: function (a, b) {
-                return a.index - b.index;
-            },
-            ascendingSize: function (a, b) {
-                return a.size - b.size;
-            },
-            descendingSize: function (a, b) {
-                return b.size - a.size;
-            }
+            unordered: function (a, b) { return a.index - b.index; },
+            ascendingSize: function (a, b) { return a.size - b.size; },
+            descendingSize: function (a, b) { return b.size - a.size; }
         };
 
     function blankVisualization(type) {
-        // Generate general error:
-        var strError = "Visualization ";
-        if (type !== undefined) {
-            strError += "(" + type + ") ";
-        }
-        strError += "doesn't exist!";
-
         // Generate error function:
         function visualizationError(func) {
-            var strFuncError = "Calling " + func + " function of undefined visualization. " + strError;
-            return function () {
-                console.error(strFuncError);
-            };
+            var strFuncError = "Calling " + func + " function of undefined visualization. Visualization (" + type + ") doesn't exist!";
+            return function () { console.error(strFuncError); };
         }
 
         // Return blank visualization with errors as functions:
         return {
             init: visualizationError("init"),
             update: visualizationError("update"),
-            zoom: visualizationError("zoom"),
-            renderEnd: visualizationError("renderEnd"),
             resize: visualizationError("resize"),
             remove: visualizationError("remove")
         };
@@ -72,20 +55,19 @@ define([
         valueAccessor
     ) {
         var parameters = valueAccessor(),
+            triggerTime = parameters.triggerTime == null || 10,
             enableRotate = parameters.enableRotate,
             enableZoom = parameters.enableZoom || false,
             enableTouch = parameters.enableTouch || false,
             allowTextOverflow = parameters.allowTextOverflow || false,
             visualization,
-            visualizationType = computed(function () {
-                return unwrap(parameters.visualization) || "";
-            }),
+            visualizationType = isObservable(parameters.visualization) ? parameters.visualization : observable(parameters.visualization),
             json,
-            globalParam = {},
+            globals = {},
             zoomedItemPath = isObservable(parameters.zoomedItemPath) ? parameters.zoomedItemPath : observable(parameters.zoomedItemPath),
             selectedItemPath = isObservable(parameters.selectedItemPath) ? parameters.selectedItemPath : observable(parameters.selectedItemPath),
             heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath),
-            rootScale = d3.scale.linear(),
+            nodeScale = d3.scale.linear(),
             canvasElement,
             canvas,
             elementStyle,
@@ -93,9 +75,8 @@ define([
             canvasHeight,
             root,
             zoomedNode = {
-                name: null
+                id: null
             },
-            zoomEnabled = true, // Temporary fix to errors with NaN widths during adding/removing nodes.
             transform = {
                 left: 0,
                 top: 0,
@@ -104,7 +85,7 @@ define([
             },
             touchHandler,
             zoomOutScale = 0.8,
-            layout;
+            disposeLayout;
 
         // Attempts to find a node when given a path
         // 1. If the Path is found, it returns the node
@@ -138,10 +119,7 @@ define([
                 zoomedNode = node;
                 root.curLevel = zoomedNode.lvl;
                 root.curMaxLevel = zoomedNode.lvl + root.maxVisibleLevels - 1;
-                if (zoomEnabled) {
-                    visualization.update(zoomedNode);    // Animate zoom effect
-                    canvas.pumpRender();
-                }
+                visualization.update(zoomedNode);    // Animate zoom effect
             }
         });
 
@@ -200,7 +178,7 @@ define([
             heldItemPath(undefined);
         }
 
-        // This function resets the selected node:
+        // This function sets the selected node:
         function selectTouch(node) {
             var path = [],
                 tmpNode = node;
@@ -212,7 +190,7 @@ define([
             selectedItemPath(path);
         }
 
-        // This function resets the selected node:
+        // This function sets the held node:
         function selectHeld(node) {
             var path = [],
                 tmpNode = node;
@@ -284,7 +262,7 @@ define([
             return transform;
         }
 
-        function transformCallback(scaleFunc) {   // Called for every update to a touch gesture's transform (end and step):
+        function transformCallback(zoomOutHandler) {   // Called for every update to a touch gesture's transform (end and step):
             return function (left, top, rotate, scale) {
                 // If rotate is not enabled on visualization, lock the visualization to not go off of the screen:
                 if (!visualization.enableRotate) {
@@ -296,7 +274,7 @@ define([
                     bottom < canvasHeight && (top += canvasHeight - bottom);
                 }
                 if (scale < 1) {   // scaling is handled differently for step and end
-                    scaleFunc(left, top, rotate, scale);
+                    zoomOutHandler(left, top, rotate, scale);
                 } else {
                     // Update transform:
                     transform.left = left;
@@ -310,7 +288,7 @@ define([
         }
 
         // passed to transformCallback to create step-specific transform callback function
-        function stepScaleHandler(left, top, rotate, scale) {
+        function stepZoomOutHandler(left, top, rotate, scale) {
             scale = Math.max(zoomOutScale, scale);
             // Reset transform:
             transform.left = (1 - scale) / 2 * canvasWidth;
@@ -320,7 +298,7 @@ define([
         };
 
         // passed to transformCallback to create end-specific transform callback function
-        function endScaleHandler(left, top, rotate, scale) {
+        function endZoomOutHandler(left, top, rotate, scale) {
             // Bounce back
             transform.left = 0;
             transform.top = 0;
@@ -339,8 +317,8 @@ define([
                     canvas: canvasElement,
                     renderCallback: renderCallback,
                     startCallback: startCallback,
-                    stepCallback: transformCallback(stepScaleHandler),
-                    endCallback: transformCallback(endScaleHandler)
+                    stepCallback: transformCallback(stepZoomOutHandler),
+                    endCallback: transformCallback(endZoomOutHandler)
                 });
             } else {
                 touchHandler = {
@@ -362,175 +340,129 @@ define([
 
         // Select canvas and set default ease function:
         // This is done after the touch handler, because select registers touch events on top of the touch handler.
-        canvas = canvasRender.select(canvasElement)
-                    .ease(d3.ease("cubic-in-out"));
+        canvas = canvasRender.select(canvasElement).ease(d3.ease("cubic-in-out"));
+
+        // Sets each parameter in globals to the parameter or to a default value:
+        function setGlobalParameters() {
+            globals.idPath = unwrap(parameters.idPath) || 'id';
+            globals.namePath = unwrap(parameters.namePath) || globals.idPath;
+            globals.childrenPath = unwrap(parameters.childrenPath) || 'children';
+            globals.areaPath = unwrap(parameters.areaPath) || 'area';
+            globals.colorPath = unwrap(parameters.colorPath) || 'color';
+            globals.colorPalette = unwrap(parameters.colorPalette) || 'PuBu';
+            globals.fontSize = unwrap(parameters.fontSize) || 11;
+            globals.fontFamily = unwrap(parameters.fontFamily) || "Times New Roman";
+            globals.fontColor = unwrap(parameters.fontColor) || "#000";
+
+            // Set global colorPalette (array, undefined or string) parameters:
+            if (globals.colorPalette instanceof Array) {
+                if (globals.colorPalette.length === 1) globals.colorPalette[1] = globals.colorPalette[0];
+            } else {
+                globals.colorPalette = colorbrewer[globals.colorPalette][3];
+            }
+        }
 
         // Loop through levels to parse parameters:
-        function parseParameters(lvls) {
+        function parseLevelParameters(lvls) {
             // Clear levels:
-            var levels = [],
-                i;
-
-            // Set global colorPalette parameters:
-            if (globalParam.colorPalette.length > 0) {
-                globalParam.colorPalette = globalParam.colorPalette instanceof Array
-                                            ? (globalParam.colorPalette.length === 1 ? [globalParam.colorPalette[0], globalParam.colorPalette[0]] : globalParam.colorPalette)
-                                            : colorbrewer[globalParam.colorPalette][3];
-            } else {
-                globalParam.colorPalette = colorbrewer.PuBu[3];
-            }
-            globalParam.colorScale.range(globalParam.colorPalette);
+            var levels = [];
 
             // Loop through all levels and parse the parameters:
-            for (i = 0; i < lvls.length; i += 1) {
-                if (lvls[i] instanceof Object) {
-                    // Level has parameters:
-                    levels[i] = {   // Use global parameters for parameters not defined:
-                        idPath: unwrap(lvls[i].idPath) || globalParam.idPath,
-                        namePath: unwrap(lvls[i].namePath || lvls[i].idPath) || globalParam.namePath,
-                        childrenPath: unwrap(lvls[i].childrenPath) || globalParam.childrenPath,
-                        areaPath: unwrap(lvls[i].areaPath) || globalParam.areaPath,
-                        colorPath: unwrap(lvls[i].colorPath) || globalParam.colorPath,
-                        colorPalette: unwrap(lvls[i].colorPalette),
-                        fontSize: unwrap(lvls[i].fontSize) || globalParam.fontSize,
-                        fontFamily: unwrap(lvls[i].fontFamily) || globalParam.fontFamily,
-                        fontColor: unwrap(lvls[i].fontColor) || globalParam.fontColor
+            for (var i = 0; i < lvls.length; i += 1) {
+                var l = lvls[i];
+                if (l instanceof Object) {
+                    // Level has parameters, or use globals
+                    levels[i] = {   
+                        idPath:         unwrap(l.idPath)                || globals.idPath,
+                        namePath:       unwrap(l.namePath || l.idPath)  || globals.namePath,
+                        childrenPath:   unwrap(l.childrenPath)          || globals.childrenPath,
+                        areaPath:       unwrap(l.areaPath)              || globals.areaPath,
+                        colorPath:      unwrap(l.colorPath)             || globals.colorPath,                        
+                        fontSize:       unwrap(l.fontSize)              || globals.fontSize,
+                        fontFamily:     unwrap(l.fontFamily)            || globals.fontFamily,
+                        fontColor:      unwrap(l.fontColor)             || globals.fontColor,
+                        colorPalette:   unwrap(l.colorPalette)          // more processing below
                     };
 
-                    // Set level's colorPalette and colorScale parameters:
-                    if (levels[i].colorPalette && levels[i].colorPalette.length > 0) {
-                        levels[i].colorScale = d3.scale.linear();
-                        levels[i].colorPalette = levels[i].colorPalette instanceof Array
-                                                // colorPalette is custom:
-                                                ? (levels[i].colorPalette.length === 1 ? [levels[i].colorPalette[0], levels[i].colorPalette[0]] : levels[i].colorPalette)
-                                                // colorPalette is pre-defined:
-                                                : colorbrewer[levels[i].colorPalette][3];
-                        levels[i].colorScale.range(levels[i].colorPalette);
+                    // Set level's colorPalette (array, undefined or string) and colorScale parameters:
+                    // A new scale must be created for every new colorPalette, eg array or string.
+                    if (levels[i].colorPalette instanceof Array) {
+                        if (levels[i].colorPalette.length === 1) levels[i].colorPalette[1] = levels[i].colorPalette[0];
+                    } else if (levels[i].colorPalette == null) {    // Catch if null or undefined
+                        levels[i].colorPalette = globals.colorPalette;
                     } else {
-                        // Use global colorPalette:
-                        levels[i].colorPalette = globalParam.colorPalette;
-                        levels[i].colorScale = globalParam.colorScale;
+                        levels[i].colorPalette = colorbrewer[levels[i].colorPalette][3];
                     }
                 } else {
-                    levels[i] = {   // Level just defines the childrenPath, use global parameters for the rest:
-                        idPath: globalParam.idPath,
-                        namePath: globalParam.namePath,
-                        childrenPath: unwrap(lvls[i]) || globalParam.childrenPath,
-                        areaPath: globalParam.areaPath,
-                        colorPath: globalParam.colorPath,
-                        colorPalette: globalParam.colorPalette,
-                        colorScale: globalParam.colorScale,
-                        fontSize: globalParam.fontSize,
-                        fontFamily: globalParam.fontFamily,
-                        fontColor: globalParam.fontColor
+                    levels[i] = {   // l defines the childrenPath, use global parameters for the rest:
+                        childrenPath:   l || globals.childrenPath,
+                        idPath:         globals.idPath,
+                        namePath:       globals.namePath,
+                        areaPath:       globals.areaPath,
+                        colorPath:      globals.colorPath,
+                        colorPalette:   globals.colorPalette,
+                        fontSize:       globals.fontSize,
+                        fontFamily:     globals.fontFamily,
+                        fontColor:      globals.fontColor
                     };
                 }
             }
             return levels;
         }
+        
         // Recursively traverse json data, and build it for rendering:
-        function createNodeJson(dat, lvls, ind, maxlvl) {
-            var node = unwrap(dat), newNode, childNode, i, children, stepSize, lvl, color;
-
-            if (maxlvl.value < ind) {
-                maxlvl.value = ind;
-            }
-
-            lvl = lvls[ind] || globalParam;
-
-            if (node[lvl.childrenPath] === undefined) {   // Use current level parameters for node:
+        function createNodeJson(node, levelConfig, index, maxlvl) {
+            var childNode, children, stepSize, color,
+                lvl = levelConfig[index] || globals, 
                 newNode = {
-                    id: unwrap(node[lvl.idPath]) || '',
-                    name: unwrap(node[lvl.namePath]) || '',
-                    lvl: ind,
-                    size: unwrap(node[lvl.areaPath] !== undefined ? node[lvl.areaPath] : 1),
-                    colorSize: unwrap(node[lvl.colorPath]) || 0,
-                    fontSize: lvl.fontSize,
+                    id:         node[lvl.idPath] || '',
+                    name:       node[lvl.namePath] || '',
+                    lvl:        index,
+                    size:       node[lvl.areaPath] !== undefined ? node[lvl.areaPath] : 1,
+                    colorSize:  node[lvl.colorPath] || 0,
+                    fontSize:   lvl.fontSize,
                     fontFamily: lvl.fontFamily,
-                    fontColor: lvl.fontColor
+                    fontColor:  lvl.fontColor
                 };
-                if (newNode.name === zoomedNode.name) {
-                    zoomedNode = newNode;
-                }
+
+            if (newNode.id === zoomedNode.id) zoomedNode = newNode; // If node is the current zoomed node, update the zoomed node reference:
+
+            // Check if leaf node:
+            if (!node[lvl.childrenPath]) {
+                if (maxlvl.value < index) maxlvl.value = index; // Update the max depth to the leaf's depth (if deeper than maxlvl's value):
                 return newNode;
             }
 
             // Set default properties of node with children:
-            newNode = {
-                id: unwrap(node[lvl.idPath]) || '',
-                name: unwrap(node[lvl.namePath]) || '',
-                lvl: ind,
-                children: [],
-                childrenReference: [],
-                size: unwrap(node[lvl.areaPath] !== undefined ? node[lvl.areaPath] : 1),
-                colorSize: unwrap(node[lvl.colorPath]) || 0,
-                colorScale: d3.scale.linear(),
-                fontSize: lvl.fontSize,
-                fontFamily: lvl.fontFamily,
-                fontColor: lvl.fontColor,
-                minSize: 0,
-                maxSize: 1,
-                minColor: 0,
-                maxColor: 1
-            };
-            if (newNode.name === zoomedNode.name) {
-                zoomedNode = newNode;
-            }
+            newNode.children = [];
+            newNode.childrenReference = [];
 
             // Node has children, so set them up first:
-            children = unwrap(node[lvl.childrenPath]);
-            for (i = 0; i < children.length; i += 1) {
-                childNode = createNodeJson(children[i], lvls, ind + 1, maxlvl); // Get basic node-specific properties
-                childNode.parent = newNode; // Set node's parent
+            children = node[lvl.childrenPath];
+            for (var i = 0; i < children.length; i += 1) {
+                childNode = createNodeJson(children[i], levelConfig, index + 1, maxlvl); //recursion
+                childNode.parent = newNode;
                 childNode.index = i;    // Set node's index to match the index it appears in the original dataset.
 
-                // Update the parent's overall size:
-                if (node[lvl.areaPath] === undefined) {
-                    newNode.size += childNode.size; // If parent has no size, default to adding child colors.
-                }
+                if (node[lvl.areaPath] === undefined) newNode.size += childNode.size; // If parent has no size, default to adding child colors.
 
-                // Update the parent's overall color:
-                if (node[lvl.colorPath] === undefined) {
-                    newNode.colorSize += childNode.colorSize;   // If parent has no color, default to adding child colors.
-                }
+                if (node[lvl.colorPath] === undefined) newNode.colorSize += childNode.colorSize;   // If parent has no color, default to adding child colors.
 
-                // Update min and max properties:
-                if (i) {
-                    // Update min and max values: 
-                    newNode.minSize = Math.min(newNode.minSize, childNode.size);
-                    newNode.maxSize = Math.max(newNode.maxSize, childNode.size);
-                    newNode.minColor = Math.min(newNode.minColor, childNode.colorSize);
-                    newNode.maxColor = Math.max(newNode.maxColor, childNode.colorSize);
-                } else {
-                    // Insure min and max values are different if there is only one child:
-                    newNode.minSize = childNode.size;
-                    newNode.maxSize = childNode.size + 1;
-                    newNode.minColor = childNode.colorSize;
-                    newNode.maxColor = childNode.colorSize + 1;
-                }
+                newNode.minSize = Math.min(newNode.minSize || childNode.size, childNode.size);
+                newNode.maxSize = Math.max(newNode.maxSize || childNode.size + 1, childNode.size);
+                newNode.minColor = Math.min(newNode.minColor || childNode.colorSize, childNode.colorSize);
+                newNode.maxColor = Math.max(newNode.maxColor || childNode.colorSize + 1, childNode.colorSize);
 
-                // Add node to parent's children and childrenReference arrays:
-                newNode.children[i] = childNode;
                 // d3 reorganizes the children later in the code, so the following array is used to preserve children order for indexing:
-                newNode.childrenReference[i] = childNode;
+                newNode.children[i] = newNode.childrenReference[i] = childNode;
             }
 
-            // Set parent node's colorScale range (Palette):
-            if (lvls.length <= ind + 1) {    // Set to global Palette:
-                newNode.colorScale.range(globalParam.colorScale.range());
-            } else {    // Set to node's Level color Palette:
-                newNode.colorScale.range(lvls[ind + 1].colorScale.range());
-            }
+            nodeScale.range(levelConfig.length <= index + 1 ? globals.colorPalette : levelConfig[index + 1].colorPalette);
             // Set domain of color values:
-            stepSize = (newNode.maxColor - newNode.minColor) / Math.max(newNode.colorScale.range().length - 1, 1);
-            newNode.colorScale.domain(d3.range(newNode.minColor, newNode.maxColor + stepSize, stepSize));
+            stepSize = (newNode.maxColor - newNode.minColor) / Math.max(nodeScale.range().length - 1, 1);
+            nodeScale.domain(d3.range(newNode.minColor, newNode.maxColor + stepSize, stepSize));
 
-            // Set children's colors:
-            for (i = 0; i < children.length; i += 1) {
-                color = newNode.colorScale(newNode.children[i].colorSize);
-                newNode.children[i].color = color;
-                newNode.childrenReference[i].color = color; //Needed? This should be an object reference anyway...
-            }
+            for (var i = 0; i < children.length; i += 1) newNode.children[i].color = nodeScale(newNode.children[i].colorSize);
 
             return newNode;
         }
@@ -543,27 +475,14 @@ define([
                 levelsSource = unwrap(parameters.levels) || [{}],
                 levels;
 
-            // Get global parameters:
-            globalParam.idPath = unwrap(parameters.idPath) || 'id';
-            globalParam.namePath = unwrap(parameters.namePath) || globalParam.idPath;
-            globalParam.childrenPath = unwrap(parameters.childrenPath) || 'children';
-            globalParam.areaPath = unwrap(parameters.areaPath) || 'area';
-            globalParam.colorPath = unwrap(parameters.colorPath) || 'color';
-            globalParam.colorPalette = unwrap(parameters.colorPalette) || 'PuBu';
-            globalParam.colorScale = d3.scale.linear();
-            globalParam.fontSize = unwrap(parameters.fontSize) || 11;
-            globalParam.fontFamily = unwrap(parameters.fontFamily) || "Times New Roman";
-            globalParam.fontColor = unwrap(parameters.fontColor) || "#000";
-
+            setGlobalParameters();
 
             // Create copy of data in a easy structure for d3:
-            levels = parseParameters(levelsSource);
+            levels = parseLevelParameters(levelsSource);
             // Generate Json:
             root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
-            if (zoomedNode.name === null) {
-                // No node is zoomed to, so zoom to root:
-                zoomedNode = root;
-            }
+            // No node is zoomed to, so zoom to root:
+            if (zoomedNode.id == null) zoomedNode = root;
 
             // Set root-specific properties:
             root.curLevel = zoomedNode.lvl;
@@ -583,27 +502,22 @@ define([
             }
 
             // Setup colorscale for the root:
-            rootScale = d3.scale.linear()
-                        .range(levels[0].colorScale.range());
-            stepSize = 2 / Math.max(rootScale.range().length - 1, 1);
-            rootScale.domain(d3.range(root.colorSize - stepSize / 2, root.colorSize + stepSize / 2, stepSize));
+            nodeScale.range(levels[0].colorPalette);
+            stepSize = 2 / Math.max(nodeScale.range().length - 1, 1);
+            nodeScale.domain(d3.range(root.colorSize - stepSize / 2, root.colorSize + stepSize / 2, stepSize));
 
             // Set root's color:
-            root.color = rootScale(root.colorSize);
+            root.color = nodeScale(root.colorSize);
 
             // Return the new json data:
             return root;
-        }).extend({ throttle: 500 });;
+        }).extend({ throttle: triggerTime });;
 
         // Change/Set visualization:
         function setVisualization(type) {
-            // Retrieve new visualization type:
-            if (visualizations[type] !== undefined) {
-                visualization = visualizations[type]();
-            } else {
-                // Visualization doesn't exist, so create blank visualization:
-                visualization = blankVisualization(type);
-            }
+            // Retrieve new visualization type, and fail gracefully:
+            if (visualizations[type] != null) visualization = visualizations[type]();
+            else visualization = blankVisualization(type);
 
             // Reset transform:
             transform.left = 0;
@@ -614,7 +528,6 @@ define([
             // Run visualization's initialize code:
             visualization.allowTextOverflow = unwrap(allowTextOverflow);
             visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, zoomedNode, element);
-            canvas.pumpRender();
         }
 
         // Initialize visualization:
@@ -625,60 +538,44 @@ define([
             allowTextOverflow.subscribe(function () {
                 visualization.allowTextOverflow = unwrap(allowTextOverflow);
                 visualization.update(zoomedNode);
-                canvas.pumpRender();
             });
         }
 
         // Subscribe to visualization type changes:
         visualizationType.subscribe(function (type) {
-            // Remove visualization:
             visualization.remove();
-
-            // Change visualization:
             setVisualization(type);
         });
         
         // Subscribe to data changes:
         json.subscribe(function () {
-            // Update visualization:
             visualization.update(zoomedNode);
-            canvas.pumpRender();
         });
 
         // Check if a layout plugin exists:
         if (core.layout) {
             // Add event listener for on layout change:
-            layout = core.layout.onLayoutDone(function () {
+            disposeLayout = core.layout.onLayoutDone(function () {
                 var lastWidth = canvasWidth,
                     lastHeight = canvasHeight;
-                // Get element's width and height:
                 elementStyle = window.getComputedStyle(element);
                 // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
                 canvasWidth = parseInt(elementStyle.width, 10);
                 canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
                 canvasHeight = parseInt(elementStyle.height, 10);
                 canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
-                if (canvasWidth === lastWidth && canvasHeight === lastHeight) {
-                    // Element size didn't change, ignore event.
-                    return;
-                }
+                if (canvasWidth === lastWidth && canvasHeight === lastHeight) return;
 
-                // Resize canvas:
                 canvas.attr('width', canvasWidth);
                 canvas.attr('height', canvasHeight);
-                // Call visualization's resize function to handle resizing internally:
                 visualization.resize(canvasWidth, canvasHeight);
-
-                // Reset transform:
+                // Must set width and height before doing any animation (to calculate layouts properly):
                 resetTransformAnimation();
-
-                // Update visualization:
                 visualization.update(zoomedNode);
-                canvas.pumpRender();
             });
             ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
-                layout();
-                layout = undefined;
+                disposeLayout();
+                disposeLayout = undefined;
             });
         }
     }
