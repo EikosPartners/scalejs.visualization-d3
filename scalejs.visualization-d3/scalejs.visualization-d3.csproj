@@ -23,8 +23,8 @@
     <Content Include="Scripts\hammer.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.71.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.71.min.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.74.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.74.min.js" />
     <Content Include="Scripts\scalejs.sandbox.js" />
     <Content Include="Scripts\_scalejs.intellisense.js" />
     <Content Include="tools\install.ps1" />
@@ -33,7 +33,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="JSLintNet.json" />
-    <None Include="packages.config" />
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <PropertyGroup>
     <ScalejsProjectType>Extension</ScalejsProjectType>

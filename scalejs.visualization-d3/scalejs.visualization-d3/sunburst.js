@@ -72,31 +72,17 @@ define([
             return a;
         }
         function mapFrToPx(params, p) {
-            var max = root.curMaxLevel, sum = 0,
+            var sum = 0,
                 a = params.levelsFr,
                 fr = params.fr || 1,
                 parentFr = params.parentFr || 1;
 
-            // build the correct array based on max levels, cur levels
-            /*if (a.length < max) {
-                a = a.concat(repeat(max - a.length, fr));
-            }
-            a = a.slice(p.lvl, max - p.lvl);
-            if (p !== root) {
-                a.unshift(parentFr);
-            }
-            a = a.map(function (x) {
-                return sum += x;
-            }).map(function (x, i, arr) {
-                return x / arr[arr.length - 1] * radius;
-            });
-            a.unshift(0);*/
             if (a.length < root.maxlvl + 1) {
                 a = a.concat(repeat(root.maxlvl - a.length + 1, fr));
             }
             a = a.map(function (x, i) {
                 if (i === p.lvl - 1) {
-                    return sum += params.parentFr;
+                    return sum += parentFr;
                 }
                 if (i > p.lvl - 1 && i <= root.curMaxLevel) {
                     return sum += x;
@@ -110,19 +96,8 @@ define([
         }
 
         function mapRangeToDomain(a, p) {
-            /*var arr = [p !== root ? p.parent.y : p.y],
-                steps = a.length - 1,
-                inc = ((Math.min(root.curMaxLevel, root.maxlvl) + 1) / (root.maxlvl + 1) - arr[0]) / steps;
-
-            //((root.curMaxLevel + 1) / (root.maxlvl + 1) - p.y) / steps;
-
-            for (var i = 1; i <= steps; i++) {
-                arr[i] = arr[i-1] + inc;
-            }
-
-            return arr;*/
-            var arr = [];
-            for (var i = 0; i < a.length; i++) {
+            var arr = [], i;
+            for (i = 0; i < a.length; i++) {
                 arr.push(i / (a.length-1));
             }
             return arr;

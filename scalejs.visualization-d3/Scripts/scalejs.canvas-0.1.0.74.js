@@ -1612,13 +1612,14 @@ define('scalejs.canvas/group',[
         };
 
         Group.prototype.calcBounds = function () {
-            var pFont;
+            var pFont, pSize;
             // Check if font is set on group:
             if (this.fontFamily && this.fontSize) {
                 // Compile font:
                 this.font = this.fontSize + "px " + this.fontFamily;
                 if (this.font !== canvasObj.curFont) {
-                    pFont = canvasObj.curFont;                    
+                    pFont = canvasObj.curFont;
+                    pSize = canvasObj.curFontSize;
                     canvasObj.context.save();
                     canvasObj.context.font = this.font;
                     canvasObj.curFont = this.font;
@@ -1632,7 +1633,8 @@ define('scalejs.canvas/group',[
             for (var i = 0; i < this.children.length; i++) this.children[i].calcBounds();
 
             if (pFont) {
-                this.curFont = pFont;
+                canvasObj.curFont = pFont;
+                canvasObj.curFontSize = pSize;
                 canvasObj.context.restore();
             }
 
@@ -1823,11 +1825,13 @@ define('scalejs.canvas/text',[
             this.height = opts.height || 0;
             this.angle = opts.angle || 0;
             this.fill = opts.fill || "#000";
-            this.opacity = opts.opacity || 1;
+           // this.opacity = opts.opacity || 1;
             this.offset = { left: 0, top: 0 };
             this.pos = { left: 0, top: 0 };
             this.extents = { left: 0, top: 0, right: 0, bottom: 0 };
         }
+
+        Text.prototype.opacity = 1;
 
         Text.prototype.setText = function (text) {
             // Compile font:
@@ -2425,10 +2429,12 @@ define('scalejs.canvas/canvas',[
         this.curFont = "40px Times New Roman";
         //this.curFontFamily = "Times New Roman";
         this.curFontSize = 40;
+
         // Calculate children's boundaries and parameters:
         for (var i = 0; i < this.children.length; i++) {
             this.children[i].calcBounds();
         }
+
         // Clear canvas:
         this.context.clearRect(0, 0, this.element.width, this.element.height);
         // Render children:
