@@ -47,8 +47,8 @@
     <Content Include="Scripts\require.js" />
     <Content Include="Scripts\scalejs-0.3.3.js" />
     <Content Include="Scripts\scalejs-0.3.3.min.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.61.js" />
-    <Content Include="Scripts\scalejs.canvas-0.1.0.61.min.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.71.js" />
+    <Content Include="Scripts\scalejs.canvas-0.1.0.71.min.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.js" />
     <Content Include="Scripts\scalejs.functional-0.2.9.8.min.js" />
     <Content Include="Scripts\scalejs.linq-linqjs-3.0.3.1.js" />
@@ -61,8 +61,8 @@
     <Content Include="Scripts\scalejs.statechart-scion-0.3.0.0.js" />
     <Content Include="Scripts\scalejs.statechart-scion-0.3.0.0.min.js" />
     <Content Include="Scripts\scalejs.styles.js" />
-    <Content Include="Scripts\scalejs.visualization-d3-0.1.5.619.js" />
-    <Content Include="Scripts\scalejs.visualization-d3-0.1.5.619.min.js" />
+    <Content Include="Scripts\scalejs.visualization-d3-0.1.5.774.js" />
+    <Content Include="Scripts\scalejs.visualization-d3-0.1.5.774.min.js" />
     <Content Include="Scripts\scion.js" />
     <Content Include="Scripts\text.js" />
     <Content Include="Scripts\_references.js" />

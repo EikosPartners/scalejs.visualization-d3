@@ -1582,7 +1582,7 @@ define('scalejs.canvas/group',[
     
 
     return function (canvasObj) {
-        function group(opts) {
+        function Group(opts) {
             this.type = "group";
             this.className = "group";
             this.parent = opts.parent || canvasObj;
@@ -1607,86 +1607,35 @@ define('scalejs.canvas/group',[
             this.children = [];
         }
 
-        group.prototype.getExtents = function () {
+        Group.prototype.getExtents = function () {
             return this.extents;
         };
 
-        group.prototype.calcBounds = function () {
+        Group.prototype.calcBounds = function () {
+            var pFont;
             // Check if font is set on group:
             if (this.fontFamily && this.fontSize) {
                 // Compile font:
                 this.font = this.fontSize + "px " + this.fontFamily;
-
                 if (this.font !== canvasObj.curFont) {
-                    var pFont = canvasObj.curFont;
-                    
+                    pFont = canvasObj.curFont;                    
+                    canvasObj.context.save();
                     canvasObj.context.font = this.font;
                     canvasObj.curFont = this.font;
                     canvasObj.curFontSize = this.fontSize;
-                    // Calculate children's boundaries and parameters:
-                    for (var i = 0; i < this.children.length; i += 1) {
-                        this.children[i].calcBounds();
-                    }
-                    
-                    // Restore font:
-                    this.curFont = pFont;
-                    canvasObj.context.restore();
-                } else {
-                    // Calculate children's boundaries and parameters:
-                    for (var i = 0; i < this.children.length; i += 1) {
-                        this.children[i].calcBounds();
-                    }
-                }
+                } 
             } else {
                 this.font = undefined;
-                // Calculate children's boundaries and parameters:
-                for (var i = 0; i < this.children.length; i += 1) {
-                    this.children[i].calcBounds();
-                }
             }
-            if (this.children.length > 0) {
-                // Get first child's extents:
-                var childExtents = this.children[0].extents,
-                    i;
-                // Set this.extents to first child:
-                this.extents.left = childExtents.left;
-                this.extents.top = childExtents.top;
-                this.extents.right = childExtents.right;
-                this.extents.bottom = childExtents.bottom;
-                // Update this.extents based on the other children:
-                for (i = 1; i < this.children.length; i += 1) {
-                    childExtents = this.children[i].extents;
-                    if (childExtents.left < this.extents.left) {
-                        this.extents.left = childExtents.left;
-                    }
-                    if (childExtents.top < this.extents.top) {
-                        this.extents.top = childExtents.top;
-                    }
-                    if (childExtents.right > this.extents.right) {
-                        this.extents.right = childExtents.right;
-                    }
-                    if (childExtents.bottom > this.extents.bottom) {
-                        this.extents.bottom = childExtents.bottom;
-                    }
-                }
-            } else {
-                // Set extents to center:
-                this.extents.left = 0;
-                this.extents.top = 0;
-                this.extents.right = 0;
-                this.extents.bottom = 0;
+
+            // Calculate children's boundaries and parameters:
+            for (var i = 0; i < this.children.length; i++) this.children[i].calcBounds();
+
+            if (pFont) {
+                this.curFont = pFont;
+                canvasObj.context.restore();
             }
-            // Calculate boundaries and additional parameters:
-            /*this.width = (this.extents.right - this.extents.left) * this.scaleX;
-            this.height = (this.extents.bottom - this.extents.top) * this.scaleY;
-            this.offset.left = utils.getOffset[this.originX](this.width);
-            this.offset.top = utils.getOffset[this.originY](this.height);
-            this.pos.left = this.left + this.offset.left;
-            this.pos.top = this.top + this.offset.top;
-            this.extents.left += this.pos.left;
-            this.extents.top += this.pos.top;
-            this.extents.right += this.pos.left;
-            this.extents.bottom += this.pos.top;*/
+
             this.offset.left = utils.getOffset[this.originX](this.width);
             this.offset.top = utils.getOffset[this.originY](this.height);
             this.pos.left = this.left + this.offset.left;
@@ -1694,45 +1643,39 @@ define('scalejs.canvas/group',[
             this.radianAngle = this.angle * Math.PI / 180;
         };
 
-        group.prototype.render = function () {
-            if (this.opacity > 0) {
-                canvasObj.context.save();   // Required to restore transform matrix after the following render:
-                this.opacity < 1 && (canvasObj.context.globalAlpha *= this.opacity);
-                canvasObj.context.translate(this.pos.left, this.pos.top);   // Set group center.
-                canvasObj.context.scale(this.scaleX, this.scaleY);  // Scale group at center.
-                canvasObj.context.rotate(this.radianAngle);   // Rotate group at center.
-                if (this.backFill && this.width > 0 && this.height > 0) {
-                    canvasObj.context.fillStyle = this.backFill;
-                    canvasObj.context.fillRect(0, 0, this.width, this.height);
-                }
-                if (this.font && this.font !== canvasObj.curFont) {    // Set font if a global font is set.
-                    // Save previous family and size:
-                    var pFont = canvasObj.curFont,
-                        pFontSize = canvasObj.curFontSize;
-                    // Set font and family and size:
-                    canvasObj.context.font = this.font;
-                    //canvasObj.context.fontFamily = this.fontFamily;
-                    canvasObj.curFont = this.font;
-                    canvasObj.curFontSize = this.fontSize;
-                    // Render children:
-                    for (var i = 0; i < this.children.length; i += 1) {
-                        this.children[i].render();
-                    }
-                    // Restore family and size:
-                    canvasObj.curFont = pFont;
-                    canvasObj.curFontSize = pFontSize;
-
-                } else {
-                    // Render children:
-                    for (var i = 0; i < this.children.length; i += 1) {
-                        this.children[i].render();
-                    }
-                }
-                canvasObj.context.restore();
+        Group.prototype.render = function () {
+            if (this.opacity <= 0) return;
+            canvasObj.context.save();   // Required to restore transform matrix after the following render:
+            this.opacity < 1 && (canvasObj.context.globalAlpha *= this.opacity);
+            canvasObj.context.translate(this.pos.left, this.pos.top);   // Set group center.
+            canvasObj.context.scale(this.scaleX, this.scaleY);  // Scale group at center.
+            canvasObj.context.rotate(this.radianAngle);   // Rotate group at center.
+            if (this.backFill && this.width > 0 && this.height > 0) {
+                canvasObj.context.fillStyle = this.backFill;
+                canvasObj.context.fillRect(0, 0, this.width, this.height);
             }
+            if (this.font && this.font !== canvasObj.curFont) {    // Set font if a global font is set.
+                // Save previous family and size:
+                var pFont = canvasObj.curFont,
+                    pFontSize = canvasObj.curFontSize;
+                // Set font and family and size:
+                canvasObj.context.font = this.font;
+                //canvasObj.context.fontFamily = this.fontFamily;
+                canvasObj.curFont = this.font;
+                canvasObj.curFontSize = this.fontSize;
+                // Render children:
+                for (var i = 0; i < this.children.length; i++) this.children[i].render();
+                // Restore family and size:
+                canvasObj.curFont = pFont;
+                canvasObj.curFontSize = pFontSize;
+            } else {
+                // Render children:
+                for (var i = 0; i < this.children.length; i++) this.children[i].render();
+            }
+            canvasObj.context.restore();
         };
 
-        group.prototype.isPointIn = function (posX, posY, event) {
+        Group.prototype.isPointIn = function (posX, posY, event) {
             // Remove translate:
             posX -= this.pos.left;
             posY -= this.pos.top;
@@ -1750,7 +1693,7 @@ define('scalejs.canvas/group',[
                 return posX >= 0 && posY >= 0 && posX <= this.width && posY <= this.height;
             }
             // Check if point in children:
-            for (var i = 0; i < this.children.length; i += 1) {
+            for (var i = 0; i < this.children.length; i++) {
                 if (this.children[i].isPointIn(posX, posY, event)) return true;
             }
             return false;
@@ -1758,8 +1701,7 @@ define('scalejs.canvas/group',[
             //return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
         };
 
-        group.prototype.eventHandler = function (posX, posY, event) {
-            canvasObj.context.save();   // Required to restore transform matrix after the following transform:
+        Group.prototype.touchEventHandler = function (posX, posY, event) {
             // Translate position:
             //canvasObj.context.translate(this.pos.left, this.pos.top);
             posX -= this.pos.left;
@@ -1776,20 +1718,19 @@ define('scalejs.canvas/group',[
             posX = posX * cos - posY * sin;
             posY = tposX * sin + posY * cos;
             // Loop through all children and check if they have been clicked:
-            for (var i = 0; i < this.children.length; i += 1) {
+            for (var i = 0; i < this.children.length; i++) {
                 if (this.children[i].isPointIn(posX, posY, event)) {
-                    this.children[i].eventHandler(posX, posY, event);
+                    this.children[i].touchEventHandler(posX, posY, event);
                 }
             }
             this[event.name] && this[event.name](this.data.data);
-            canvasObj.context.restore();
         };
 
-        group.prototype.remove = function () {
+        Group.prototype.remove = function () {
             this.parent.children.splice(this.parent.children.indexOf(this), 1);
         };
 
-        return group;
+        return Group;
     };
 });
 /*global define*/
@@ -1799,7 +1740,7 @@ define('scalejs.canvas/rect',[
     
 
     return function (canvasObj) {
-        function rect(opts) {
+        function Rect(opts) {
             this.type = "obj";
             this.className = "rect";
             this.parent = opts.parent || canvasObj;
@@ -1817,11 +1758,11 @@ define('scalejs.canvas/rect',[
             this.extents = { left: 0, top: 0, right: 0, bottom: 0 };
         }
 
-        rect.prototype.getExtents = function () {
+        Rect.prototype.getExtents = function () {
             return this.extents;
         };
 
-        rect.prototype.calcBounds = function () {
+        Rect.prototype.calcBounds = function () {
             // Calculate boundaries and additional parameters:
             this.offset.left = utils.getOffset[this.originX](this.width);
             this.offset.top = utils.getOffset[this.originY](this.height);
@@ -1833,7 +1774,7 @@ define('scalejs.canvas/rect',[
             this.extents.bottom = this.pos.top + this.height;
         };
 
-        rect.prototype.render = function () {
+        Rect.prototype.render = function () {
             if (this.width > 0 && this.height > 0) {
                 //canvasObj.context.save();
                 canvasObj.context.fillStyle = this.fill;
@@ -1842,20 +1783,20 @@ define('scalejs.canvas/rect',[
             }
         };
 
-        rect.prototype.isPointIn = function (posX, posY, event) {
+        Rect.prototype.isPointIn = function (posX, posY, event) {
             // Use the last extents (as it was last visible to user for click event):
             return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
         };
 
-        rect.prototype.eventHandler = function (posX, posY, event) {
+        Rect.prototype.touchEventHandler = function (posX, posY, event) {
             this[event.name] && this[event.name](this.data.data);
         };
 
-        rect.prototype.remove = function () {
+        Rect.prototype.remove = function () {
             this.parent.children.splice(this.parent.children.indexOf(this), 1);
         };
 
-        return rect;
+        return Rect;
     };
 });
 /*global define*/
@@ -1865,7 +1806,7 @@ define('scalejs.canvas/text',[
     
 
     return function (canvasObj) {
-        function text(opts) {
+        function Text(opts) {
             this.type = "obj";
             this.className = "text";
             this.parent = opts.parent || canvasObj;
@@ -1888,7 +1829,7 @@ define('scalejs.canvas/text',[
             this.extents = { left: 0, top: 0, right: 0, bottom: 0 };
         }
 
-        text.prototype.setText = function (text) {
+        Text.prototype.setText = function (text) {
             // Compile font:
             if (this.fontFamily && this.fontSize) {
                 this.font = this.fontSize + "px " + this.fontFamily;
@@ -1914,11 +1855,11 @@ define('scalejs.canvas/text',[
             }
         };
 
-        text.prototype.getExtents = function () {
+        Text.prototype.getExtents = function () {
             return this.extents;
         };
 
-        text.prototype.calcBounds = function () {
+        Text.prototype.calcBounds = function () {
             // Calculate boundaries and additional parameters:
             this.setText(this.text);
             this.offset.left = utils.getOffset[this.originX](this.width);
@@ -1931,7 +1872,7 @@ define('scalejs.canvas/text',[
             this.extents.bottom = this.pos.top + this.height;
         };
 
-        text.prototype.render = function () {
+        Text.prototype.render = function () {
             // Only render if text is visible (saves time):
             if (this.opacity > 0 && this.text.length > 0) {
                 canvasObj.context.save();   // Required to restore transform matrix after the following render:
@@ -1945,20 +1886,20 @@ define('scalejs.canvas/text',[
             }
         };
 
-        text.prototype.isPointIn = function (posX, posY, event) {
+        Text.prototype.isPointIn = function (posX, posY, event) {
             // Use the last extents (as it was last visible to user for click event):
             return posX >= this.extents.left && posY >= this.extents.top && posX <= this.extents.right && posY <= this.extents.bottom;
         };
 
-        text.prototype.eventHandler = function (posX, posY, event) {
+        Text.prototype.touchEventHandler = function (posX, posY, event) {
             this[event.name] && this[event.name](this.data.data);
         };
 
-        text.prototype.remove = function () {
+        Text.prototype.remove = function () {
             this.parent.children.splice(this.parent.children.indexOf(this), 1);
         };
 
-        return text;
+        return Text;
     };
 });
 /*global define*/
@@ -1967,54 +1908,10 @@ define('scalejs.canvas/arc',[
 ], function (utils) {
     
 
-    /*var is_chrome = navigator.userAgent.toLowerCase().indexOf('chrome') > -1;
-    if (is_chrome) {
-        CanvasRenderingContext2D.prototype.arc = function (x, y, radius, startAngle, endAngle, anticlockwise) {
-            // Signed length of curve
-            var signedLength;
-            var tau = 2 * Math.PI;
-
-            if (!anticlockwise && (endAngle - startAngle) >= tau) {
-                signedLength = tau;
-            } else if (anticlockwise && (startAngle - endAngle) >= tau) {
-                signedLength = -tau;
-            } else {
-                var delta = endAngle - startAngle;
-                signedLength = delta - tau * Math.floor(delta / tau);
-
-                // If very close to a full number of revolutions, make it full
-                if (Math.abs(delta) > 1e-12 && signedLength < 1e-12)
-                    signedLength = tau;
-
-                // Adjust if anti-clockwise
-                if (anticlockwise && signedLength > 0)
-                    signedLength = signedLength - tau;
-            }
-
-            // Minimum number of curves; 1 per quadrant.
-            var minCurves = Math.ceil(Math.abs(signedLength) / (Math.PI / 2));
-
-            // Number of curves; square-root of radius (or minimum)
-            var numCurves = Math.ceil(Math.max(minCurves, Math.sqrt(radius)));
-
-            // "Radius" of control points to ensure that the middle point
-            // of the curve is exactly on the circle radius.
-            var cpRadius = radius * (2 - Math.cos(signedLength / (numCurves * 2)));
-
-            // Angle step per curve
-            var step = signedLength / numCurves;
-
-            // Draw the circle
-            this.lineTo(x + radius * Math.cos(startAngle), y + radius * Math.sin(startAngle));
-            for (var i = 0, a = startAngle + step, a2 = startAngle + step / 2; i < numCurves; ++i, a += step, a2 += step)
-                this.quadraticCurveTo(x + cpRadius * Math.cos(a2), y + cpRadius * Math.sin(a2), x + radius * Math.cos(a), y + radius * Math.sin(a));
-        }
-    }*/
-
     var deg90InRad = Math.PI * 0.5; // 90 degrees in radians.
 
     return function (canvasObj) {
-        function arc(opts) {
+        function Arc(opts) {
             this.type = "obj";
             this.className = "arc";
             this.parent = opts.parent || canvasObj;
@@ -2039,11 +1936,11 @@ define('scalejs.canvas/arc',[
             this.extents = { left: 0, top: 0, right: 0, bottom: 0 };
         }
 
-        arc.prototype.getExtents = function () {
+        Arc.prototype.getExtents = function () {
             return this.extents;
         };
 
-        arc.prototype.calcBounds = function () {
+        Arc.prototype.calcBounds = function () {
             // Calculate boundaries and additional parameters:
             this.width = this.height = this.outerRadius * 2;
             this.offset.left = this.left;//utils.applyOffset[this.originX](this.left, this.width) + this.width;
@@ -2056,7 +1953,7 @@ define('scalejs.canvas/arc',[
             this.radius = this.thickness / 2 + this.innerRadius;
         };
 
-        arc.prototype.render = function () {
+        Arc.prototype.render = function () {
             if (this.opacity > 0 && this.thickness !== 0 && this.endAngle !== this.startAngle) {
                 //canvasObj.context.save();
                 canvasObj.context.beginPath();
@@ -2069,7 +1966,7 @@ define('scalejs.canvas/arc',[
             }
         };
 
-        arc.prototype.isPointIn = function (posX, posY, event) {
+        Arc.prototype.isPointIn = function (posX, posY, event) {
             // Use the last extents (as it was last visible to user for click event):
             var distance = (posX - this.offset.left) * (posX - this.offset.left) + (posY - this.offset.top) * (posY - this.offset.top), // Distance from point to arc center.
                 angle = Math.atan2(posY - this.offset.top, posX - this.offset.left) + deg90InRad;   // Angle from +x axis to arc center to pointer.
@@ -2081,15 +1978,15 @@ define('scalejs.canvas/arc',[
             return distance <= this.outerRadius * this.outerRadius && distance >= this.innerRadius * this.innerRadius && angle >= this.startAngle && angle <= this.endAngle;
         };
 
-        arc.prototype.eventHandler = function (posX, posY, event) {
+        Arc.prototype.touchEventHandler = function (posX, posY, event) {
             this[event.name] && this[event.name](this.data.data);
         };
 
-        arc.prototype.remove = function () {
+        Arc.prototype.remove = function () {
             this.parent.children.splice(this.parent.children.indexOf(this), 1);
         };
 
-        return arc;
+        return Arc;
     };
 });
 /*global define*/
@@ -2099,10 +1996,10 @@ define('scalejs.canvas/selector',[
     './text',
     './arc'
 ], function (
-    group,
-    rect,
-    text,
-    arc
+    Group,
+    Rect,
+    Text,
+    Arc
 ) {
     
 
@@ -2112,15 +2009,16 @@ define('scalejs.canvas/selector',[
                            window.mozRequestAnimationFrame ||
                            function (callback) {
                                window.setTimeout(callback, 1000 / 60);
+                               return true; // return something for requestFrameID
                            };
 
-    return function canvasSelector(canvasObj) {
+    return function (canvasObj) {
         // Object that holds all object type constructors:
         var createObject = {
-                group: group(canvasObj),
-                rect: rect(canvasObj),
-                text: text(canvasObj),
-                arc: arc(canvasObj)
+                group: Group(canvasObj),
+                rect: Rect(canvasObj),
+                text: Text(canvasObj),
+                arc: Arc(canvasObj)
             },
             canvasSelector;
 
@@ -2137,17 +2035,23 @@ define('scalejs.canvas/selector',[
         }
 
         Selector.prototype.select = function (objectClassName) {
-            var firstObj = [];
+            var firstObj = [],
+                object,
+                i, j;
             // Get first object with the class that matches objectClassName, from each object in objects:
-            this.objects.forEach(function (object) {
+            for (i = 0; i < this.objects.length; i++) {
+                object = this.objects[i];
                 // Check to see if object has children:
                 if (object.children !== undefined && object.children.length > 0) {
                     // Look for first child with the specified class:
-                    object.children.some(function (child) {
-                        return child.className === objectClassName ? ((firstObj.push(child)), true) : false;
-                    });
+                    for (j = 0; j < object.children.length; j++) {
+                        if (object.children[j].className === objectClassName) {
+                            firstObj.push(object.children[j]);
+                            break;
+                        }
+                    }
                 }
-            })
+            }
             // Return a new selector with the first matching class in each object:
             return new Selector({
                 isTransition: this.isTransition,
@@ -2159,19 +2063,22 @@ define('scalejs.canvas/selector',[
         };
 
         Selector.prototype.selectAll = function (objectClassName) {
-            var objs = [];
+            var objs = [],
+                object,
+                i, j;
             // Get all objects with class name as objectClassName:
-            this.objects.forEach(function (object) {
+            for (i = 0; i < this.objects.length; i++) {
+                object = this.objects[i];
                 // Check to see if object has children:
                 if (object.children !== undefined && object.children.length > 0) {
                     // Loop through object's children:
-                    object.children.forEach(function (child) {
-                        if (child.className === objectClassName) {
-                            objs.push(child);   // Found, append to objs.
+                    for (j = 0; j < object.children.length; j++) {
+                        if (object.children[j].className === objectClassName) {
+                            objs.push(object.children[j]);  // Found, append to objs.
                         }
-                    });
+                    }
                 }
-            });
+            }
             // Return a new selector with all objects matching objectClassName:
             return new Selector({
                 isTransition: this.isTransition,
@@ -2185,12 +2092,12 @@ define('scalejs.canvas/selector',[
         Selector.prototype.filter = function (filterFunc) {
             var objs = [];
             // Get all objects where filterFunc returns true:
-            this.objects.forEach(function (object) {
+            for (var i = 0; i < this.objects.length; i++) {
                 // Check if object should be added to new selector:
-                if (filterFunc.call(object, object.data.data)) {
-                    objs.push(object);
+                if (filterFunc.call(this.objects[i], this.objects[i].data.data)) {
+                    objs.push(this.objects[i]);
                 }
-            });
+            }
             // Return a new selector with all objects matching objectClassName:
             return new Selector({
                 isTransition: this.isTransition,
@@ -2211,57 +2118,39 @@ define('scalejs.canvas/selector',[
             // If nodes is a function, each object retrieves its data from nodes(curData)!
             // Else nodes contains the array of data for the objects.
             // TEMP FIX:
-            /*this.exitObjects = [];
-            // Map nodes data to match object data.
-            nodes = nodes.map(function (node) {
-                return {
-                    id: keyFunc(node),
-                    data: node
-                };
-            }, this);
-            this.objects.forEach(function (object) {
-                var firstNode, nodeIndex;
-                // Look for object in nodes:
-                if (nodes.some(function (node, index) {
-                    return object.data.id === node.id ? ((firstNode = node), (nodeIndex = index), true) : false;
-                })) {
-                    // Found object in nodes, update it:
-                    object.data.data = firstNode.data;
-                    nodes.splice(nodeIndex, 1); // Remove node from nodes.
-                } else {
-                    // Can't find object in nodes, so mark for exit:
-                    this.exitObjects.push(object);
-                }
-            }, this);
-            // Nodes left are new, so mark for enter:
-            this.enterObjects = nodes;*/
             // Generate a table filled with the nodes:
             var nodeTable = {};
-            nodes = nodes.map(function (node) {
-                var key = keyFunc(node);
-                node = {
+            for (var i = 0; i < nodes.length; i++) {
+                var key = keyFunc(nodes[i]);
+                nodes[i] = {
                     id: key,
-                    data: node
+                    data: nodes[i]
                 };
-                nodeTable[key] = node;
-                return node;
-            });
-            // Populate the objects and exitObjects arrays:
+                nodeTable[key] = nodes[i];
+            }
+            // Populate the objects, updateObjects and exitObjects arrays:
             this.exitObjects = [];
-            this.objects = this.objects.filter(function (object) {
-                if (nodeTable[object.data.id]) {
-                    object.data.data = nodeTable[object.data.id].data;
-                    nodeTable[object.data.id] = undefined;
-                    return true;
+            this.updateObjects = this.objects;
+            this.objects = [];
+            for (var i = 0; i < this.updateObjects.length; i++) {
+                if (nodeTable[this.updateObjects[i].data.id]) {
+                    this.updateObjects[i].data.data = nodeTable[this.updateObjects[i].data.id].data;
+                    nodeTable[this.updateObjects[i].data.id] = undefined;
+                    this.objects.push(this.updateObjects[i]);
                 } else {
-                    this.exitObjects.push(object);
-                    return false;
+                    this.exitObjects.push(this.updateObjects[i]);
+                    this.updateObjects.splice(i, 1);
+                    i--;
                 }
-            }, this);
+            }
             // Populate enterObjects array:
-            this.enterObjects = nodes.filter(function (node) {
-                return nodeTable[node.id];
-            });
+            for (var i = 0; i < nodes.length; i++) {
+                if (!nodeTable[nodes[i].id]) {
+                    nodes.splice(i, 1);
+                    i--;
+                }
+            }
+            this.enterObjects = nodes;
             // Return current selection (update selection):
             // TODO: Return new selection.
             return this;
@@ -2303,17 +2192,6 @@ define('scalejs.canvas/selector',[
             // TODO FINISH
             // Returns exitObjects custom selector, with it's parent as this selector.
             // The selector removes exitObjects from the objects list of this selector when it removes (only function supported with this yet).
-            /*return {
-                parentSelector: this,
-                remove: function () {
-                    this.parentSelector.exitObjects.forEach(function (object) {
-                        object.parent.children.splice(object.parent.children.indexOf(object), 1);
-                        this.parentSelector.objects.splice(this.parentSelector.objects.indexOf(object), 1);
-                    }, this);
-                    this.parentSelector.exitObjects = [];
-                    return this.parentSelector;
-                }
-            };*/
             var newSelector = new Selector(this);
             newSelector.objects = this.exitObjects;
             return newSelector;
@@ -2356,14 +2234,13 @@ define('scalejs.canvas/selector',[
 
         Selector.prototype.attr = function (attrName, attrVal) {
             this.objects.forEach(function (object) {
-                var value = attrVal;
-                if (typeof (value) === "function") {
-                    value = value(attrFunc.call(object, object.data.data));
+                if (attrVal instanceof Function) {
+                    attrVal = attrVal.call(object, object.data.data);
                 }
-                if (typeof (object["set" + attrName]) === "function") {//object.hasOwnProperty("set" + attrName)) {
-                    object["set" + attrName](value);
+                if (object["set" + attrName] instanceof Function) {
+                    object["set" + attrName](attrVal);
                 } else {
-                    object[attrName] = value;
+                    object[attrName] = attrVal;
                 }
             });
             return this;
@@ -2405,9 +2282,6 @@ define('scalejs.canvas/selector',[
             newSelector.isTransition = true;
             newSelector.objects.forEach(function (object) { object.tweenEndFunc = undefined; });
             return newSelector;
-            // Mark selector as in a transition now:
-            /*this.isTransition = true;
-            return this;*/
         };
 
         Selector.prototype.duration = function (ms) {
@@ -2427,9 +2301,11 @@ define('scalejs.canvas/selector',[
             // Setup timeout:
             var timeStart = new Date().getTime(),
                 timeEnd = timeStart + this.durationTime,
+                object,
                 i;
             // Register object on canvas's animation array. If object already is there, then replace the current tween.
-            this.objects.forEach(function (object) {
+            for (i = 0; i < this.objects.length; i++) {
+                object = this.objects[i];
                 // TODO: Make animation's ID based to test speed.
                 if (!(object.animationIndex >= 0)) {
                     object.animationIndex = canvasObj.animations.length;
@@ -2440,7 +2316,7 @@ define('scalejs.canvas/selector',[
                 object.timeStart = timeStart;
                 object.timeEnd = timeEnd;
                 object.duration = this.durationTime;
-            }, this);
+            }
             if (canvasObj.requestFrameID === undefined && canvasObj.animations.length > 0) {
                 canvasObj.requestFrameID = requestAnimFrame(function () { canvasObj.onAnimationFrame(); });
             }
@@ -2479,6 +2355,7 @@ define('scalejs.canvas/canvas',[
                            window.mozRequestAnimationFrame ||
                            function (callback) {
                                window.setTimeout(callback, 1000 / 60);
+                               return true; // return something for requestFrameID
                            };
 
     function canvas(element) {
@@ -2508,26 +2385,26 @@ define('scalejs.canvas/canvas',[
 
     canvas.prototype.onAnimationFrame = function () {
         // Check if there is anything to animate:
-        if (this.animations.length <= 0 || this.width <= 0 || this.height <= 0) {
+        if (this.animations.length <= 0 || this.width <= 0 || this.height <= 0) {   // Width and height check can be removed if animations MUST be called. This was originally added since d3 had issues.
             this.requestFrameID = undefined;
             return;
         }
         // Request to call this function on next frame (done before rendering to make animations smoother):
         var thisCanvas = this;
-        this.requestFrameID = requestAnimFrame(function () { thisCanvas.onAnimationFrame(); });
+        this.requestFrameID = requestAnimFrame(function () { thisCanvas.onAnimationFrame(); }); // Encapsulate onAnimationFrame to preserve context.
         // Get current time to test if animations are over:
         var curTime = new Date().getTime(),
             animation;
-        // Execute all animations, remove any that are finished:
+        // Execute all animations, filter out any that are finished:
         for (var i = 0; i < this.animations.length; i++) {
             animation = this.animations[i];
             // Call tween function for object:
-            var timeRatio = Math.min((curTime - animation.timeStart) / animation.duration, 1);  // Get the current animation fram which is can be [0, 1).
-            animation.tweenFunc.call(animation, animation.easeFunc(timeRatio)); // Call animation tween function.
+            var timeRatio = Math.min((curTime - animation.timeStart) / animation.duration, 1);  // Get the current animation frame which is can be [0, 1].
+            animation.tweenFunc(animation.easeFunc(timeRatio)); // Call animation tween function.
             // Filter out animations which exceeded the time:
             if (curTime >= animation.timeEnd) {
                 animation.animationIndex = undefined;
-                animation.tweenEndFunc && animation.tweenEndFunc.call(animation, animation.data.data);
+                animation.tweenEndFunc && animation.tweenEndFunc(animation.data.data);
                 this.animations.splice(i, 1);
                 i--;
             } else {
@@ -2536,10 +2413,10 @@ define('scalejs.canvas/canvas',[
             }
         }
         // Render objects:
-        this.pumpRender();
+        this.render();
     };
 
-    canvas.prototype.pumpRender = function () {
+    canvas.prototype.render = canvas.prototype.pumpRender = function () {
         if (this.width <= 0 || this.height <= 0) return;
         // Reset transform:
         this.context.setTransform(1, 0, 0, 1, 0, 0);
@@ -2549,28 +2426,26 @@ define('scalejs.canvas/canvas',[
         //this.curFontFamily = "Times New Roman";
         this.curFontSize = 40;
         // Calculate children's boundaries and parameters:
-        for (var i = 0; i < this.children.length; i += 1) {
+        for (var i = 0; i < this.children.length; i++) {
             this.children[i].calcBounds();
         }
         // Clear canvas:
         this.context.clearRect(0, 0, this.element.width, this.element.height);
         // Render children:
-        for (var i = 0; i < this.children.length; i += 1) {
+        for (var i = 0; i < this.children.length; i++) {
             this.children[i].render();
         }
     };
 
-    canvas.prototype.startRender = function () { };
-
-    canvas.prototype.render = function () {
-        this.pumpRender();
+    canvas.prototype.startRender = function () {
+        console.warn("canvas.startRender is deprecated!");
     };
 
     function select(canvasElement) {
         var // Canvas object (unique to each canvas):
             canvasObj = new canvas(canvasElement);
 
-        function eventHandler(event) {
+        function touchEventHandler(event) {
             // Ignore event with no gesture:
             if (!event.gesture) {
                 return;
@@ -2590,18 +2465,14 @@ define('scalejs.canvas/canvas',[
                 event.offsetY = touch.pageY - pagePos.top;
                 event.name = "on" + event.type;
 
-                canvasObj.context.save();
-                // Reset transform:
-                canvasObj.context.setTransform(1, 0, 0, 1, 0, 0);
                 // Loop through every child object on canvas and check if they have been clicked:
-                for (var i = 0; i < canvasObj.children.length; i += 1) {
+                for (var i = 0; i < canvasObj.children.length; i++) {
                     // Check if mouse is in child:
                     if (canvasObj.children[i].isPointIn(event.offsetX, event.offsetY, event)) {
                         // If so, propagate event down to child.
-                        canvasObj.children[i].eventHandler(event.offsetX, event.offsetY, event);
+                        canvasObj.children[i].touchEventHandler(event.offsetX, event.offsetY, event);
                     }
                 }
-                canvasObj.context.restore();
             }
         }
 
@@ -2610,7 +2481,7 @@ define('scalejs.canvas/canvas',[
             drag_min_distance: 10,
             hold_threshold: 10
         });
-        hammerObj.on("hold tap doubletap touch release", eventHandler);
+        hammerObj.on("hold tap doubletap touch release", touchEventHandler);
 
         // Return the canvas selector:
         return selector(canvasObj);

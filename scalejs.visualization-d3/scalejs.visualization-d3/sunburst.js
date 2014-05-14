@@ -5,31 +5,7 @@ define([
     d3
 ) {
     "use strict";
-
-    function mapValue() {
-        var domain = [0, 1], range = [0, 1],
-            domain_length = 1, range_length = 1;
-
-        function scale(x) {
-            return (x - domain[0]) / domain_length * range_length + range[0];
-        }
-
-        scale.domain = function (d) {
-            if (!arguments.length) { return domain; }
-            domain = d;
-            domain_length = domain[1] - domain[0];
-            return scale;
-        };
-        scale.range = function (r) {
-            if (!arguments.length) { return range; }
-            range = r;
-            range_length = range[1] - range[0];
-            return scale;
-        };
-
-        return scale;
-    }
-
+    
     return function () {
         var //Sunburst variables
             visualization,
@@ -87,12 +63,84 @@ define([
         function innerRadius(d) { return Math.max(0, y(d.y)); }
         function outerRadius(d) { return Math.max(0, y(d.y + d.dy)); }
 
+
+        function repeat(n, r) {
+            var a = [], i;
+            for (i = 0; i < n; i += 1) {
+                a[i] = r;
+            }
+            return a;
+        }
+        function mapFrToPx(params, p) {
+            var max = root.curMaxLevel, sum = 0,
+                a = params.levelsFr,
+                fr = params.fr || 1,
+                parentFr = params.parentFr || 1;
+
+            // build the correct array based on max levels, cur levels
+            /*if (a.length < max) {
+                a = a.concat(repeat(max - a.length, fr));
+            }
+            a = a.slice(p.lvl, max - p.lvl);
+            if (p !== root) {
+                a.unshift(parentFr);
+            }
+            a = a.map(function (x) {
+                return sum += x;
+            }).map(function (x, i, arr) {
+                return x / arr[arr.length - 1] * radius;
+            });
+            a.unshift(0);*/
+            if (a.length < root.maxlvl + 1) {
+                a = a.concat(repeat(root.maxlvl - a.length + 1, fr));
+            }
+            a = a.map(function (x, i) {
+                if (i === p.lvl - 1) {
+                    return sum += params.parentFr;
+                }
+                if (i > p.lvl - 1 && i <= root.curMaxLevel) {
+                    return sum += x;
+                }
+                return sum;
+            }).map(function (x, i, arr) {
+                return x / arr[arr.length - 1] * radius;
+            });
+            a.unshift(0);
+            return a;
+        }
+
+        function mapRangeToDomain(a, p) {
+            /*var arr = [p !== root ? p.parent.y : p.y],
+                steps = a.length - 1,
+                inc = ((Math.min(root.curMaxLevel, root.maxlvl) + 1) / (root.maxlvl + 1) - arr[0]) / steps;
+
+            //((root.curMaxLevel + 1) / (root.maxlvl + 1) - p.y) / steps;
+
+            for (var i = 1; i <= steps; i++) {
+                arr[i] = arr[i-1] + inc;
+            }
+
+            return arr;*/
+            var arr = [];
+            for (var i = 0; i < a.length; i++) {
+                arr.push(i / (a.length-1));
+            }
+            return arr;
+        }
+
         function zoomTween(p) {
+            var override = visualization.parameters && visualization.parameters.levelsFr,
+                range = override ? mapFrToPx(visualization.parameters, p)
+                        : [p.y ? p.dy * radius / 2 : 0, radius],
+                domain = override ? mapRangeToDomain(range, p) : [p.y, (root.curMaxLevel + 1) / (root.maxlvl + 1)];
+            console.log("domain", domain);
+            console.log("range", range);
             return function () {
                 // Create interpolations used for clamping all arcs to ranges:
                 var interpXD = d3.interpolate(x.domain(), [p.x, p.x + p.dx]),
-                    interpYD = d3.interpolate(y.domain(), [p.y, (root.curMaxLevel + 1) / (root.maxlvl + 1)]),
-                    interpYR = d3.interpolate(y.range(), [p.y ? p.dy * radius / 2 : 0, radius]);
+                    // GLITCH: when previous domain/range is not the same length as new domain/range. It works when all levels are visible, but not with only some.
+                    interpYD = d3.interpolate(y.domain(), domain),
+                    interpYR = d3.interpolate(y.range(), range); //checks if its the root (or has no parent)
                 return function (t) {
                     // Set clamps for arcs:
                     x.domain(interpXD(t));
@@ -232,11 +280,12 @@ define([
 
             // This is a sunburst being updated:
             // Filter out nodes with children:
+            console.log("root", root);
             nodes = sunburstLayout.sort(root.sortBy).nodes(root)
                 .filter(function (d) {
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
                 });
-
+            console.log("nodes", nodes);
             // Select all nodes in Canvas, and apply data:
             groupNodes = canvasArea.selectAll("group")
                 .data(nodes, function (d) { return d.id; });
@@ -380,8 +429,8 @@ define([
             canvasWidth = width;
             canvasHeight = height;
             radius = Math.min(canvasWidth, canvasHeight) / 2;
-            x = mapValue().range([0, 2 * Math.PI]);
-            y = mapValue().range([0, radius]);
+            x = d3.scale.linear().range([0, 2 * Math.PI]);
+            y = d3.scale.linear().range([0, radius]);
             touchFunc = selectTouchFunction;
             zoomFunc = selectZoomFunction;
             heldFunc = selectHeldFunction;

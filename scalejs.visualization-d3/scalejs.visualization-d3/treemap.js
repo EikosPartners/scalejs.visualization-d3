@@ -47,7 +47,7 @@ define([
             treemapLayout,
             canvasArea,
             spacing = 3,
-            parentColor = d3.interpolate("#888", "#fff"),
+            borderColor = d3.interpolate("#888", "#fff"),
             kx, ky;
 
         function getNodeTreePath(node) {
@@ -104,7 +104,7 @@ define([
                 rgba = color.substring(5, color.length - 1)
                      .replace(/ /g, '')
                      .split(',');
-                opacity = rgba.pop();
+                opacity = Number(rgba.pop());
                 color = "rgb(" + rgba.join(",") + ")";
             }
             return {
@@ -119,7 +119,7 @@ define([
                 var nodeSpaced = getNodeSpaced(d, d),
                     interpX, interpY,
                     interpWidth, interpHeight,
-                    newFill = (d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color),
+                    newFill = (d.children && d.lvl < root.curMaxLevel ? borderColor(d.lvl / (root.maxlvl - 1)) : d.color),
                     newColor = parseColor(newFill),
                     interpFill = d3.interpolate(this.backFill, newColor.color),
                     interpOpacity = d3.interpolate(this.opacity, opacity * newColor.opacity),
@@ -133,6 +133,7 @@ define([
                 interpWidth = d3.interpolate(this.width, d.sdx);
                 interpHeight = d3.interpolate(this.height, d.sdy);
                 // Performance optimization (d3 is slow at interpolating colors):
+                // NOTE from d3 docs: The returned function below is executed once per frame during animation. This current function is executed only one per animation!
                 if (newFill !== this.backFill) {
                     return function (t) {
                         element.left = interpX(t);
@@ -155,12 +156,11 @@ define([
         function textTween() {
             return function (d) {
                 // Create interpolations used for a nice slide:
-                var interpX = d3.interpolate(this.left, d.sdx / 2),//kx * d.dx / 2),
-                    interpY = d3.interpolate(this.top, d.sdy / 2),//ky * d.dy / 2),
+                var interpX = d3.interpolate(this.left, d.sdx / 2),
+                    interpY = d3.interpolate(this.top, d.sdy / 2),
                     newColor = parseColor(d.fontColor),
                     interpFill = d3.interpolate(this.fill, newColor.color),
-                    interpOpacity,// = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (d.sdx - 1 >= this.width) && (d.sdy - 1 >= this.height) ? newColor.opacity : 0),
-                    //interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) && (kx * d.dx - sp * 2 >= this.width) && (ky * d.dy - sp * 2 >= this.height) ? 1 : 0),
+                    interpOpacity,
                     element = this;
                 if (visualization.allowTextOverflow) {
                     interpOpacity = d3.interpolate(this.opacity, !(d.children && d.lvl < root.curMaxLevel) ? newColor.opacity : 0);
@@ -178,26 +178,24 @@ define([
             };
         }
 
+        function applyTouchTween(nodes, textNodes, targetZoomedNode, duration) {
+            nodes.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
+                .on("touch", touchFunc).on("hold", heldFunc).on("release", releaseFunc)
+                .on("tap", function (d) { zoomFunc(d.parent || d); });
+
+            nodes.transition().duration(duration).tween("groupTween", groupTween(1));
+            textNodes.transition().duration(duration).tween("textTween", textTween(targetZoomedNode));
+        }
+
         function update(p, duration) {
-            if (canvasArea === undefined) {
-                return; // Catch for if treemap has been setup.
-            }
-
-            // Get transition duration parameter:
             duration = duration !== undefined ? duration : 1000;
-
-            // Get treemap data:
             root = json();
 
-            // Define temp vars:
             var nodes, groupNodes, newGroupNodes, removeGroupNodes, textNodes, newTextNodes, removeTextNodes,
                 zoomTreePath = getNodeTreePath(p);
 
-            // This is a treemap being updated:
             // Filter out nodes with children:
-            nodes = treemapLayout.size([canvasWidth, canvasHeight])
-                .sort(root.sortBy)
-                .nodes(root)
+            nodes = treemapLayout.size([canvasWidth, canvasHeight]).sort(root.sortBy).nodes(root)
                 .filter(function (d) {
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
                 })
@@ -205,50 +203,33 @@ define([
                     return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
                 });
 
-            // Select all nodes in Canvas, and apply data:
-            groupNodes = canvasArea.selectAll("group")
-                .data(nodes, function (d) { return d.id; });
+            groupNodes = canvasArea.selectAll("group").data(nodes, function (d) { return d.id; });
 
             // Add new nodes to Canvas:
-            newGroupNodes = groupNodes.enter().append("group")
-                .each(function (d) {
-                    if (d.parent) {
-                        this.left = x(d.parent.x) + kx * d.parent.dx / 2;
-                        this.top = y(d.parent.y) + ky * d.parent.dy / 2;
-                    } else {
-                        this.left = x(d.x) + kx * d.dx / 2;
-                        this.top = y(d.y) + ky * d.dy / 2;
-                    }
-                    var newColor = parseColor(d.children && d.lvl < root.curMaxLevel ? parentColor(d.lvl / (root.maxlvl - 1)) : d.color);
-                    this.backFill = newColor.color;
-                    this.opacity = 0;
-                });
-            // Add mousedown event to nodes that are treated as leaf nodes:
-            newGroupNodes.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
-                .on("touch", touchFunc)
-                .on("tap", function (d) { zoomFunc(d.parent || d); })
-                .on("hold", heldFunc)
-                .on("release", releaseFunc);
-
-            // Add text to each node:
-            newTextNodes = newGroupNodes.append("text")
-                .each(function (d) {
-                    this.originX = "center";
-                    this.originY = "center";
-                    this.left = 0;
-                    this.top = 0;
-                    this.fontFamily = d.fontFamily;
-                    this.fontSize = d.fontSize;
-                    var newColor = parseColor(d.fontColor);
-                    this.fill = newColor.color;
-                    this.setText(d.name);
-                    //this.static = true;
-                    if (visualization.allowTextOverflow) {
-                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) ? newColor.opacity : 0;
-                    } else {
-                        this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) && (kx * d.dx - spacing * 2 >= this.width) && (ky * d.dy - spacing * 2 >= this.height) ? newColor.opacity : 0;
-                    }
-                });
+            newGroupNodes = groupNodes.enter().append("group").each(function (d) {
+                var dNode = d.parent || d;
+                this.left = x(dNode.x) + kx * dNode.dx / 2;
+                this.top = y(dNode.y) + ky * dNode.dy / 2;
+                var newColor = parseColor(d.children && d.lvl < root.curMaxLevel ? borderColor(d.lvl / (root.maxlvl - 1)) : d.color);
+                this.backFill = newColor.color;
+                this.opacity = 0;
+            });
+            newTextNodes = newGroupNodes.append("text").each(function (d) {
+                this.originX = "center";
+                this.originY = "center";
+                this.left = 0;
+                this.top = 0;
+                this.fontFamily = d.fontFamily;
+                this.fontSize = d.fontSize;
+                var newColor = parseColor(d.fontColor);
+                this.fill = newColor.color;
+                this.setText(d.name);
+                if (visualization.allowTextOverflow) {
+                    this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) ? newColor.opacity : 0;
+                } else {
+                    this.opacity = (d.parent && d.parent.children && d.parent.lvl < root.curMaxLevel) && (kx * d.dx - spacing * 2 >= this.width) && (ky * d.dy - spacing * 2 >= this.height) ? newColor.opacity : 0;
+                }
+            });
 
             // Set zoom domain to d's area:
             kx = canvasWidth / p.dx;
@@ -256,37 +237,15 @@ define([
             x.domain([p.x, p.x + p.dx]);
             y.domain([p.y, p.y + p.dy]);
 
+            applyTouchTween(newGroupNodes, newTextNodes, p, duration);
+            applyTouchTween(groupNodes, groupNodes.select("text"), p, duration);
 
-            // Add tween to new groups:
-            newGroupNodes.transition().duration(duration)
-                .tween("groupTween", groupTween(1));
-            // Add tween to new text:
-            newTextNodes.transition().duration(duration)
-                .tween("textTween", textTween(p));
-
-            // Update current nodes on Canvas:
-            groupNodes.filter(function (d) { return d.children && d.lvl < root.curMaxLevel; })
-                .on("touch", null)
-                .on("tap", null)
-                .on("hold", null)
-                .on("release", releaseFunc);
-            groupNodes.filter(function (d) { return !(d.children && d.lvl < root.curMaxLevel); })
-                .on("touch", touchFunc)
-                .on("tap", function (d) { zoomFunc(d.parent || d); })
-                .on("hold", heldFunc)
-                .on("release", releaseFunc);
-            // Add tween to current nodes on Canvas:
-            groupNodes.transition().duration(duration)
-                .tween("groupTween", groupTween(1));
-
-            // Update current text on Canvas:
-            textNodes = groupNodes.select("text").transition().duration(duration)
-                .tween("textTween", textTween(p));
+            //reset group nodes which arent visible
+            groupNodes.filter(function (d) { return d.children && d.lvl < root.curMaxLevel; }).on("touch", null).on("tap", null).on("hold", null);
 
             // Remove missing nodes:
             removeGroupNodes = groupNodes.exit().transition().duration(duration)
                 .tween("groupTween", function (d) {
-                    // Create interpolations used for a nice slide:
                     var nodeSpaced = getNodeSpaced(d.parent || d, d.parent || d),
                         interpX = d3.interpolate(this.left, x(nodeSpaced.x + nodeSpaced.dx / 2)),
                         interpY = d3.interpolate(this.top, y(nodeSpaced.y + nodeSpaced.dy / 2)),
@@ -301,21 +260,14 @@ define([
                         element.height = interpHeight(t);
                         element.opacity = interpOpacity(t);
                     };
-                })
-                .each(function () {
-                    this.remove();
-                }, "end");
-            removeTextNodes = removeGroupNodes.select("text")
-                .each(function (d) {
-                    d.sdx = 0;
-                    d.sdy = 0;
-                })
-                .tween("textTween", textTween(p));
+                }).each(function () { this.remove(); }, "end");
+            removeTextNodes = removeGroupNodes.select("text").each(function (d) {
+                d.sdx = 0;
+                d.sdy = 0;
+            }).tween("textTween", textTween(p));
 
             // Prevent event from firing more than once:
-            if (d3.event) {
-                d3.event.stopPropagation();
-            }
+            if (d3.event) d3.event.stopPropagation();
         }
 
         function init(
@@ -331,9 +283,7 @@ define([
             nodeSelected//,
             //trueElement
         ) {
-            if (canvasArea !== undefined) {
-                return; // Catch for if treemap has been setup.
-            }
+            // Setup variables:
             canvasElement = element;
             json = jsonObservable;
             canvasWidth = width;
@@ -368,7 +318,7 @@ define([
                 this.fontSize = 11;
             });
 
-            // Filter out nodes with children:
+            // Filter out nodes with children (need to do this before we set the data up)
             nodes = treemapLayout.nodes(root)
                 .filter(function (d) {
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
@@ -398,10 +348,7 @@ define([
         }
 
         function remove() {
-            if (canvasArea !== undefined) {
-                canvasArea.remove();
-                canvasArea = undefined;
-            }
+            canvasArea.remove();
         }
 
         // Return treemap object:
