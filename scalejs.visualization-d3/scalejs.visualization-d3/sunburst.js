@@ -26,7 +26,8 @@ define([
             root,
             sunburstLayout,
             canvasZoom,
-            canvasArea;
+            canvasArea,
+            params;
 
         function getNodeTreePath(node) {
             var path = [];
@@ -66,7 +67,6 @@ define([
         function innerRadius(d) { return Math.max(0, y(d.y)); }
         function outerRadius(d) { return Math.max(0, y(d.y + d.dy)); }
 
-
         function repeat(n, r) {
             var a = [], i;
             for (i = 0; i < n; i += 1) {
@@ -74,6 +74,7 @@ define([
             }
             return a;
         }
+
         function mapFrToPx(params, p) {
             var sum = 0,
                 a = params.levelsFr,
@@ -97,7 +98,6 @@ define([
             a.unshift(0);
             return a;
         }
-
         function mapRangeToDomain(a, p) {
             var arr = [], i;
             for (i = 0; i < a.length; i++) {
@@ -106,9 +106,10 @@ define([
             return arr;
         }
 
+        // The order the following tweens appear MUST be called in the same order!
         function zoomTween(p) {
-            var override = unwrap(visualization.parameters) && visualization.parameters().levelsFr,
-                range = override ? mapFrToPx(visualization.parameters(), p)
+            var override = params && params.levelsFr,
+                range = override ? mapFrToPx(params, p)
                         : [p.y ? p.dy * radius / 2 : 0, radius],
                 domain = override ? mapRangeToDomain(range, p) : [p.y, (root.curMaxLevel + 1) / (root.maxlvl + 1)];
 
@@ -222,15 +223,14 @@ define([
                     }
 
                     // Rotate text angle:
-                    this.angle = angle;
+                    this.angle = (params && params.enableRotatedText != null) ? (params.enableRotatedText ? angle : 0) : angle;
                 };
             };
         }
 
         function update(p, duration) {
-            if (canvasArea === undefined) {
-                return; // Catch for if treemap hasn't been setup.
-            }
+            // Get sunburst specific parameters:
+            params = unwrap(visualization.parameters);
 
             // Get transition duration parameter:
             duration = duration !== undefined ? duration : 1000;
@@ -380,9 +380,6 @@ define([
             selectReleaseFunction,
             nodeSelected
         ) {
-            if (canvasArea !== undefined) {
-                return; // Catch for if sunburst has been setup.
-            }
             canvasElement = element;
             json = jsonObservable;
             canvasWidth = width;
@@ -421,7 +418,7 @@ define([
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
                 });
 
-            // Join data with selection:
+            // Join data with selection (may not be needed):
             canvasArea.selectAll("group")
                 .data(nodes, function (d) { return d.id; });
 

@@ -318,7 +318,7 @@ define([
                 this.fontSize = 11;
             });
 
-            // Filter out nodes with children (need to do this before we set the data up)
+            // Filter out nodes with children (need to do this before we set the data up):
             nodes = treemapLayout.nodes(root)
                 .filter(function (d) {
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
@@ -327,7 +327,7 @@ define([
                     return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
                 });
 
-            // Join data with selection:
+            // Join data with selection (may not be needed):
             canvasArea.selectAll("group")
                     .data(nodes, function (d) { return d.id; });
 
