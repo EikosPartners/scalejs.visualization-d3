@@ -509,8 +509,8 @@ define([
 
             // Set root's color:
             root.color = nodeScale(root.colorSize);
-            
-            //visualizationParams = unwrap(parameters[visualizationType()]);
+
+            visualizationParams = unwrap(parameters[visualizationType.peek()]);
 
             // Return the new json data:
             return root;
@@ -530,7 +530,9 @@ define([
 
             // Run visualization's initialize code:
             visualization.allowTextOverflow = unwrap(allowTextOverflow);
-            //visualization.parameters = visualizationParams;
+            visualization.parameters = computed(function () {
+                return unwrap(parameters[type]);
+            });//visualizationParams;
             visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, zoomedNode, element);
         }
 

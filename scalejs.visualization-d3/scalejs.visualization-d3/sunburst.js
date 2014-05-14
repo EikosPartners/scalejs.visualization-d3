@@ -1,10 +1,13 @@
 ﻿/*global define*/
 define([
+    'knockout',
     'd3'
 ], function (
+    ko,
     d3
 ) {
     "use strict";
+    var unwrap = ko.utils.unwrapObservable;
     
     return function () {
         var //Sunburst variables
@@ -98,18 +101,17 @@ define([
         function mapRangeToDomain(a, p) {
             var arr = [], i;
             for (i = 0; i < a.length; i++) {
-                arr.push(i / (a.length-1));
+                arr.push(i / (a.length - 1));
             }
             return arr;
         }
 
         function zoomTween(p) {
-            var override = visualization.parameters && visualization.parameters.levelsFr,
-                range = override ? mapFrToPx(visualization.parameters, p)
+            var override = unwrap(visualization.parameters) && visualization.parameters().levelsFr,
+                range = override ? mapFrToPx(visualization.parameters(), p)
                         : [p.y ? p.dy * radius / 2 : 0, radius],
                 domain = override ? mapRangeToDomain(range, p) : [p.y, (root.curMaxLevel + 1) / (root.maxlvl + 1)];
-            console.log("domain", domain);
-            console.log("range", range);
+
             return function () {
                 // Create interpolations used for clamping all arcs to ranges:
                 var interpXD = d3.interpolate(x.domain(), [p.x, p.x + p.dx]),
@@ -126,91 +128,78 @@ define([
         function groupTween(opacity) {
             return function (d) {
                 // Create interpolations used for a nice slide:
-                var interpX = d3.interpolate(this.left, canvasWidth / 2),
+                var interpOldX = d3.interpolate(this.old.x, d.x),
+                    interpOldY = d3.interpolate(this.old.y, d.y),
+                    interpOldDX = d3.interpolate(this.old.dx, d.dx),
+                    interpOldDY = d3.interpolate(this.old.dy, d.dy),
+                    interpX = d3.interpolate(this.left, canvasWidth / 2),
                     interpY = d3.interpolate(this.top, canvasHeight / 2),
                     newColor = parseColor(d.color),
-                    interpOpacity = d3.interpolate(this.opacity, opacity * newColor.opacity),
-                    element = this;
+                    interpOpacity = d3.interpolate(this.opacity, opacity * newColor.opacity);
                 return function (t) {
-                    element.left = interpX(t);
-                    element.top = interpY(t);
-                    element.opacity = interpOpacity(t);
+                    // Store new data in the old property:
+                    this.old.x = interpOldX(t);
+                    this.old.y = interpOldY(t);
+                    this.old.dx = interpOldDX(t);
+                    this.old.dy = interpOldDY(t);
+
+                    this.left = interpX(t);
+                    this.top = interpY(t);
+                    this.opacity = interpOpacity(t);
                 };
             };
         }
         function arcTween() {
             return function (d) {
                 // Create interpolations used for a nice slide around the parent:
-                var interpX = d3.interpolate(this.old.x, d.x),
-                    interpY = d3.interpolate(this.old.y, d.y),
-                    interpDX = d3.interpolate(this.old.dx, d.dx),
-                    interpDY = d3.interpolate(this.old.dy, d.dy),
-                    newColor = parseColor(d.color),
+                var newColor = parseColor(d.color),
                     interpFill = d3.interpolate(this.fill, newColor.color),
-                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity),
-                    // Remember this element:
-                    element = this;
+                    interpOpacity = d3.interpolate(this.opacity, newColor.opacity);
                 return function (t) { // Interpolate arc:
                     // Store new data in the old property:
-                    element.old.x = interpX(t);
-                    element.old.y = interpY(t);
-                    element.old.dx = interpDX(t);
-                    element.old.dy = interpDY(t);
-                    element.fill = interpFill(t);
-                    element.opacity = interpOpacity(t);
-                    this.innerRadius = innerRadius(element.old);
-                    this.outerRadius = outerRadius(element.old);
-                    this.startAngle = startAngle(element.old);
-                    this.endAngle = endAngle(element.old);
+                    this.fill = interpFill(t);
+                    this.opacity = interpOpacity(t);
+                    this.innerRadius = innerRadius(this.old);
+                    this.outerRadius = outerRadius(this.old);
+                    this.startAngle = startAngle(this.old);
+                    this.endAngle = endAngle(this.old);
                 };
             };
         }
         function textTween(p) {
             return function (d) {
                 // Create interpolations used for a nice slide around the parent:
-                var interpX = d3.interpolate(this.old.x, d.x),
-                    interpY = d3.interpolate(this.old.y, d.y),
-                    interpDX = d3.interpolate(this.old.dx, d.dx),
-                    interpDY = d3.interpolate(this.old.dy, d.dy),
-                    newColor = parseColor(d.fontColor),
+                var newColor = parseColor(d.fontColor),
                     interpFill = d3.interpolate(this.fill, newColor.color),
                     interpOpacity = d3.interpolate(this.opacity, newColor.opacity),
-                    // Remember this element:
-                    element = this,
                     // Interpolate attributes:
                     rad, radless, offsety, angle,
                     outerRad, innerRad, arcStartAngle, arcEndAngle, arcWidth;
                 return function (t) {
-                    // Store new data in the old property:
-                    element.old.x = interpX(t);
-                    element.old.y = interpY(t);
-                    element.old.dx = interpDX(t);
-                    element.old.dy = interpDY(t);
-
                     // Setup variables for opacity:
-                    outerRad = outerRadius(element.old);
-                    innerRad = innerRadius(element.old);
-                    arcStartAngle = startAngle(element.old);
-                    arcEndAngle = endAngle(element.old);
+                    outerRad = outerRadius(this.old);
+                    innerRad = innerRadius(this.old);
+                    arcStartAngle = startAngle(this.old);
+                    arcEndAngle = endAngle(this.old);
                     arcWidth = (arcEndAngle - arcStartAngle) * innerRad;
 
                     // Calculate color:
-                    element.fill = interpFill(t);
+                    this.fill = interpFill(t);
 
                     // Calculate text angle:
-                    rad = x(element.old.x + element.old.dx / 2);
+                    rad = x(this.old.x + this.old.dx / 2);
                     radless = rad - Math.PI / 2;
                     offsety = y(d.y) + 2;
                     angle = rad * 180 / Math.PI - 90;
-                    element.left = offsety * Math.cos(radless);
-                    element.top = offsety * Math.sin(radless);
+                    this.left = offsety * Math.cos(radless);
+                    this.top = offsety * Math.sin(radless);
                     if (p !== d) {
                         // Flip text right side up:
                         if (angle > 90) {
                             angle = (angle + 180) % 360;
                         }
                         // Change anchor based on side of Sunburst the text is on:
-                        element.originX = rad > Math.PI ? "right" : "left";
+                        this.originX = rad > Math.PI ? "right" : "left";
 
                         // Change opacity:
                         if (visualization.allowTextOverflow) {
@@ -221,8 +210,8 @@ define([
                     } else {
                         angle -= 90;
                         // Change anchor based on side of Sunburst the text is on:
-                        element.originX = "center";
-                        element.originY = "top";
+                        this.originX = "center";
+                        this.originY = "top";
 
                         // Change opacity:
                         if (visualization.allowTextOverflow) {
@@ -233,7 +222,7 @@ define([
                     }
 
                     // Rotate text angle:
-                    element.angle = angle;
+                    this.angle = angle;
                 };
             };
         }
@@ -255,22 +244,27 @@ define([
 
             // This is a sunburst being updated:
             // Filter out nodes with children:
-            console.log("root", root);
             nodes = sunburstLayout.sort(root.sortBy).nodes(root)
                 .filter(function (d) {
                     return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
                 });
-            console.log("nodes", nodes);
+
             // Select all nodes in Canvas, and apply data:
             groupNodes = canvasArea.selectAll("group")
                 .data(nodes, function (d) { return d.id; });
 
             // Add new nodes to Canvas:
             newGroupNodes = groupNodes.enter().append("group")
-                .each(function () {
+                .each(function (d) {
                     this.left = canvasWidth / 2;
                     this.top = canvasHeight / 2;
                     this.opacity = 0;
+                    this.old = {
+                        x: d.x,
+                        y: d.y,
+                        dx: d.dx,
+                        dy: d.dy
+                    };
                 });
 
             // Add arc to each node:
@@ -281,12 +275,7 @@ define([
                     //innerRadius(d);//outerRadius(d);
                     this.endAngle = this.startAngle = (endAngle(d) - startAngle(d)) / 2;//startAngle(d);
                     //this.endAngle = endAngle(d);
-                    this.old = {
-                        x: d.x,
-                        y: d.y,
-                        dx: d.dx,
-                        dy: d.dy
-                    };
+                    this.old = this.parent.old;
                 })
                 .on("touch", touchFunc)
                 .on("tap", zoomFunc)
@@ -337,12 +326,7 @@ define([
                     this.angle = ang;
                     this.left = (Math.max(y(d.y), 0) + 2) * Math.cos(x(d.x + d.dx / 2) - Math.PI / 2);
                     this.top = (Math.max(y(d.y), 0) + 2) * Math.sin(x(d.x + d.dx / 2) - Math.PI / 2);
-                    this.old = {
-                        x: d.x,
-                        y: d.y,
-                        dx: d.dx,
-                        dy: d.dy
-                    };
+                    this.old = this.parent.old;
                 });
 
             // Add tween to Canvas:
