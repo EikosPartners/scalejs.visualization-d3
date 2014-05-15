@@ -176,6 +176,8 @@ define([
                     // Interpolate attributes:
                     rad, radless, offsety, angle,
                     outerRad, innerRad, arcStartAngle, arcEndAngle, arcWidth;
+                this.fontFamily = d.fontFamily;
+                this.fontSize = d.fontSize;
                 return function (t) {
                     // Setup variables for opacity:
                     outerRad = outerRadius(this.old);
@@ -294,7 +296,8 @@ define([
                         this.originX = "center";
                         this.originY = "top";
                     }
-                    //this.fontSize = 11;
+                    this.fontFamily = d.fontFamily;
+                    this.fontSize = d.fontSize;
                     var newColor = parseColor(d.fontColor),
                         ang = x(d.x + d.dx / 2) * 180 / Math.PI - 90;
                     this.fill = newColor.color;
