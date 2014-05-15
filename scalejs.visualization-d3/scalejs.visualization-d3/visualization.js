@@ -471,7 +471,7 @@ define([
             var maxlvl = { value: 0 }, stepSize,
                 // Get parameters (or defaults values):
                 sortByParam = unwrap(parameters.sortBy) || "unordered",
-                maxVisibleLevels = unwrap(parameters.maxVisibleLevels || 2),
+                maxVisibleLevels = unwrap(parameters.maxVisibleLevels),
                 dataSource = unwrap(parameters.data) || { name: "Empty" },
                 levelsSource = unwrap(parameters.levels) || [{}],
                 levels;
@@ -484,6 +484,8 @@ define([
             root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
             // No node is zoomed to, so zoom to root:
             if (zoomedNode.id == null) zoomedNode = root;
+            // Make maxVisibleLevels the max lvl if not specified:
+            maxVisibleLevels = maxVisibleLevels || maxlvl.value + 1;
 
             // Set root-specific properties:
             root.curLevel = zoomedNode.lvl;
