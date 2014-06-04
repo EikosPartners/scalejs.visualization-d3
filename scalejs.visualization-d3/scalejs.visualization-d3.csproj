@@ -14,8 +14,11 @@
       <SubType>Designer</SubType>
     </Content>
     <Content Include="scalejs.visualization-d3.js" />
-    <Content Include="scalejs.visualization-d3\sunburst.js" />
-    <Content Include="scalejs.visualization-d3\treemap.js" />
+    <Content Include="scalejs.visualization-d3\canvas-helper.js" />
+    <Content Include="scalejs.visualization-d3\surfaces\canvas-d3.js" />
+    <Content Include="scalejs.visualization-d3\visualizations\sunburst.js" />
+    <Content Include="scalejs.visualization-d3\data\tree.js" />
+    <Content Include="scalejs.visualization-d3\visualizations\treemap.js" />
     <Content Include="Scripts\d3.colorbrewer.js" />
     <Content Include="scalejs.visualization-d3\visualization.js" />
     <Content Include="Scripts\d3.v3.js" />

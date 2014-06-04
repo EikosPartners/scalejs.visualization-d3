@@ -1,7 +1,8 @@
 ﻿{
   "output": "Error",
   "ignore": [
-    "\\Scripts\\"
+    "\\Scripts\\",
+    "\\scalejs.visualization-d3\\"
   ],
   "options": {
     "predef": {}
