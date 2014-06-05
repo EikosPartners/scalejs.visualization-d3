@@ -80,12 +80,7 @@ define([
             zoomedNode = {
                 id: null
             },
-            transform = {
-                left: 0,
-                top: 0,
-                rotate: 0,
-                scale: 1
-            },
+            transform,
             touchHandler,
             zoomOutScale = 0.8,
             disposeLayout;
@@ -133,6 +128,12 @@ define([
                 selectedItemPath(undefined);
             }
         });
+
+        //REFACTORED INITIALIZATIONS===================================================================================
+
+        transform = gestureHelper.getTransform();
+
+        //END REFACTORED INITIALIZATIONS===============================================================================
 
         // Get element's width and height:
         elementStyle = window.getComputedStyle(element);
