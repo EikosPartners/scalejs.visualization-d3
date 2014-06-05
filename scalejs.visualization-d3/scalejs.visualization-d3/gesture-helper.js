@@ -42,6 +42,22 @@ define([
             });
     }
 
+    // The following set of callbacks are for the pinch&zoom touch handler:
+    function renderCallback(left, top, rotate, scale) { // Called on beginning and end of touch gestures:
+        // Update transform:
+        transform.left = left;
+        transform.top = top;
+        transform.rotate = rotate;
+        transform.scale = scale;
+        canvas.select("group")
+            .attr("scaleX", transform.scale)
+            .attr("scaleY", transform.scale)
+            .attr("angle", transform.rotate)
+            .attr("left", transform.left)
+            .attr("top", transform.top);
+        canvas.pumpRender();
+    }
+
 
     //====
     function getTransform() {
@@ -58,6 +74,7 @@ define([
     return {
         getTransform: getTransform,
         setTransform: setTransform,
-        resetTransformAnimation: resetTransformAnimation
+        resetTransformAnimation: resetTransformAnimation,
+        renderCallback: renderCallback
     };
 });
