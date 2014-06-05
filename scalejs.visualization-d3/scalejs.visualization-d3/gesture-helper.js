@@ -48,8 +48,16 @@ define([
         return transform;
     }
 
+    function setTransform(input) {
+        transform.left = input.left;
+        transform.top = input.top;
+        transform.rotate = input.rotate;
+        transform.scale = input.scale;
+    }
+
     return {
         getTransform: getTransform,
+        setTransform: setTransform,
         resetTransformAnimation: resetTransformAnimation
     };
 });
