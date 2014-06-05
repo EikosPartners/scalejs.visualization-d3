@@ -7,8 +7,9 @@ define([
     'd3',
     'd3.colorbrewer',
     'scalejs.canvas',
-    'scalejs.visualization-d3/treemap',
-    'scalejs.visualization-d3/sunburst'
+    'scalejs.visualization-d3/visualizations/treemap',
+    'scalejs.visualization-d3/visualizations/sunburst',
+    'scalejs.gesture-helper'
 ], function (
     core,
     ko,
@@ -16,7 +17,8 @@ define([
     colorbrewer,
     canvasRender,
     treemap,
-    sunburst
+    sunburst,
+    gestureHelper
 ) {
     "use strict";
     var //imports
@@ -147,31 +149,6 @@ define([
                             .attr("height", canvasHeight)
                             .node();
 
-        // Clear the canvas's transform and animate from current to cleared state:
-        function resetTransformAnimation() {
-            // Reset target transform:
-            transform.left = 0;
-            transform.top = 0;
-            transform.rotate = 0;
-            transform.scale = 1;
-            canvas.select("group").transition().duration(1000)
-                .tween("canvasTween", function () {
-                    // Create interpolations used for a nice slide around the parent:
-                    var interpLeft = d3.interpolate(this.left, 0),
-                        interpTop = d3.interpolate(this.top, 0),
-                        interpAngle = d3.interpolate(this.angle, 0),
-                        interpScaleX = d3.interpolate(this.scaleX, 1),
-                        interpScaleY = d3.interpolate(this.scaleY, 1),
-                        el = this;
-                    return function (t) {
-                        el.left = interpLeft(t);
-                        el.top = interpTop(t);
-                        el.angle = interpAngle(t);
-                        el.scaleX = interpScaleX(t);
-                        el.scaleY = interpScaleY(t);
-                    };
-                });
-        }
 
         // This function resets the selected node:
         function selectRelease() {
@@ -217,7 +194,7 @@ define([
 
                 if (node !== curZoomedNode) {
                     // Reset transform:
-                    resetTransformAnimation();
+                    gestureHelper.resetTransformAnimation(canvas);
                 }
 
                 zoomedNode = tmpNode = node;
@@ -579,7 +556,7 @@ define([
                 canvas.attr('height', canvasHeight);
                 visualization.resize(canvasWidth, canvasHeight);
                 // Must set width and height before doing any animation (to calculate layouts properly):
-                resetTransformAnimation();
+                gestureHelper.resetTransformAnimation(canvas);
                 visualization.update(zoomedNode);
             });
             ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
