@@ -9,7 +9,7 @@ define([
     'scalejs.canvas',
     'scalejs.visualization-d3/visualizations/treemap',
     'scalejs.visualization-d3/visualizations/sunburst',
-    'scalejs.gesture-helper'
+    'scalejs.visualization-d3/gesture-helper'
 ], function (
     core,
     ko,

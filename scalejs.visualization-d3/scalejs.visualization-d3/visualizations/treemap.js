@@ -1,8 +1,7 @@
 ﻿/*global define*/
 define([
     'd3',
-    'scalejs.visualization-d3/visualization',
-    'scalejs.visualization-d3/canvas-d3'
+    'scalejs.visualization-d3/visualization'
 ], function (
     d3,
     visualization
