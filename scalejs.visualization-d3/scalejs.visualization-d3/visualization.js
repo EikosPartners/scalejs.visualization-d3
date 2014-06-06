@@ -82,7 +82,7 @@ define([
             },
             transform,
             touchHandler,
-            zoomOutScale = 0.8,
+            zoomOutScale,
             disposeLayout;
 
         // Attempts to find a node when given a path
@@ -131,7 +131,9 @@ define([
 
         //REFACTORED INITIALIZATIONS===================================================================================
 
+        //Gesture Helper
         transform = gestureHelper.getTransform();
+        zoomOutScale = gestureHelper.getZoomOutScale();
 
         //END REFACTORED INITIALIZATIONS===============================================================================
 

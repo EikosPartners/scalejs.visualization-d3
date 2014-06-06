@@ -14,7 +14,8 @@ define([
         top: 0,
         rotate: 0,
         scale: 1
-    };
+    },
+        zoomOutScale = 0.8;
 
     // Clear the canvas's transform and animate from current to cleared state:
     function resetTransformAnimation(canvas) {
@@ -75,10 +76,17 @@ define([
         transform.scale = scale;
     }
 
+    function getZoomOutScale() {
+        return zoomOutScale;
+    }
+
     return {
         getTransform: getTransform,
         setTransform: setTransform,
+        setTransformHelper: setTransformHelper,
         resetTransformAnimation: resetTransformAnimation,
-        renderCallback: renderCallback
+        renderCallback: renderCallback,
+        getZoomOutScale: getZoomOutScale
+
     };
 });
