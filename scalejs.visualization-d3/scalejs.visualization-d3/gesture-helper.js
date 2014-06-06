@@ -45,10 +45,7 @@ define([
     // The following set of callbacks are for the pinch&zoom touch handler:
     function renderCallback(left, top, rotate, scale) { // Called on beginning and end of touch gestures:
         // Update transform:
-        transform.left = left;
-        transform.top = top;
-        transform.rotate = rotate;
-        transform.scale = scale;
+        setTransform(left, top, rotate, scale);
         canvas.select("group")
             .attr("scaleX", transform.scale)
             .attr("scaleY", transform.scale)
@@ -64,11 +61,15 @@ define([
         return transform;
     }
 
-    function setTransform(input) {
-        transform.left = input.left;
-        transform.top = input.top;
-        transform.rotate = input.rotate;
-        transform.scale = input.scale;
+    function setTransformHelper(input) {
+        setTransform(input.left, input.top, input.rotate, input.scale);
+    }
+
+    function setTransform(left, top, rotate, scale) {
+        transform.left = left;
+        transform.top = top;
+        transform.rotate = rotate;
+        transform.scale = scale;
     }
 
     return {
