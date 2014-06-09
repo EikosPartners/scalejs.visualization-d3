@@ -149,23 +149,7 @@ define([
 
         //END REFACTORED INITIALIZATIONS===============================================================================
 
-        tempFuncObj = gestureHelper.setupGestures(
-            visualization, 
-            canvas,
-            canvasElement,
-            enableRotate,
-            enableTouch, 
-            enableZoom, 
-            heldItemPath,
-            selectedItemPath,
-            zoomedItemPath,
-            root,
-            zoomedNode);
 
-        selectTouch = tempFuncObj.selectTouch;
-        selectZoom = tempFuncObj.selectZoom;
-        selectHeld = tempFuncObj.selectHeld;
-        selectRelease = tempFuncObj.selectRelease;
 
         // Sets each parameter in globals to the parameter or to a default value:
         function setGlobalParameters() {
@@ -347,6 +331,24 @@ define([
             // Retrieve new visualization type, and fail gracefully:
             if (visualizations[type] != null) visualization = visualizations[type]();
             else visualization = blankVisualization(type);
+
+            tempFuncObj = gestureHelper.setupGestures(
+                visualization,
+                canvas,
+                canvasElement,
+                enableRotate,
+                enableTouch,
+                enableZoom,
+                heldItemPath,
+                selectedItemPath,
+                zoomedItemPath,
+                root,
+                zoomedNode);
+
+            selectTouch = tempFuncObj.selectTouch;
+            selectZoom = tempFuncObj.selectZoom;
+            selectHeld = tempFuncObj.selectHeld;
+            selectRelease = tempFuncObj.selectRelease;
 
             // Reset transform:
             transform.left = 0;
