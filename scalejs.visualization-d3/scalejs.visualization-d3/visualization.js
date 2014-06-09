@@ -9,7 +9,8 @@ define([
     'scalejs.canvas',
     'scalejs.visualization-d3/visualizations/treemap',
     'scalejs.visualization-d3/visualizations/sunburst',
-    'scalejs.visualization-d3/gesture-helper'
+    'scalejs.visualization-d3/gesture-helper',
+    'scalejs.visualization-d3/canvas-helper'
 ], function (
     core,
     ko,
@@ -18,7 +19,8 @@ define([
     canvasRender,
     treemap,
     sunburst,
-    gestureHelper
+    gestureHelper,
+    canvasHelper
 ) {
     "use strict";
     var //imports
@@ -135,22 +137,16 @@ define([
         transform = gestureHelper.getTransform();
         zoomOutScale = gestureHelper.getZoomOutScale();
 
+        //Canvas Helper
+        canvasHelper.runLogic(element);
+
+        elementStyle = canvasHelper.getElementStyle();
+        canvasWidth = canvasHelper.getCanvasWidth();
+        canvasHeight = canvasHelper.getCanvasHeight();
+        canvasElement = canvasHelper.getCanvasElement();
+        canvas = canvasHelper.getCanvas();
+
         //END REFACTORED INITIALIZATIONS===============================================================================
-
-        // Get element's width and height:
-        elementStyle = window.getComputedStyle(element);
-        // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
-        canvasWidth = parseInt(elementStyle.width, 10);
-        canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
-        canvasHeight = parseInt(elementStyle.height, 10);
-        canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
-
-        canvasElement = d3.select(element)
-                        .style('overflow', 'hidden')
-                        .append("canvas")
-                            .attr("width", canvasWidth)
-                            .attr("height", canvasHeight)
-                            .node();
 
 
         // This function resets the selected node:
@@ -318,10 +314,6 @@ define([
                 registerTouchHandler();
             });
         }
-
-        // Select canvas and set default ease function:
-        // This is done after the touch handler, because select registers touch events on top of the touch handler.
-        canvas = canvasRender.select(canvasElement).ease(d3.ease("cubic-in-out"));
 
         // Sets each parameter in globals to the parameter or to a default value:
         function setGlobalParameters() {
