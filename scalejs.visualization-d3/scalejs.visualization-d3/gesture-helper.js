@@ -28,6 +28,8 @@ define([
         visualization,
         canvas,
         canvasElement,
+        canvasWidth,
+        canvasHeight,
         enableRotate,
         enableTouch,
         enableZoom,
