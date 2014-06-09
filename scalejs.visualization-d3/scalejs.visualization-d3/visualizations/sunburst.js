@@ -11,7 +11,7 @@ define([
     return function () {
         var //Sunburst variables
             visualization,
-            canvasElement,
+            canvas,
             json,
             touchFunc,
             zoomFunc,
@@ -372,7 +372,7 @@ define([
 
         function init(
             parameters,
-            element,
+            canvasObject,
             width,
             height,
             jsonObservable,
@@ -382,7 +382,7 @@ define([
             selectReleaseFunction,
             nodeSelected
         ) {
-            canvasElement = element;
+            canvas = canvasObject;
             json = jsonObservable;
             canvasWidth = width;
             canvasHeight = height;
@@ -408,7 +408,7 @@ define([
                             .value(function (d) { return d.size; })
                             .children(function (d) { return d.children; });
 
-            canvasZoom = canvasElement.append("group");
+            canvasZoom = canvas.append("group");
             canvasArea = canvasZoom.append("group").each(function () {
                 this.fontFamily = "Times New Roman";
                 this.fontSize = 11;
