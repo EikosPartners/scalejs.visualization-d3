@@ -138,15 +138,6 @@ define([
         transform = gestureHelper.getTransform();
         zoomOutScale = gestureHelper.getZoomOutScale();
 
-        //Canvas Helper
-        /*canvasHelper.runLogic(element);
-
-        elementStyle = canvasHelper.getElementStyle();
-        canvasWidth = canvasHelper.getCanvasWidth();
-        canvasHeight = canvasHelper.getCanvasHeight();
-        canvasElement = canvasHelper.getCanvasElement();
-        canvas = canvasHelper.getCanvas();*/
-
         //END REFACTORED INITIALIZATIONS===============================================================================
 
         
@@ -384,7 +375,7 @@ define([
             visualization.parameters = computed(function () {
                 return unwrap(parameters[type]);
             });//visualizationParams;
-            visualization.init(parameters, canvas, canvasWidth, canvasHeight, json, selectTouch, selectZoom, selectHeld, selectRelease, zoomedNode, element);
+            visualization.init(parameters, json, selectTouch, selectZoom, selectHeld, selectRelease, zoomedNode, element);
         }
 
         // Initialize visualization:

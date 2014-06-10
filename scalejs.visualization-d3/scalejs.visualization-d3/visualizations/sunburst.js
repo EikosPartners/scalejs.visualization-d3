@@ -378,9 +378,6 @@ define([
 
         function init(
             parameters,
-            canvasObject,
-            width,
-            height,
             jsonObservable,
             selectTouchFunction,
             selectZoomFunction,
@@ -388,10 +385,7 @@ define([
             selectReleaseFunction,
             nodeSelected
         ) {
-            canvas = canvasObject;
             json = jsonObservable;
-            canvasWidth = width;
-            canvasHeight = height;
             radius = Math.min(canvasWidth, canvasHeight) / 2;
             x = d3.scale.linear().range([0, 2 * Math.PI]);
             y = d3.scale.linear().range([0, radius]);

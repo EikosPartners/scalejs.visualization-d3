@@ -280,9 +280,6 @@ define([
 
         function init(
             parameters,
-            canvasObject,
-            width,
-            height,
             jsonObservable,
             selectTouchFunction,
             selectZoomFunction,
@@ -292,10 +289,7 @@ define([
             //trueElement
         ) {
             // Setup variables:
-            canvas = canvasObject;
             json = jsonObservable;
-            canvasWidth = width;
-            canvasHeight = height;
             x = mapValue().range([0, canvasWidth]);
             y = mapValue().range([0, canvasHeight]);
             touchFunc = selectTouchFunction;
