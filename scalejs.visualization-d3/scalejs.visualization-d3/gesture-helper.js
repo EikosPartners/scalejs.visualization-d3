@@ -16,16 +16,18 @@ define([
 
         //Variables
         transform = {
-        left: 0,
-        top: 0,
-        rotate: 0,
-        scale: 1
-    },
-        zoomOutScale = 0.8;
+            left: 0,
+            top: 0,
+            rotate: 0,
+            scale: 1
+        },
+        zoomOutScale = 0.8,
+        root,
+        visualization;
 
 
     function setupGestures(
-        visualization,
+        vis,
         canvas,
         canvasElement,
         canvasWidth,
@@ -36,9 +38,10 @@ define([
         heldItemPath,
         selectedItemPath,
         zoomedItemPath,
-        root,
         zoomedNode
         ) {
+
+        visualization = vis;
 
         var touchHandler
 
@@ -227,6 +230,7 @@ define([
         if (isObservable(enableTouch)) {
             // Subscribe to changes in enableTouch to dynamically enable and disable the pinch&zoom touch handler:
             enableTouch.subscribe(function () {
+                
                 touchHandler.remove();
                 registerTouchHandler();
             });
@@ -268,6 +272,15 @@ define([
 
 
     //====
+
+    function setRoot(r) {
+        root = r;
+    }
+
+    function setVis(vis) {
+        visualization = vis;
+    }
+
     function getTransform() {
         return transform;
     }
@@ -293,7 +306,9 @@ define([
         setTransformHelper: setTransformHelper,
         resetTransformAnimation: resetTransformAnimation,
         getZoomOutScale: getZoomOutScale,
-        setupGestures: setupGestures
+        setupGestures: setupGestures,
+        setVis: setVis,
+        setRoot: setRoot
 
     };
 });

@@ -64,7 +64,7 @@ define([
             enableZoom = parameters.enableZoom || false,
             enableTouch = parameters.enableTouch || false,
             allowTextOverflow = parameters.allowTextOverflow || false,
-            visualization,
+            visualization = {},
             visualizationType = isObservable(parameters.visualization) ? parameters.visualization : observable(parameters.visualization),
             visualizationParams, // visualization specific parameters may be passed
             json,
@@ -149,7 +149,7 @@ define([
 
         //END REFACTORED INITIALIZATIONS===============================================================================
 
-
+        
 
         // Sets each parameter in globals to the parameter or to a default value:
         function setGlobalParameters() {
@@ -275,6 +275,8 @@ define([
 
             return newNode;
         }
+
+
         json = ko.computed(function () {
             var maxlvl = { value: 0 }, stepSize,
                 // Get parameters (or defaults values):
@@ -290,6 +292,7 @@ define([
             levels = parseLevelParameters(levelsSource);
             // Generate Json:
             root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
+            gestureHelper.setRoot(root);
             // No node is zoomed to, so zoom to root:
             if (zoomedNode.id == null) zoomedNode = root;
             // Make maxVisibleLevels the max lvl if not specified:
@@ -326,6 +329,7 @@ define([
             return root;
         }).extend({ throttle: triggerTime });;
 
+
         // Change/Set visualization:
         function setVisualization(type) {
             // Retrieve new visualization type, and fail gracefully:
@@ -344,13 +348,14 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                root,
                 zoomedNode);
 
             selectTouch = tempFuncObj.selectTouch;
             selectZoom = tempFuncObj.selectZoom;
             selectHeld = tempFuncObj.selectHeld;
             selectRelease = tempFuncObj.selectRelease;
+
+            //gestureHelper.setVis(visualization);
 
             // Reset transform:
             transform.left = 0;
