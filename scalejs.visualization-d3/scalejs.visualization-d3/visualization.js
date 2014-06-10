@@ -9,8 +9,7 @@ define([
     'scalejs.canvas',
     'scalejs.visualization-d3/visualizations/treemap',
     'scalejs.visualization-d3/visualizations/sunburst',
-    'scalejs.visualization-d3/gesture-helper',
-    'scalejs.visualization-d3/canvas-helper'
+    'scalejs.visualization-d3/gesture-helper'
 ], function (
     core,
     ko,
@@ -19,8 +18,7 @@ define([
     canvasRender,
     treemap,
     sunburst,
-    gestureHelper,
-    canvasHelper
+    gestureHelper
 ) {
     "use strict";
     var //imports
