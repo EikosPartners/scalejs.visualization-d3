@@ -57,7 +57,7 @@ define([
         valueAccessor
     ) {
         var parameters = valueAccessor(),
-            triggerTime = parameters.triggerTime == null || 10,
+            triggerTime = parameters.triggerTime == null ? 10 : parameters.triggerTime,
             enableRotate = parameters.enableRotate,
             enableZoom = parameters.enableZoom || false,
             enableTouch = parameters.enableTouch || false,
@@ -207,6 +207,7 @@ define([
             return levels;
         }
         
+        //requires zoomedNode
         // Recursively traverse json data, and build it for rendering:
         function createNodeJson(node, levelConfig, index, maxlvl) {
             var childNode, children, stepSize, color,
@@ -315,7 +316,7 @@ define([
 
             // Return the new json data:
             return root;
-        }).extend({ throttle: triggerTime });;
+        }).extend({ throttle: triggerTime });
 
 
         // Change/Set visualization:
@@ -419,6 +420,7 @@ define([
                 disposeLayout = undefined;
             });
         }
+        
     }
 
     return {
