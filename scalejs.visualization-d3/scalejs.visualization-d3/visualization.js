@@ -83,7 +83,6 @@ define([
                 id: null
             },
             transform,
-            //touchHandler,
             zoomOutScale,
             disposeLayout,
             tempFuncObj;
@@ -144,15 +143,15 @@ define([
 
         // Sets each parameter in globals to the parameter or to a default value:
         function setGlobalParameters() {
-            globals.idPath = unwrap(parameters.idPath) || 'id';
-            globals.namePath = unwrap(parameters.namePath) || globals.idPath;
-            globals.childrenPath = unwrap(parameters.childrenPath) || 'children';
-            globals.areaPath = unwrap(parameters.areaPath) || 'area';
-            globals.colorPath = unwrap(parameters.colorPath) || 'color';
-            globals.colorPalette = unwrap(parameters.colorPalette) || 'PuBu';
-            globals.fontSize = unwrap(parameters.fontSize) || 11;
-            globals.fontFamily = unwrap(parameters.fontFamily) || "Times New Roman";
-            globals.fontColor = unwrap(parameters.fontColor) || "#000";
+            globals.idPath =            unwrap(parameters.idPath)        || 'id';
+            globals.namePath =          unwrap(parameters.namePath)      || globals.idPath;
+            globals.childrenPath =      unwrap(parameters.childrenPath)  || 'children';
+            globals.areaPath =          unwrap(parameters.areaPath)      || 'area';
+            globals.colorPath =         unwrap(parameters.colorPath)     || 'color';
+            globals.colorPalette =      unwrap(parameters.colorPalette)  || 'PuBu';
+            globals.fontSize =          unwrap(parameters.fontSize)      || 11;
+            globals.fontFamily =        unwrap(parameters.fontFamily)    || "Times New Roman";
+            globals.fontColor =         unwrap(parameters.fontColor)     || "#000";
 
             // Set global colorPalette (array, undefined or string) parameters:
             if (globals.colorPalette instanceof Array) {
@@ -323,15 +322,12 @@ define([
 
         // Change/Set visualization:
         function setVisualization(type, domElement) {
-            // Retrieve new visualization type, and fail gracefully:
-
-            console.log(domElement);
-
             //Remove previous visualization's nodes
             while (domElement.firstChild) {
                 domElement.removeChild(domElement.firstChild);
             }
 
+            // Retrieve new visualization type, and fail gracefully:
             if (visualizations[type] != null) visualization = visualizations[type]();
             else visualization = blankVisualization(type);
 
@@ -361,8 +357,6 @@ define([
             selectZoom = tempFuncObj.selectZoom;
             selectHeld = tempFuncObj.selectHeld;
             selectRelease = tempFuncObj.selectRelease;
-
-            //gestureHelper.setVis(visualization);
 
             // Reset transform:
             transform.left = 0;
