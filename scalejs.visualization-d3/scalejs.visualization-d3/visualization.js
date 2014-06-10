@@ -139,13 +139,13 @@ define([
         zoomOutScale = gestureHelper.getZoomOutScale();
 
         //Canvas Helper
-        canvasHelper.runLogic(element);
+        /*canvasHelper.runLogic(element);
 
         elementStyle = canvasHelper.getElementStyle();
         canvasWidth = canvasHelper.getCanvasWidth();
         canvasHeight = canvasHelper.getCanvasHeight();
         canvasElement = canvasHelper.getCanvasElement();
-        canvas = canvasHelper.getCanvas();
+        canvas = canvasHelper.getCanvas();*/
 
         //END REFACTORED INITIALIZATIONS===============================================================================
 
@@ -331,10 +331,26 @@ define([
 
 
         // Change/Set visualization:
-        function setVisualization(type) {
+        function setVisualization(type, domElement) {
             // Retrieve new visualization type, and fail gracefully:
+
+            console.log(domElement);
+
+            //Remove previous visualization's nodes
+            while (domElement.firstChild) {
+                domElement.removeChild(domElement.firstChild);
+            }
+
             if (visualizations[type] != null) visualization = visualizations[type]();
             else visualization = blankVisualization(type);
+
+            visualization.initializeCanvas(domElement);
+
+            elementStyle = visualization.getElementStyle();
+            canvasWidth = visualization.getCanvasWidth();
+            canvasHeight = visualization.getCanvasHeight();
+            canvasElement = visualization.getCanvasElement();
+            canvas = visualization.getCanvas();
 
             tempFuncObj = gestureHelper.setupGestures(
                 visualization,
@@ -372,7 +388,7 @@ define([
         }
 
         // Initialize visualization:
-        setVisualization(visualizationType());
+        setVisualization(visualizationType(), element);
 
         // Subscribe to allowTextOverflow changes:
         if (isObservable(allowTextOverflow)) {
@@ -385,7 +401,7 @@ define([
         // Subscribe to visualization type changes:
         visualizationType.subscribe(function (type) {
             visualization.remove();
-            setVisualization(type);
+            setVisualization(type, element);
         });
         
         // Subscribe to data changes:

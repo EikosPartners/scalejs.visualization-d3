@@ -1,10 +1,12 @@
 ﻿/*global define*/
 define([
     'd3',
-    'scalejs.visualization-d3/visualization'
+    'scalejs.visualization-d3/visualization',
+    'scalejs.visualization-d3/canvas-helper'
 ], function (
     d3,
-    visualization
+    visualization,
+    canvasHelper
 ) {
     "use strict";
 
@@ -50,7 +52,10 @@ define([
             canvasArea,
             spacing = 3,
             borderColor = d3.interpolate("#888", "#fff"),
-            kx, ky;
+            kx, ky,
+            tempObject,
+            elementStyle,
+            canvasElement;
 
         function getNodeTreePath(node) {
             var path = [];
@@ -354,12 +359,50 @@ define([
             canvasArea.remove();
         }
 
+        function initializeCanvas(element) {
+
+            tempObject = canvasHelper.initializeCanvas(element);
+
+            canvas = tempObject.canvas;
+            canvasWidth = tempObject.canvasWidth;
+            canvasHeight = tempObject.canvasHeight;
+            canvasElement = tempObject.canvasElement;
+            elementStyle = tempObject.elementStyle;
+
+        }
+
+        function getCanvas() {
+            return canvas;
+        }
+
+        function getCanvasWidth() {
+            return canvasWidth;
+        }
+
+        function getCanvasHeight() {
+            return canvasHeight;
+        }
+
+        function getCanvasElement() {
+            return canvasElement;
+        }
+
+        function getElementStyle() {
+            return elementStyle;
+        }
+
         // Return treemap object:
         visualization = {
             init: init,
             update: update,
             resize: resize,
             remove: remove,
+            initializeCanvas: initializeCanvas,
+            getCanvas: getCanvas,
+            getCanvasWidth: getCanvasWidth,
+            getCanvasHeight: getCanvasHeight,
+            getCanvasElement: getCanvasElement,
+            getElementStyle: getElementStyle,
             enableRotate: false,
             enableRotateDefault: false,
             enableRootZoom: true,

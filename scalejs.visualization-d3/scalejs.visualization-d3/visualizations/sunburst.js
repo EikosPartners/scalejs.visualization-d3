@@ -1,10 +1,12 @@
 ﻿/*global define*/
 define([
     'knockout',
-    'd3'
+    'd3',
+    'scalejs.visualization-d3/canvas-helper'
 ], function (
     ko,
-    d3
+    d3,
+    canvasHelper
 ) {
     "use strict";
     var unwrap = ko.utils.unwrapObservable;
@@ -26,7 +28,10 @@ define([
             sunburstLayout,
             canvasZoom,
             canvasArea,
-            params;
+            params,
+            tempObject,
+            elementStyle,
+            canvasElement;
 
         function getNodeTreePath(node) {
             var path = [];
@@ -370,6 +375,7 @@ define([
             }
         }
 
+
         function init(
             parameters,
             canvasObject,
@@ -446,12 +452,50 @@ define([
             }
         }
 
+        function initializeCanvas(element) {
+
+            tempObject = canvasHelper.initializeCanvas(element);
+
+            canvas = tempObject.canvas;
+            canvasWidth = tempObject.canvasWidth;
+            canvasHeight = tempObject.canvasHeight;
+            canvasElement = tempObject.canvasElement;
+            elementStyle = tempObject.elementStyle;
+
+        }
+
+        function getCanvas() {
+            return canvas;
+        }
+
+        function getCanvasWidth() {
+            return canvasWidth;
+        }
+
+        function getCanvasHeight() {
+            return canvasHeight;
+        }
+
+        function getCanvasElement() {
+            return canvasElement;
+        }
+
+        function getElementStyle() {
+            return elementStyle;
+        }
+
         // Return sunburst object:
         visualization = {
             init: init,
             update: update,
             resize: resize,
             remove: remove,
+            initializeCanvas: initializeCanvas,
+            getCanvas: getCanvas,
+            getCanvasWidth: getCanvasWidth,
+            getCanvasHeight: getCanvasHeight,
+            getCanvasElement: getCanvasElement,
+            getElementStyle: getElementStyle,
             enableRotate: true,
             enableRotateDefault: true,
             enableRootZoom: false,

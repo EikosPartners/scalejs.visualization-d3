@@ -43,7 +43,7 @@ define([
 
     function initializeCanvas(element) {
 
-        /*var elementStyle,
+        var elementStyle,
             canvasWidth,
             canvasHeight,
             canvasElement,
@@ -77,7 +77,7 @@ define([
             canvasHeight: canvasHeight,
             canvasElement: canvasElement,
             canvas: canvas
-        };*/
+        };
     }
 
     function getCanvas() {
@@ -107,6 +107,7 @@ define([
         getCanvasWidth: getCanvasWidth,
         getCanvasHeight: getCanvasHeight,
         getCanvasElement: getCanvasElement,
-        getElementStyle: getElementStyle
+        getElementStyle: getElementStyle,
+        initializeCanvas: initializeCanvas
     };
 });
