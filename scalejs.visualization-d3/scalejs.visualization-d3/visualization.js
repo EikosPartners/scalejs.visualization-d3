@@ -122,7 +122,6 @@ define([
         });
 
         //REFACTORED INITIALIZATIONS===================================================================================
-
         //END REFACTORED INITIALIZATIONS===============================================================================
 
         // Sets each parameter in globals to the parameter or to a default value:
