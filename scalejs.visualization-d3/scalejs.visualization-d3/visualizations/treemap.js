@@ -1,12 +1,10 @@
 ﻿/*global define*/
 define([
     'd3',
-    'scalejs.visualization-d3/visualization',
     'scalejs.visualization-d3/canvas-helper',
     'scalejs.visualization-d3/gesture-helper'
 ], function (
     d3,
-    visualization,
     canvasHelper,
     gestureHelper
 ) {
