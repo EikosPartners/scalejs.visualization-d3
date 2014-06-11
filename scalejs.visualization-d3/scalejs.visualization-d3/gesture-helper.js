@@ -334,16 +334,11 @@ define([
         transform.scale = scale;
     }
 
-    function getZoomOutScale() {
-        return zoomOutScale;
-    }
-
     return {
         getTransform: getTransform,
         setTransform: setTransform,
         setTransformHelper: setTransformHelper,
         resetTransformAnimation: resetTransformAnimation,
-        getZoomOutScale: getZoomOutScale,
         setupGestures: setupGestures,
         setVis: setVis,
         setRoot: setRoot,

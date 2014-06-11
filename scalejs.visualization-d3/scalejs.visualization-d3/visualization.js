@@ -132,7 +132,6 @@ define([
 
         //Gesture Helper
         transform = gestureHelper.getTransform();
-        zoomOutScale = gestureHelper.getZoomOutScale();
 
         //END REFACTORED INITIALIZATIONS===============================================================================
 
