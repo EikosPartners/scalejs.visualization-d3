@@ -334,6 +334,13 @@ define([
         transform.scale = scale;
     }
 
+    function resetTransformations() {
+        transform.left = 0;
+        transform.top = 0;
+        transform.rotate = 0;
+        transform.scale = 1;
+    }
+
     return {
         getTransform: getTransform,
         setTransform: setTransform,
@@ -342,7 +349,8 @@ define([
         setupGestures: setupGestures,
         setVis: setVis,
         setRoot: setRoot,
-        setLayoutHandler: setLayoutHandler
+        setLayoutHandler: setLayoutHandler,
+        resetTransformations: resetTransformations
 
     };
 });

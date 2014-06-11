@@ -71,17 +71,10 @@ define([
             selectedItemPath = isObservable(parameters.selectedItemPath) ? parameters.selectedItemPath : observable(parameters.selectedItemPath),
             heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath),
             nodeScale = d3.scale.linear(),
-            canvasElement,
-            canvas,
-            elementStyle,
-            canvasWidth,
-            canvasHeight,
             root,
             zoomedNode = {
                 id: null
             },
-            transform,
-            zoomOutScale,
             tempFuncObj;
 
         // Attempts to find a node when given a path
@@ -130,12 +123,7 @@ define([
 
         //REFACTORED INITIALIZATIONS===================================================================================
 
-        //Gesture Helper
-        transform = gestureHelper.getTransform();
-
         //END REFACTORED INITIALIZATIONS===============================================================================
-
-        
 
         // Sets each parameter in globals to the parameter or to a default value:
         function setGlobalParameters() {
@@ -336,28 +324,18 @@ define([
 
             visualization.initializeCanvas(domElement);
 
-            elementStyle = visualization.getElementStyle();
-            canvasWidth = visualization.getCanvasWidth();
-            canvasHeight = visualization.getCanvasHeight();
-            canvasElement = visualization.getCanvasElement();
-            canvas = visualization.getCanvas();
-
             // Remove old layout handlers and set new ones
             visualization.setLayoutHandler(domElement, zoomedNode);
 
-            tempFuncObj = gestureHelper.setupGestures(
-                visualization,
-                canvas,
-                canvasElement,
-                canvasWidth,
-                canvasHeight,
+            tempFuncObj = visualization.setupGestures(
                 enableRotate,
                 enableTouch,
                 enableZoom,
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                zoomedNode);
+                zoomedNode
+            );
 
             selectTouch = tempFuncObj.selectTouch;
             selectZoom = tempFuncObj.selectZoom;
@@ -365,10 +343,7 @@ define([
             selectRelease = tempFuncObj.selectRelease;
 
             // Reset transform:
-            transform.left = 0;
-            transform.top = 0;
-            transform.rotate = 0;
-            transform.scale = 1;
+            visualization.resetTransformations();
 
             // Run visualization's initialize code:
             visualization.allowTextOverflow = unwrap(allowTextOverflow);

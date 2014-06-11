@@ -484,6 +484,36 @@ define([
             gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode);
         }
 
+        function setupGestures (
+                enableRotate,
+                enableTouch,
+                enableZoom,
+                heldItemPath,
+                selectedItemPath,
+                zoomedItemPath,
+                zoomedNode
+            
+        ) {
+            return gestureHelper.setupGestures(
+                visualization,
+                canvas,
+                canvasElement,
+                canvasWidth,
+                canvasHeight,
+                enableRotate,
+                enableTouch,
+                enableZoom,
+                heldItemPath,
+                selectedItemPath,
+                zoomedItemPath,
+                zoomedNode
+            );
+        }
+
+        function resetTransformations() {
+            gestureHelper.resetTransformations();
+        }
+
         // Return sunburst object:
         visualization = {
             init: init,
@@ -497,6 +527,8 @@ define([
             getCanvasElement: getCanvasElement,
             getElementStyle: getElementStyle,
             setLayoutHandler: setLayoutHandler,
+            setupGestures: setupGestures,
+            resetTransformations: resetTransformations,
             enableRotate: true,
             enableRotateDefault: true,
             enableRootZoom: false,
