@@ -308,15 +308,10 @@ define([
         // Change/Set visualization:
         function setVisualization(type, domElement) {
 
-            
-
             //Remove previous visualization's nodes
             while (domElement.firstChild) {
                 domElement.removeChild(domElement.firstChild);
             }
-
-
-            // Actual setting starts here
 
             // Retrieve new visualization type, and fail gracefully:
             if (visualizations[type] != null) visualization = visualizations[type]();
@@ -327,7 +322,7 @@ define([
             // Remove old layout handlers and set new ones
             visualization.setLayoutHandler(domElement, zoomedNode);
 
-            tempFuncObj = visualization.setupGestures(
+            visualization.setupGestures(
                 enableRotate,
                 enableTouch,
                 enableZoom,
@@ -337,11 +332,6 @@ define([
                 zoomedNode
             );
 
-            selectTouch = tempFuncObj.selectTouch;
-            selectZoom = tempFuncObj.selectZoom;
-            selectHeld = tempFuncObj.selectHeld;
-            selectRelease = tempFuncObj.selectRelease;
-
             // Reset transform:
             visualization.resetTransformations();
 
@@ -350,7 +340,7 @@ define([
             visualization.parameters = computed(function () {
                 return unwrap(parameters[type]);
             });//visualizationParams;
-            visualization.init(parameters, json, selectTouch, selectZoom, selectHeld, selectRelease, zoomedNode, element);
+            visualization.init(parameters, json, zoomedNode);
         }
 
         // Initialize visualization:

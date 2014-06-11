@@ -33,7 +33,8 @@ define([
             params,
             tempObject,
             elementStyle,
-            canvasElement;
+            canvasElement,
+            tempFuncObj;
 
         function getNodeTreePath(node) {
             var path = [];
@@ -381,20 +382,12 @@ define([
         function init(
             parameters,
             jsonObservable,
-            selectTouchFunction,
-            selectZoomFunction,
-            selectHeldFunction,
-            selectReleaseFunction,
             nodeSelected
         ) {
             json = jsonObservable;
             radius = Math.min(canvasWidth, canvasHeight) / 2;
             x = d3.scale.linear().range([0, 2 * Math.PI]);
             y = d3.scale.linear().range([0, radius]);
-            touchFunc = selectTouchFunction;
-            zoomFunc = selectZoomFunction;
-            heldFunc = selectHeldFunction;
-            releaseFunc = selectReleaseFunction;
 
             // Define temp vars:
             var zoomTreePath = getNodeTreePath(nodeSelected),
@@ -494,7 +487,7 @@ define([
                 zoomedNode
             
         ) {
-            return gestureHelper.setupGestures(
+            tempFuncObj = gestureHelper.setupGestures(
                 visualization,
                 canvas,
                 canvasElement,
@@ -508,6 +501,11 @@ define([
                 zoomedItemPath,
                 zoomedNode
             );
+
+            touchFunc = tempFuncObj.selectTouch;
+            zoomFunc = tempFuncObj.selectZoom;
+            heldFunc = tempFuncObj.selectHeld;
+            releaseFunc = tempFuncObj.selectRelease;
         }
 
         function resetTransformations() {
