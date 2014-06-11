@@ -39,9 +39,11 @@ define([
         heldItemPath,
         selectedItemPath,
         zoomedItemPath,
-        zoomedNode
+        zoomedNode,
+        rootFromJson
         ) {
 
+        root = rootFromJson;
         visualization = vis;
 
         var touchHandler

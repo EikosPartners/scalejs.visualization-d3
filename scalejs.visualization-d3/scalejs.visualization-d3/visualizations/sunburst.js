@@ -484,7 +484,8 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                zoomedNode
+                zoomedNode,
+                root
             
         ) {
             tempFuncObj = gestureHelper.setupGestures(
@@ -499,7 +500,8 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                zoomedNode
+                zoomedNode,
+                root
             );
 
             touchFunc = tempFuncObj.selectTouch;

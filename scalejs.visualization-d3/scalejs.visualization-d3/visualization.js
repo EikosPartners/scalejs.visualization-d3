@@ -8,8 +8,7 @@ define([
     'd3.colorbrewer',
     'scalejs.canvas',
     'scalejs.visualization-d3/visualizations/treemap',
-    'scalejs.visualization-d3/visualizations/sunburst',
-    'scalejs.visualization-d3/gesture-helper'
+    'scalejs.visualization-d3/visualizations/sunburst'
 ], function (
     core,
     ko,
@@ -17,8 +16,7 @@ define([
     colorbrewer,
     canvasRender,
     treemap,
-    sunburst,
-    gestureHelper
+    sunburst
 ) {
     "use strict";
     var //imports
@@ -266,7 +264,6 @@ define([
             levels = parseLevelParameters(levelsSource);
             // Generate Json:
             root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
-            gestureHelper.setRoot(root);
             // No node is zoomed to, so zoom to root:
             if (zoomedNode.id == null) zoomedNode = root;
             // Make maxVisibleLevels the max lvl if not specified:
@@ -305,7 +302,7 @@ define([
 
 
         // Change/Set visualization:
-        function setVisualization(type, domElement) {
+        function setVisualization(type, domElement, rootFromJson) {
 
             //Remove previous visualization's nodes
             while (domElement.firstChild) {
@@ -328,7 +325,8 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                zoomedNode
+                zoomedNode,
+                rootFromJson
             );
 
             // Reset transform:
@@ -343,7 +341,7 @@ define([
         }
 
         // Initialize visualization:
-        setVisualization(visualizationType(), element);
+        setVisualization(visualizationType(), element, root);
 
         // Subscribe to allowTextOverflow changes:
         if (isObservable(allowTextOverflow)) {
@@ -356,7 +354,7 @@ define([
         // Subscribe to visualization type changes:
         visualizationType.subscribe(function (type) {
             visualization.remove();
-            setVisualization(type, element);
+            setVisualization(type, element, root);
         });
         
         // Subscribe to data changes:
