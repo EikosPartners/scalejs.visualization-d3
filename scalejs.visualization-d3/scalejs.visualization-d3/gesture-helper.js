@@ -23,7 +23,8 @@ define([
         },
         zoomOutScale = 0.8,
         root,
-        visualization;
+        visualization,
+        disposeLayout;
 
 
     function setupGestures(
@@ -270,6 +271,43 @@ define([
             });
     }
 
+    function setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode) {
+
+        //Dispose previous handlers
+        if (disposeLayout !== undefined) {
+            disposeLayout();
+            disposeLayout = undefined;
+        }
+
+        // Check if a layout plugin exists:
+        if (core.layout) {
+            // Add event listener for on layout change:
+            disposeLayout = core.layout.onLayoutDone(function () {
+                var lastWidth = canvasWidth,
+                    lastHeight = canvasHeight;
+                elementStyle = window.getComputedStyle(element);
+                // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
+                canvasWidth = parseInt(elementStyle.width, 10);
+                canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
+                canvasHeight = parseInt(elementStyle.height, 10);
+                canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
+                if (canvasWidth === lastWidth && canvasHeight === lastHeight) return;
+
+                canvas.attr('width', canvasWidth);
+                canvas.attr('height', canvasHeight);
+                visualization.resize(canvasWidth, canvasHeight);
+                // Must set width and height before doing any animation (to calculate layouts properly):
+                resetTransformAnimation(canvas);
+                update(zoomedNode);
+            });
+            ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
+                disposeLayout();
+                disposeLayout = undefined;
+            });
+        }
+
+        return disposeLayout;
+    }
 
     //====
 
@@ -308,7 +346,8 @@ define([
         getZoomOutScale: getZoomOutScale,
         setupGestures: setupGestures,
         setVis: setVis,
-        setRoot: setRoot
+        setRoot: setRoot,
+        setLayoutHandler: setLayoutHandler
 
     };
 });

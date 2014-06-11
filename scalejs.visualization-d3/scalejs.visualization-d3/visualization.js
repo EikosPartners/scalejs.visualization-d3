@@ -82,7 +82,6 @@ define([
             },
             transform,
             zoomOutScale,
-            disposeLayout,
             tempFuncObj;
 
         // Attempts to find a node when given a path
@@ -321,10 +320,16 @@ define([
 
         // Change/Set visualization:
         function setVisualization(type, domElement) {
+
+            
+
             //Remove previous visualization's nodes
             while (domElement.firstChild) {
                 domElement.removeChild(domElement.firstChild);
             }
+
+
+            // Actual setting starts here
 
             // Retrieve new visualization type, and fail gracefully:
             if (visualizations[type] != null) visualization = visualizations[type]();
@@ -337,6 +342,9 @@ define([
             canvasHeight = visualization.getCanvasHeight();
             canvasElement = visualization.getCanvasElement();
             canvas = visualization.getCanvas();
+
+            // Remove old layout handlers and set new ones
+            visualization.setLayoutHandler(domElement, zoomedNode);
 
             tempFuncObj = gestureHelper.setupGestures(
                 visualization,
@@ -393,33 +401,6 @@ define([
             //visualization.parameters = visualizationParams;
             visualization.update(zoomedNode);
         });
-
-        // Check if a layout plugin exists:
-        if (core.layout) {
-            // Add event listener for on layout change:
-            disposeLayout = core.layout.onLayoutDone(function () {
-                var lastWidth = canvasWidth,
-                    lastHeight = canvasHeight;
-                elementStyle = window.getComputedStyle(element);
-                // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
-                canvasWidth = parseInt(elementStyle.width, 10);
-                canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
-                canvasHeight = parseInt(elementStyle.height, 10);
-                canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
-                if (canvasWidth === lastWidth && canvasHeight === lastHeight) return;
-
-                canvas.attr('width', canvasWidth);
-                canvas.attr('height', canvasHeight);
-                visualization.resize(canvasWidth, canvasHeight);
-                // Must set width and height before doing any animation (to calculate layouts properly):
-                gestureHelper.resetTransformAnimation(canvas);
-                visualization.update(zoomedNode);
-            });
-            ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
-                disposeLayout();
-                disposeLayout = undefined;
-            });
-        }
         
     }
 

@@ -2,11 +2,13 @@
 define([
     'knockout',
     'd3',
-    'scalejs.visualization-d3/canvas-helper'
+    'scalejs.visualization-d3/canvas-helper',
+    'scalejs.visualization-d3/gesture-helper'
 ], function (
     ko,
     d3,
-    canvasHelper
+    canvasHelper,
+    gestureHelper
 ) {
     "use strict";
     var unwrap = ko.utils.unwrapObservable;
@@ -478,6 +480,10 @@ define([
             return elementStyle;
         }
 
+        function setLayoutHandler(element, zoomedNode) {
+            gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode);
+        }
+
         // Return sunburst object:
         visualization = {
             init: init,
@@ -490,6 +496,7 @@ define([
             getCanvasHeight: getCanvasHeight,
             getCanvasElement: getCanvasElement,
             getElementStyle: getElementStyle,
+            setLayoutHandler: setLayoutHandler,
             enableRotate: true,
             enableRotateDefault: true,
             enableRootZoom: false,

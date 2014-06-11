@@ -2,11 +2,13 @@
 define([
     'd3',
     'scalejs.visualization-d3/visualization',
-    'scalejs.visualization-d3/canvas-helper'
+    'scalejs.visualization-d3/canvas-helper',
+    'scalejs.visualization-d3/gesture-helper'
 ], function (
     d3,
     visualization,
-    canvasHelper
+    canvasHelper,
+    gestureHelper
 ) {
     "use strict";
 
@@ -385,6 +387,10 @@ define([
             return elementStyle;
         }
 
+        function setLayoutHandler(element, zoomedNode) {
+            gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode);
+        }
+
         // Return treemap object:
         visualization = {
             init: init,
@@ -397,6 +403,7 @@ define([
             getCanvasHeight: getCanvasHeight,
             getCanvasElement: getCanvasElement,
             getElementStyle: getElementStyle,
+            setLayoutHandler: setLayoutHandler,
             enableRotate: false,
             enableRotateDefault: false,
             enableRootZoom: true,
