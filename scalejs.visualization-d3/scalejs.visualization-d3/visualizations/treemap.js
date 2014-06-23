@@ -6,7 +6,7 @@ define([
 ], function (
     d3,
     canvasHelper,
-    gestureHelper
+    gestureHelperCreator
 ) {
     "use strict";
 
@@ -35,7 +35,8 @@ define([
     }
 
     return function () {
-        var //Treemap variables
+        var gestureHelper = gestureHelperCreator(),
+            //Treemap variables
             visualization,
             canvas,
             json,
@@ -55,8 +56,7 @@ define([
             kx, ky,
             tempObject,
             elementStyle,
-            canvasElement,
-            tempFuncObj;
+            canvasElement;
 
         function getNodeTreePath(node) {
             var path = [];
@@ -392,20 +392,20 @@ define([
                 root
 
         ) {
-            tempFuncObj = gestureHelper.setupGestures(
-                visualization,
-                canvas,
-                canvasElement,
-                canvasWidth,
-                canvasHeight,
-                enableRotate,
-                enableTouch,
-                enableZoom,
-                heldItemPath,
-                selectedItemPath,
-                zoomedItemPath,
-                zoomedNode,
-                root
+            var tempFuncObj = gestureHelper.setupGestures(
+                    visualization,
+                    canvas,
+                    canvasElement,
+                    canvasWidth,
+                    canvasHeight,
+                    enableRotate,
+                    enableTouch,
+                    enableZoom,
+                    heldItemPath,
+                    selectedItemPath,
+                    zoomedItemPath,
+                    zoomedNode,
+                    root
             );
 
             touchFunc = tempFuncObj.selectTouch;

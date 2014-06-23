@@ -8,12 +8,13 @@ define([
     ko,
     d3,
     canvasHelper,
-    gestureHelper
+    gestureHelperCreator
 ) {
     "use strict";
     var unwrap = ko.utils.unwrapObservable;
     return function () {
-        var //Sunburst variables
+        var gestureHelper = gestureHelperCreator(),
+            //Sunburst variables
             visualization,
             canvas,
             json,
@@ -33,8 +34,7 @@ define([
             params,
             tempObject,
             elementStyle,
-            canvasElement,
-            tempFuncObj;
+            canvasElement;
 
         function getNodeTreePath(node) {
             var path = [];
@@ -488,20 +488,20 @@ define([
                 root
             
         ) {
-            tempFuncObj = gestureHelper.setupGestures(
-                visualization,
-                canvas,
-                canvasElement,
-                canvasWidth,
-                canvasHeight,
-                enableRotate,
-                enableTouch,
-                enableZoom,
-                heldItemPath,
-                selectedItemPath,
-                zoomedItemPath,
-                zoomedNode,
-                root
+            var tempFuncObj = gestureHelper.setupGestures(
+                    visualization,
+                    canvas,
+                    canvasElement,
+                    canvasWidth,
+                    canvasHeight,
+                    enableRotate,
+                    enableTouch,
+                    enableZoom,
+                    heldItemPath,
+                    selectedItemPath,
+                    zoomedItemPath,
+                    zoomedNode,
+                    root
             );
 
             touchFunc = tempFuncObj.selectTouch;
