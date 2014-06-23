@@ -430,7 +430,6 @@ define([
             canvasHeight = height;
 
             radius = Math.min(canvasWidth, canvasHeight) / 2;
-            y.range([0, radius]);
         }
 
         function remove() {
