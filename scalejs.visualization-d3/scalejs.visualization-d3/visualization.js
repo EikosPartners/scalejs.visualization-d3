@@ -73,16 +73,18 @@ define([
             heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath),
             nodeScale = d3.scale.linear(),
             root,
-            zoomedNode = {
-                id: null
-            },
+            zoomedNode,
             tempFuncObj;
 
+
+        /*zoomedNode = computed(function () {
+            return getNode(zoomedItemPath(), json());
+        });*/
         
 
         // Subscribe to zoomedItemPath changes, verify path and then zoom:
         zoomedItemPath.subscribe(function (path) {
-            var node = getNode(path);
+            var node = getNode(path, json());
             // even if there is no node, the zoom must still be set to something
             if (!node) {
                 zoomedItemPath([]);
@@ -90,17 +92,18 @@ define([
                 node = json();
             }
             if (node) {
+                console.log('node exists');
                 zoomedNode = node;
                 root.curLevel = zoomedNode.lvl;
                 root.curMaxLevel = zoomedNode.lvl + root.maxVisibleLevels - 1;
-                visualization.update(zoomedNode);    // Animate zoom effect
+                visualization.update(getNode(zoomedItemPath(), json()));    // Animate zoom effect
             }
         });
 
         // Subscribe to selectedItemPath changes from outside:
         selectedItemPath.subscribe(function (path) {
             // if there is no node, there is no path
-            if (!getNode(path)) {
+            if (!getNode(path, json())) {
                 selectedItemPath(undefined);
             }
         });
@@ -176,7 +179,6 @@ define([
             return levels;
         }
         
-        //requires zoomedNode
         // Recursively traverse json data, and build it for rendering:
         function createNodeJson(node, levelConfig, index, maxlvl) {
             var childNode, children, stepSize, color,
@@ -192,7 +194,6 @@ define([
                     fontColor:  lvl.fontColor
                 };
 
-            if (newNode.id === zoomedNode.id) zoomedNode = newNode; // If node is the current zoomed node, update the zoomed node reference:
 
             // Check if leaf node:
             if (!node[lvl.childrenPath]) {
@@ -250,18 +251,8 @@ define([
             levels = parseLevelParameters(levelsSource);
             // Generate Json:
             root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
-            // No node is zoomed to, so zoom to root:
-            if (zoomedNode.id == null) zoomedNode = root;
             // Make maxVisibleLevels the max lvl if not specified:
             maxVisibleLevels = maxVisibleLevels || maxlvl.value + 1;
-
-            // Set root-specific properties:
-            root.curLevel = zoomedNode.lvl;
-            root.curMaxLevel = zoomedNode.lvl + maxVisibleLevels - 1;
-            root.maxlvl = maxlvl.value;
-            root.maxVisibleLevels = maxVisibleLevels;
-            root.levels = levels;
-            root.index = 0;
 
             // Set root's sortBy function used to sort nodes.
             if (sortByParam instanceof Function) {
@@ -281,6 +272,16 @@ define([
             root.color = nodeScale(root.colorSize);
 
             visualizationParams = unwrap(parameters[visualizationType.peek()]);
+
+
+
+            // Set root-specific properties:
+            root.curLevel = getNode(zoomedItemPath(), root).lvl;
+            root.curMaxLevel = root.curLevel + maxVisibleLevels - 1;
+            root.maxlvl = maxlvl.value;
+            root.maxVisibleLevels = maxVisibleLevels;
+            root.levels = levels;
+            root.index = 0;
 
             // Return the new json data:
             return root;
@@ -302,7 +303,7 @@ define([
             visualization.initializeCanvas(domElement);
 
             // Remove old layout handlers and set new ones
-            visualization.setLayoutHandler(domElement, zoomedNode);
+            visualization.setLayoutHandler(domElement, getNode(zoomedItemPath(), json()));
 
             visualization.setupGestures(
                 enableRotate,
@@ -311,7 +312,7 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                zoomedNode,
+                getNode(zoomedItemPath(), json()),
                 rootFromJson
             );
 
@@ -323,7 +324,7 @@ define([
             visualization.parameters = computed(function () {
                 return unwrap(parameters[type]);
             });//visualizationParams;
-            visualization.init(parameters, json, zoomedNode);
+            visualization.init(parameters, json, getNode(zoomedItemPath(), json()));
         }
 
         // Initialize visualization:
@@ -333,7 +334,7 @@ define([
         if (isObservable(allowTextOverflow)) {
             allowTextOverflow.subscribe(function () {
                 visualization.allowTextOverflow = unwrap(allowTextOverflow);
-                visualization.update(zoomedNode);
+                visualization.update(getNode(zoomedItemPath(), json()));
             });
         }
 
@@ -346,7 +347,7 @@ define([
         // Subscribe to data changes:
         json.subscribe(function () {
             //visualization.parameters = visualizationParams;
-            visualization.update(zoomedNode);
+            visualization.update(getNode(zoomedItemPath(), json()));
         });
         
     }
