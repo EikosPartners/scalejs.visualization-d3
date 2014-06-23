@@ -4,20 +4,29 @@
 define([
     'knockout',
     'd3',
-    'd3.colorbrewer'
+    'd3.colorbrewer',
+    'scalejs.visualization-d3/misc-helpers'
 ], function (
     ko,
     d3,
-    colorbrewer
+    colorbrewer,
+    helpers
 ) {
     "use strict";
 
     var unwrap = ko.utils.unwrapObservable,
+        getNode = helpers.getNode,
         nodeScale = d3.scale.linear();
 
-    return function (parameters, triggerTime) {
+    return function (parameters, triggerTime, visualizationType, zoomedItemPath) {
 
-        var globals = {};
+        var json,
+            globals = {},
+            sortByFuncs = {
+                unordered: function (a, b) { return a.index - b.index; },
+                ascendingSize: function (a, b) { return a.size - b.size; },
+                descendingSize: function (a, b) { return b.size - a.size; }
+            };
 
         // Sets each parameter in globals to the parameter or to a default value:
         function setGlobalParameters() {
@@ -143,11 +152,58 @@ define([
             return newNode;
         }
 
-        return {
-            setGlobalParameters: setGlobalParameters,
-            parseLevelParameters: parseLevelParameters,
-            createNodeJson: createNodeJson
-        }
+        json = ko.computed(function () {
+            var maxlvl = { value: 0 }, stepSize,
+                // Get parameters (or defaults values):
+                sortByParam = unwrap(parameters.sortBy) || "unordered",
+                maxVisibleLevels = unwrap(parameters.maxVisibleLevels),
+                dataSource = unwrap(parameters.data) || { name: "Empty" },
+                levelsSource = unwrap(parameters.levels) || [{}],
+                levels;
+
+            setGlobalParameters();
+
+            // Create copy of data in a easy structure for d3:
+            levels = parseLevelParameters(levelsSource);
+            // Generate Json:
+            root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
+            // Make maxVisibleLevels the max lvl if not specified:
+            maxVisibleLevels = maxVisibleLevels || maxlvl.value + 1;
+
+            // Set root's sortBy function used to sort nodes.
+            if (sortByParam instanceof Function) {
+                root.sortBy = sortByParam;
+            } else if (sortByFuncs[sortByParam]) {
+                root.sortBy = sortByFuncs[sortByParam];
+            } else {
+                root.sortBy = sortByParam.unordered;
+            }
+
+            // Setup colorscale for the root:
+            nodeScale.range(levels[0].colorPalette);
+            stepSize = 2 / Math.max(nodeScale.range().length - 1, 1);
+            nodeScale.domain(d3.range(root.colorSize - stepSize / 2, root.colorSize + stepSize / 2, stepSize));
+
+            // Set root's color:
+            root.color = nodeScale(root.colorSize);
+
+            visualizationParams = unwrap(parameters[visualizationType.peek()]);
+
+
+
+            // Set root-specific properties:
+            root.curLevel = getNode(zoomedItemPath(), root).lvl;
+            root.curMaxLevel = root.curLevel + maxVisibleLevels - 1;
+            root.maxlvl = maxlvl.value;
+            root.maxVisibleLevels = maxVisibleLevels;
+            root.levels = levels;
+            root.index = 0;
+
+            // Return the new json data:
+            return root;
+        }).extend({ throttle: triggerTime });
+
+        return json;
 
     }
 

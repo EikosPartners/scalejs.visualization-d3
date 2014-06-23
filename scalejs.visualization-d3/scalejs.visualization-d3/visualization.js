@@ -32,11 +32,6 @@ define([
         visualizations = {
             treemap: treemap,
             sunburst: sunburst
-        },
-        sortByFuncs = {
-            unordered: function (a, b) { return a.index - b.index; },
-            ascendingSize: function (a, b) { return a.size - b.size; },
-            descendingSize: function (a, b) { return b.size - a.size; }
         };
 
     function blankVisualization(type) {
@@ -89,8 +84,8 @@ define([
             }
             if (node) {
                 zoomedNode = node;
-                root.curLevel = zoomedNode.lvl;
-                root.curMaxLevel = zoomedNode.lvl + root.maxVisibleLevels - 1;
+                json().curLevel = zoomedNode.lvl;
+                json().curMaxLevel = zoomedNode.lvl + json().maxVisibleLevels - 1;
                 visualization.update(getNode(zoomedItemPath(), json()));    // Animate zoom effect
             }
         });
@@ -104,64 +99,8 @@ define([
         });
 
         //REFACTORED INITIALIZATIONS===================================================================================
-        var jsonHelperFunctions = jsonHelper(parameters, triggerTime),
-            setGlobalParameters = jsonHelperFunctions.setGlobalParameters,
-            parseLevelParameters = jsonHelperFunctions.parseLevelParameters,
-            createNodeJson = jsonHelperFunctions.createNodeJson;
+        json = jsonHelper(parameters, triggerTime, visualizationType, zoomedItemPath);
         //END REFACTORED INITIALIZATIONS===============================================================================
-
-
-
-        json = ko.computed(function () {
-            var maxlvl = { value: 0 }, stepSize,
-                // Get parameters (or defaults values):
-                sortByParam = unwrap(parameters.sortBy) || "unordered",
-                maxVisibleLevels = unwrap(parameters.maxVisibleLevels),
-                dataSource = unwrap(parameters.data) || { name: "Empty" },
-                levelsSource = unwrap(parameters.levels) || [{}],
-                levels;
-
-            setGlobalParameters();
-
-            // Create copy of data in a easy structure for d3:
-            levels = parseLevelParameters(levelsSource);
-            // Generate Json:
-            root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
-            // Make maxVisibleLevels the max lvl if not specified:
-            maxVisibleLevels = maxVisibleLevels || maxlvl.value + 1;
-
-            // Set root's sortBy function used to sort nodes.
-            if (sortByParam instanceof Function) {
-                root.sortBy = sortByParam;
-            } else if (sortByFuncs[sortByParam]) {
-                root.sortBy = sortByFuncs[sortByParam];
-            } else {
-                root.sortBy = sortByParam.unordered;
-            }
-
-            // Setup colorscale for the root:
-            nodeScale.range(levels[0].colorPalette);
-            stepSize = 2 / Math.max(nodeScale.range().length - 1, 1);
-            nodeScale.domain(d3.range(root.colorSize - stepSize / 2, root.colorSize + stepSize / 2, stepSize));
-
-            // Set root's color:
-            root.color = nodeScale(root.colorSize);
-
-            visualizationParams = unwrap(parameters[visualizationType.peek()]);
-
-
-
-            // Set root-specific properties:
-            root.curLevel = getNode(zoomedItemPath(), root).lvl;
-            root.curMaxLevel = root.curLevel + maxVisibleLevels - 1;
-            root.maxlvl = maxlvl.value;
-            root.maxVisibleLevels = maxVisibleLevels;
-            root.levels = levels;
-            root.index = 0;
-
-            // Return the new json data:
-            return root;
-        }).extend({ throttle: triggerTime });
 
 
         // Change/Set visualization:
@@ -204,7 +143,7 @@ define([
         }
 
         // Initialize visualization:
-        setVisualization(visualizationType(), element, root);
+        setVisualization(visualizationType(), element, json());
 
         // Subscribe to allowTextOverflow changes:
         if (isObservable(allowTextOverflow)) {
@@ -217,7 +156,7 @@ define([
         // Subscribe to visualization type changes:
         visualizationType.subscribe(function (type) {
             visualization.remove();
-            setVisualization(type, element, root);
+            setVisualization(type, element, json());
         });
         
         // Subscribe to data changes:
