@@ -16,6 +16,7 @@
     <Content Include="scalejs.visualization-d3.js" />
     <Content Include="scalejs.visualization-d3\canvas-helper.js" />
     <Content Include="scalejs.visualization-d3\gesture-helper.js" />
+    <Content Include="scalejs.visualization-d3\misc-helpers.js" />
     <Content Include="scalejs.visualization-d3\surfaces\canvas-d3.js" />
     <Content Include="scalejs.visualization-d3\visualizations\sunburst.js" />
     <Content Include="scalejs.visualization-d3\data\tree.js" />

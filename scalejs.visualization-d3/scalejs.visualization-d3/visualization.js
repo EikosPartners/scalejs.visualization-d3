@@ -8,7 +8,8 @@ define([
     'd3.colorbrewer',
     'scalejs.canvas',
     'scalejs.visualization-d3/visualizations/treemap',
-    'scalejs.visualization-d3/visualizations/sunburst'
+    'scalejs.visualization-d3/visualizations/sunburst',
+    'scalejs.visualization-d3/misc-helpers'
 ], function (
     core,
     ko,
@@ -16,7 +17,8 @@ define([
     colorbrewer,
     canvasRender,
     treemap,
-    sunburst
+    sunburst,
+    helpers
 ) {
     "use strict";
     var //imports
@@ -24,6 +26,7 @@ define([
         computed = ko.computed,
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
+        getNode = helpers.getNode,
         visualizations = {
             treemap: treemap,
             sunburst: sunburst
@@ -75,24 +78,7 @@ define([
             },
             tempFuncObj;
 
-        // Attempts to find a node when given a path
-        // 1. If the Path is found, it returns the node
-        // 2. If the Path does not exist, it returns undefined
-        // 3. If the Path has a length of 0, it returns the root node
-        // 4. If the Path is not an array, it returns undefined
-        function getNode(path) {
-            var curNode = json();
-            if (path instanceof Array) {
-                for (var i = 0; i < path.length; i += 1) {
-                    if (curNode.childrenReference[path[i]] === undefined) {
-                        return;
-                    }
-                    curNode = curNode.childrenReference[path[i]];
-                }
-                return curNode;
-            }
-            return;
-        }
+        
 
         // Subscribe to zoomedItemPath changes, verify path and then zoom:
         zoomedItemPath.subscribe(function (path) {
