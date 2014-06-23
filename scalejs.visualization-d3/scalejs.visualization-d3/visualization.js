@@ -56,13 +56,10 @@ define([
             visualizationType = isObservable(parameters.visualization) ? parameters.visualization : observable(parameters.visualization),
             visualizationParams, // visualization specific parameters may be passed
             json,
-            globals = {},
             zoomedItemPath = isObservable(parameters.zoomedItemPath) ? parameters.zoomedItemPath : observable(parameters.zoomedItemPath),
             selectedItemPath = isObservable(parameters.selectedItemPath) ? parameters.selectedItemPath : observable(parameters.selectedItemPath),
             heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath),
-            root,
-            zoomedNode,
-            tempFuncObj;
+            zoomedNode;
 
         // Subscribe to zoomedItemPath changes, verify path and then zoom:
         zoomedItemPath.subscribe(function (path) {
