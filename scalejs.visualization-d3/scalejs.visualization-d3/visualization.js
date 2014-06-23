@@ -76,12 +76,6 @@ define([
             zoomedNode,
             tempFuncObj;
 
-
-        /*zoomedNode = computed(function () {
-            return getNode(zoomedItemPath(), json());
-        });*/
-        
-
         // Subscribe to zoomedItemPath changes, verify path and then zoom:
         zoomedItemPath.subscribe(function (path) {
             var node = getNode(path, json());
@@ -92,7 +86,6 @@ define([
                 node = json();
             }
             if (node) {
-                console.log('node exists');
                 zoomedNode = node;
                 root.curLevel = zoomedNode.lvl;
                 root.curMaxLevel = zoomedNode.lvl + root.maxVisibleLevels - 1;
