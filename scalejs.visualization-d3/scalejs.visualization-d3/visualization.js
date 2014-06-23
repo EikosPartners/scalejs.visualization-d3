@@ -2,21 +2,13 @@
 /*jslint devel: true */
 /*jslint browser: true */
 define([
-    'scalejs!core',
     'knockout',
-    'd3',
-    'd3.colorbrewer',
-    'scalejs.canvas',
     'scalejs.visualization-d3/visualizations/treemap',
     'scalejs.visualization-d3/visualizations/sunburst',
     'scalejs.visualization-d3/json-helper',
     'scalejs.visualization-d3/misc-helpers'
 ], function (
-    core,
     ko,
-    d3,
-    colorbrewer,
-    canvasRender,
     treemap,
     sunburst,
     jsonHelper,
@@ -68,7 +60,6 @@ define([
             zoomedItemPath = isObservable(parameters.zoomedItemPath) ? parameters.zoomedItemPath : observable(parameters.zoomedItemPath),
             selectedItemPath = isObservable(parameters.selectedItemPath) ? parameters.selectedItemPath : observable(parameters.selectedItemPath),
             heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath),
-            nodeScale = d3.scale.linear(),
             root,
             zoomedNode,
             tempFuncObj;
