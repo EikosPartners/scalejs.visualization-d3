@@ -3,23 +3,23 @@
 define([
     'scalejs!core',
     'knockout',
-    'scalejs.visualization-d3/visualization'
+    'scalejs.visualization-d3/visualizations/treemap'
 ], function (
     core,
     ko,
-    visualization
+    treemap
 ) {
     'use strict';
-    if (ko.bindingHandlers.d3) {
-        console.error("visualization-d3 is already setup");
+    if (ko.bindingHandlers.treemap) {
+        console.error("treemap is already setup");
         return false;
     }
 
-    ko.bindingHandlers.d3 = visualization;
-    ko.virtualElements.allowedBindings.d3 = true;
+    ko.bindingHandlers.treemap = treemap;
+    ko.virtualElements.allowedBindings.treemap = true;
 
     core.registerExtension({
-        d3: visualization
+        treemap: treemap
     });
 });
 

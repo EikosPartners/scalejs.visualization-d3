@@ -24,12 +24,10 @@ define([
         },
         zoomOutScale = 0.8,
         root,
-        visualization,
         disposeLayout;
 
 
         function setupGestures(
-            vis,
             canvas,
             canvasElement,
             canvasWidth,
@@ -41,11 +39,12 @@ define([
             selectedItemPath,
             zoomedItemPath,
             zoomedNode,
-            rootFromJson
+            rootFromJson,
+            enableRootZoom,
+            resize
             ) {
 
             root = rootFromJson;
-            visualization = vis;
 
             var touchHandler
 
@@ -113,7 +112,7 @@ define([
 
                 // Only zoom if enabled:
                 if (unwrap(enableZoom)) {
-                    if (visualization.enableRootZoom && node === curZoomedNode) {    // Reset path since item was already selected.
+                    if (enableRootZoom && node === curZoomedNode) {    // Reset path since item was already selected.
                         node = root;
                     }
 
@@ -159,8 +158,8 @@ define([
 
             function startCallback() {  // Called when user initiates a touch gesture:
                 // Set Rotate State:
-                visualization.enableRotate = unwrap(enableRotate) !== undefined ? unwrap(enableRotate) : visualization.enableRotateDefault;
-                touchHandler.setRotateState(visualization.enableRotate);
+                enableRotate = unwrap(enableRotate) !== undefined ? unwrap(enableRotate) : enableRotateDefault;
+                touchHandler.setRotateState(enableRotate);
 
                 return transform;
             }
@@ -168,7 +167,7 @@ define([
             function transformCallback(zoomOutHandler) {   // Called for every update to a touch gesture's transform (end and step):
                 return function (left, top, rotate, scale) {
                     // If rotate is not enabled on visualization, lock the visualization to not go off of the screen:
-                    if (!visualization.enableRotate) {
+                    if (!enableRotate) {
                         left > 0 && (left = 0);
                         top > 0 && (top = 0);
                         var right = left + scale * canvasWidth,
@@ -298,7 +297,7 @@ define([
 
                     canvas.attr('width', canvasWidth);
                     canvas.attr('height', canvasHeight);
-                    visualization.resize(canvasWidth, canvasHeight);
+                    resize(canvasWidth, canvasHeight);
                     // Must set width and height before doing any animation (to calculate layouts properly):
                     resetTransformAnimation(canvas);
                     update(zoomedNode);

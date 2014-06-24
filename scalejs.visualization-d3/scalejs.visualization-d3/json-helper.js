@@ -18,7 +18,7 @@ define([
         getNode = helpers.getNode,
         nodeScale = d3.scale.linear();
 
-    return function (parameters, triggerTime, visualizationType, zoomedItemPath) {
+    return function (parameters, triggerTime, zoomedItemPath) {
 
         var json,
             globals = {},
@@ -186,10 +186,6 @@ define([
 
             // Set root's color:
             root.color = nodeScale(root.colorSize);
-
-            visualizationParams = unwrap(parameters[visualizationType.peek()]);
-
-
 
             // Set root-specific properties:
             root.curLevel = getNode(zoomedItemPath(), root).lvl;

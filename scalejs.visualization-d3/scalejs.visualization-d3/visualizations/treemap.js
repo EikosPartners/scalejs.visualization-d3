@@ -2,11 +2,17 @@
 define([
     'd3',
     'scalejs.visualization-d3/canvas-helper',
-    'scalejs.visualization-d3/gesture-helper'
+    'scalejs.visualization-d3/gesture-helper',
+    'knockout',
+    'scalejs.visualization-d3/json-helper',
+    'scalejs.visualization-d3/misc-helpers'
 ], function (
     d3,
     canvasHelper,
-    gestureHelperCreator
+    gestureHelperCreator,
+    ko,
+    jsonHelper,
+    helpers
 ) {
     "use strict";
 
@@ -34,29 +40,44 @@ define([
         return scale;
     }
 
-    return function () {
-        var gestureHelper = gestureHelperCreator(),
-            //Treemap variables
-            visualization,
-            canvas,
-            json,
-            touchFunc,
-            zoomFunc,
-            heldFunc,
-            releaseFunc,
-            canvasWidth,
-            canvasHeight,
-            x,
-            y,
-            root,
-            treemapLayout,
-            canvasArea,
-            spacing = 3,
-            borderColor = d3.interpolate("#888", "#fff"),
-            kx, ky,
-            tempObject,
-            elementStyle,
-            canvasElement;
+
+    var observable = ko.observable,
+        computed = ko.computed,
+        unwrap = ko.utils.unwrapObservable,
+        isObservable = ko.isObservable,
+        getNode = helpers.getNode,
+        gestureHelper = gestureHelperCreator(),
+        //Treemap variables
+        visualization,
+        canvas,
+        json,
+        touchFunc,
+        zoomFunc,
+        heldFunc,
+        releaseFunc,
+        canvasWidth,
+        canvasHeight,
+        x,
+        y,
+        root,
+        treemapLayout,
+        canvasArea,
+        spacing = 3,
+        borderColor = d3.interpolate("#888", "#fff"),
+        kx, ky,
+        tempObject,
+        elementStyle,
+        canvasElement,//
+        parameters,
+        triggerTime,
+        enableRotate,
+        enableZoom,
+        enableTouch,
+        allowTextOverflow,
+        zoomedItemPath,
+        selectedItemPath,
+        heldItemPath,
+        zoomedNode;
 
         function getNodeTreePath(node) {
             var path = [];
@@ -279,60 +300,6 @@ define([
             if (d3.event) d3.event.stopPropagation();
         }
 
-        function init(
-            parameters,
-            jsonObservable,
-            nodeSelected
-        ) {
-            // Setup variables:
-            json = jsonObservable;
-            x = mapValue().range([0, canvasWidth]);
-            y = mapValue().range([0, canvasHeight]);
-
-            // Define temp vars:
-            var zoomTreePath = getNodeTreePath(nodeSelected),
-                nodes;
-
-            // Get treemap data:
-            root = json();
-
-            // This is a new treemap:
-            // Setup treemap and SVG:
-            treemapLayout = d3.layout.treemap()
-                            .round(false)
-                            .sort(root.sortBy)
-                            .size([canvasWidth, canvasHeight])
-                            .sticky(false)
-                            .mode('squarify')
-                            .value(function (d) { return d.size; })
-                            .children(function (d) { return d.children; });
-
-            canvasArea = canvas.append("group").each(function () {
-                this.fontFamily = "Times New Roman";
-                this.fontSize = 11;
-            });
-
-            // Filter out nodes with children (need to do this before we set the data up):
-            nodes = treemapLayout.nodes(root)
-                .filter(function (d) {
-                    return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
-                })
-                .sort(function (a, b) {
-                    return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
-                });
-
-            // Join data with selection (may not be needed):
-            canvasArea.selectAll("group")
-                    .data(nodes, function (d) { return d.id; });
-
-            // Add nodes to Canvas:
-            kx = canvasWidth / nodeSelected.dx;
-            ky = canvasHeight / nodeSelected.dy;
-            x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
-            y.domain([nodeSelected.y, nodeSelected.y + nodeSelected.dy]);
-            update(nodeSelected, 0);
-        }
-
         function resize(width, height) {
             canvasWidth = width;
             canvasHeight = height;
@@ -393,7 +360,6 @@ define([
 
         ) {
             var tempFuncObj = gestureHelper.setupGestures(
-                    visualization,
                     canvas,
                     canvasElement,
                     canvasWidth,
@@ -405,7 +371,9 @@ define([
                     selectedItemPath,
                     zoomedItemPath,
                     zoomedNode,
-                    root
+                    root,
+                    enableRootZoom,
+                    resize
             );
 
             touchFunc = tempFuncObj.selectTouch;
@@ -418,28 +386,141 @@ define([
             gestureHelper.resetTransformations();
         }
 
-        // Return treemap object:
-        visualization = {
-            init: init,
-            update: update,
-            resize: resize,
-            remove: remove,
-            initializeCanvas: initializeCanvas,
-            getCanvas: getCanvas,
-            getCanvasWidth: getCanvasWidth,
-            getCanvasHeight: getCanvasHeight,
-            getCanvasElement: getCanvasElement,
-            getElementStyle: getElementStyle,
-            setLayoutHandler: setLayoutHandler,
-            setupGestures: setupGestures,
-            resetTransformations: resetTransformations,
-            enableRotate: false,
-            enableRotateDefault: false,
-            enableRootZoom: true,
-            fontSize: 11,
-            fontFamily: "Times New Roman",
-            allowTextOverflow: false
-        };
-        return visualization;
-    };
+        function init(element, valueAccessor) {
+
+            parameters = valueAccessor();
+            triggerTime = parameters.triggerTime == null ? 10 : parameters.triggerTime;
+            enableRotate = parameters.enableRotate;
+            enableZoom = parameters.enableZoom || false;
+            enableTouch = parameters.enableTouch || false;
+            allowTextOverflow = parameters.allowTextOverflow || false;
+            zoomedItemPath = isObservable(parameters.zoomedItemPath) ? parameters.zoomedItemPath : observable(parameters.zoomedItemPath);
+            selectedItemPath = isObservable(parameters.selectedItemPath) ? parameters.selectedItemPath : observable(parameters.selectedItemPath);
+            heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath);
+
+        // Subscribe to zoomedItemPath changes, verify path and then zoom:
+        zoomedItemPath.subscribe(function (path) {
+            var node = getNode(path, json());
+            // even if there is no node, the zoom must still be set to something
+            if (!node) {
+                zoomedItemPath([]);
+                // if there is no node, that means our zoomed node is the root
+                node = json();
+            }
+            if (node) {
+                zoomedNode = node;
+                json().curLevel = zoomedNode.lvl;
+                json().curMaxLevel = zoomedNode.lvl + json().maxVisibleLevels - 1;
+                visualization.update(getNode(zoomedItemPath(), json()));    // Animate zoom effect
+            }
+        });
+
+        // Subscribe to selectedItemPath changes from outside:
+        selectedItemPath.subscribe(function (path) {
+            // if there is no node, there is no path
+            if (!getNode(path, json())) {
+                selectedItemPath(undefined);
+            }
+        });
+        json = jsonHelper(parameters, triggerTime, zoomedItemPath);
+
+        // Subscribe to data changes:
+        json.subscribe(function () {
+            //visualization.parameters = visualizationParams;
+            update(getNode(zoomedItemPath(), json()));
+        });
+
+
+
+
+            //Remove previous visualization's nodes
+            while (element.firstChild) {
+                element.removeChild(element.firstChild);
+            }
+
+            initializeCanvas(element);
+
+            setLayoutHandler(element, getNode(zoomedItemPath(), json()));
+
+            setupGestures(
+                enableRotate,
+                enableTouch,
+                enableZoom,
+                heldItemPath,
+                selectedItemPath,
+                zoomedItemPath,
+                getNode(zoomedItemPath(), json()),
+                json()
+            );
+
+            resetTransformations();
+
+            allowTextOverflow = unwrap(allowTextOverflow);
+
+            resetTransformations();
+
+            allowTextOverflow = unwrap(allowTextOverflow);
+
+
+            //start real init
+            // Setup variables:
+            x = mapValue().range([0, canvasWidth]);
+            y = mapValue().range([0, canvasHeight]);
+
+            // Define temp vars:
+            var zoomTreePath = getNodeTreePath(getNode(zoomedItemPath(), json())),
+                nodes;
+
+            // Get treemap data:
+            root = json();
+
+            // This is a new treemap:
+            // Setup treemap and SVG:
+            treemapLayout = d3.layout.treemap()
+                            .round(false)
+                            .sort(root.sortBy)
+                            .size([canvasWidth, canvasHeight])
+                            .sticky(false)
+                            .mode('squarify')
+                            .value(function (d) { return d.size; })
+                            .children(function (d) { return d.children; });
+
+            canvasArea = canvas.append("group").each(function () {
+                this.fontFamily = "Times New Roman";
+                this.fontSize = 11;
+            });
+
+            // Filter out nodes with children (need to do this before we set the data up):
+            nodes = treemapLayout.nodes(root)
+                .filter(function (d) {
+                    return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
+                })
+                .sort(function (a, b) {
+                    return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
+                });
+
+            // Join data with selection (may not be needed):
+            canvasArea.selectAll("group")
+                    .data(nodes, function (d) { return d.id; });
+
+            // Add nodes to Canvas:
+            kx = canvasWidth / nodeSelected.dx;
+            ky = canvasHeight / nodeSelected.dy;
+            x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
+            y.domain([nodeSelected.y, nodeSelected.y + nodeSelected.dy]);
+            update(nodeSelected, 0);
+
+            // Subscribe to allowTextOverflow changes:
+            if (isObservable(allowTextOverflow)) {
+                allowTextOverflow.subscribe(function () {
+                    allowTextOverflow = unwrap(allowTextOverflow);
+                    update(getNode(zoomedItemPath(), json()));
+            });
+        }
+     }
+
+     return {
+         init: init
+     }
+
 });
