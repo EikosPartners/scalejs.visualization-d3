@@ -70,10 +70,8 @@ define([
         canvasElement,//
         parameters,
         triggerTime,
-        enableRotate,
         enableZoom,
         enableTouch,
-        allowTextOverflow,
         zoomedItemPath,
         selectedItemPath,
         heldItemPath,
@@ -86,18 +84,9 @@ define([
         allowTextOverflow = false,
         nodeSelected;
 
-    function getNodeTreePath(node) {
-        var path = [];
-        while (node !== json()) {
-            path.push(node);
-            node = node.parent;
-        }
-        path.push(node);
-        return path;
-    }
     function getDistanceToTreePath(node, treePath) {
         var distance = 0;
-        while (treePath.indexOf(node) < 0) {
+        while (node.parent != undefined) {
             distance += 1;
             node = node.parent;
         }
@@ -228,13 +217,18 @@ define([
         duration = duration !== undefined ? duration : 1000;
         root = json();
 
-        var nodes, groupNodes, newGroupNodes, removeGroupNodes, textNodes, newTextNodes, removeTextNodes,
-            zoomTreePath = getNodeTreePath(p);
+        var nodes,
+            groupNodes,
+            newGroupNodes,
+            removeGroupNodes,
+            textNodes,
+            newTextNodes,
+            removeTextNodes;
 
         // Filter out nodes with children:
         nodes = treemapLayout.size([canvasWidth, canvasHeight]).sort(root.sortBy).nodes(root)
             .filter(function (d) {
-                return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
+                return getDistanceToTreePath(d, zoomedItemPath()) < root.maxVisibleLevels;
             })
             .sort(function (a, b) {
                 return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
@@ -362,8 +356,7 @@ define([
             heldItemPath,
             selectedItemPath,
             zoomedItemPath,
-            zoomedNode,
-            root
+            zoomedNode
 
     ) {
         var tempFuncObj = gestureHelper.setupGestures(
@@ -378,7 +371,7 @@ define([
                 selectedItemPath,
                 zoomedItemPath,
                 zoomedNode,
-                root,
+                json(),
                 enableRootZoom,
                 resize
         );
@@ -456,8 +449,7 @@ define([
             heldItemPath,
             selectedItemPath,
             zoomedItemPath,
-            getNode(zoomedItemPath(), json()),
-            json()
+            getNode(zoomedItemPath(), json())
         );
 
         resetTransformations();
@@ -475,8 +467,7 @@ define([
         y = mapValue().range([0, canvasHeight]);
 
         // Define temp vars:
-        var zoomTreePath = getNodeTreePath(getNode(zoomedItemPath(), json())),
-            nodes;
+        var nodes;
 
         // Get treemap data:
         root = json();
@@ -500,7 +491,7 @@ define([
         // Filter out nodes with children (need to do this before we set the data up):
         nodes = treemapLayout.nodes(root)
             .filter(function (d) {
-                return getDistanceToTreePath(d, zoomTreePath) < root.maxVisibleLevels;
+                return getDistanceToTreePath(d, zoomedItemPath()) < root.maxVisibleLevels;
             })
             .sort(function (a, b) {
                 return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
