@@ -85,6 +85,7 @@ define([
         nodeSelected;
 
     function getDistanceToTreePath(node) {
+        if (zoomedItemPath().length === 0 && node === json()) { return 0 };
         var distance = 0;
         while (zoomedItemPath().indexOf(node) < 0) {
             distance += 1;
