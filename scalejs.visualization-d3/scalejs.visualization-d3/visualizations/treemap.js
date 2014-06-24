@@ -84,9 +84,9 @@ define([
         allowTextOverflow = false,
         nodeSelected;
 
-    function getDistanceToTreePath(node, treePath) {
+    function getDistanceToTreePath(node) {
         var distance = 0;
-        while (node.parent != undefined) {
+        while (zoomedItemPath().indexOf(node) < 0) {
             distance += 1;
             node = node.parent;
         }
@@ -451,10 +451,6 @@ define([
             zoomedItemPath,
             getNode(zoomedItemPath(), json())
         );
-
-        resetTransformations();
-
-        allowTextOverflow = unwrap(allowTextOverflow);
 
         resetTransformations();
 
