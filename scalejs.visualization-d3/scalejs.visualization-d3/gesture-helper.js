@@ -41,7 +41,9 @@ define([
             zoomedNode,
             rootFromJson,
             enableRootZoom,
-            resize
+            resize,
+            enableRotate,
+            enableRotateDefault
             ) {
 
             root = rootFromJson;
@@ -273,7 +275,7 @@ define([
                 });
         }
 
-        function setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode) {
+        function setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode, resize) {
 
             //Dispose previous handlers
             if (disposeLayout !== undefined) {
@@ -286,8 +288,8 @@ define([
                 // Add event listener for on layout change:
                 disposeLayout = core.layout.onLayoutDone(function () {
                     var lastWidth = canvasWidth,
-                        lastHeight = canvasHeight;
-                    elementStyle = window.getComputedStyle(element);
+                        lastHeight = canvasHeight,
+                        elementStyle = window.getComputedStyle(element);
                     // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
                     canvasWidth = parseInt(elementStyle.width, 10);
                     canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
