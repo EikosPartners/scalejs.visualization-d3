@@ -94,10 +94,9 @@ define([
         return path;
     }
 
-    function getDistanceToTreePath(node) {
-        if (zoomedItemPath().length === 0 && node === json()) { return 0 };
+    function getDistanceToTreePath(node, treePath) {
         var distance = 0;
-        while (zoomedItemPath().indexOf(node) < 0) {
+        while (treePath.indexOf(node) < 0) {
             distance += 1;
             node = node.parent;
         }
@@ -498,7 +497,7 @@ define([
         // Filter out nodes with children (need to do this before we set the data up):
         nodes = treemapLayout.nodes(root)
             .filter(function (d) {
-                return getDistanceToTreePath(d, zoomedItemPath()) < root.maxVisibleLevels;
+                return getDistanceToTreePath(d, getNodeTreePath(getNode(zoomedItemPath(), json()))) < root.maxVisibleLevels;
             })
             .sort(function (a, b) {
                 return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
