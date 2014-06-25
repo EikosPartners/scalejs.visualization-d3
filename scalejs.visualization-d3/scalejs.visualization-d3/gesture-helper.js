@@ -4,15 +4,18 @@
 define([
     'scalejs!core',
     'd3',
-    'knockout'
+    'knockout',
+    'scalejs.visualization-d3/misc-helpers'
 ], function (
     core,
     d3,
-    ko
+    ko,
+    helpers
 ) {
     var //Imports
         unwrap = ko.utils.unwrapObservable,
-        isObservable = ko.isObservable;
+        isObservable = ko.isObservable,
+        getNode = helpers.getNode;
 
     return function () {
         //Variables
@@ -275,7 +278,7 @@ define([
                 });
         }
 
-        function setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode, resize) {
+        function setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize) {
 
             //Dispose previous handlers
             if (disposeLayout !== undefined) {
@@ -302,7 +305,7 @@ define([
                     resize(canvasWidth, canvasHeight);
                     // Must set width and height before doing any animation (to calculate layouts properly):
                     resetTransformAnimation(canvas);
-                    update(zoomedNode);
+                    update(getNode( zoomedItemPath(), json() ));
                 });
                 ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
                     disposeLayout();

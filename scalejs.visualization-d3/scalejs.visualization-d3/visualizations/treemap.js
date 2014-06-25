@@ -86,7 +86,7 @@ define([
 
     function getNodeTreePath(node) {
         var path = [];
-        while (node !== root) {
+        while (node.parent !== undefined) {
             path.push(node);
             node = node.parent;
         }
@@ -355,8 +355,8 @@ define([
         return elementStyle;
     }
 
-    function setLayoutHandler(element, zoomedNode, resize) {
-        gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedNode, resize, enableRotate, enableRotateDefault);
+    function setLayoutHandler(element) {
+        gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize);
     }
 
     function setupGestures(
@@ -383,7 +383,9 @@ define([
                 zoomedNode,
                 json(),
                 enableRootZoom,
-                resize
+                resize,
+                enableRotate,
+                enableRotateDefault
         );
 
         touchFunc = tempFuncObj.selectTouch;
@@ -450,7 +452,7 @@ define([
 
         initializeCanvas(element);
 
-        setLayoutHandler(element, getNode(zoomedItemPath(), json()), resize);
+        setLayoutHandler(element);
 
         setupGestures(
             enableRotate,
