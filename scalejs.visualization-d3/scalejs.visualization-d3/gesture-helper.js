@@ -5,17 +5,17 @@ define([
     'scalejs!core',
     'd3',
     'knockout',
-    'scalejs.visualization-d3/misc-helpers'
+    'scalejs.visualization-d3/nested-data-helper'
 ], function (
     core,
     d3,
     ko,
-    helpers
+    nestedDataHelper
 ) {
     var //Imports
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
-        getNode = helpers.getNode;
+        getNode = nestedDataHelper.getNode;
 
     return function () {
         //Variables

@@ -5,14 +5,14 @@ define([
     'scalejs.visualization-d3/gesture-helper',
     'knockout',
     'scalejs.visualization-d3/json-helper',
-    'scalejs.visualization-d3/misc-helpers'
+    'scalejs.visualization-d3/nested-data-helper'
 ], function (
     d3,
     canvasHelper,
     gestureHelperCreator,
     ko,
     jsonHelper,
-    helpers
+    nestedDataHelper
 ) {
     "use strict";
 
@@ -45,7 +45,7 @@ define([
         computed = ko.computed,
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
-        getNode = helpers.getNode,
+        getNode = nestedDataHelper.getNode,
         gestureHelper = gestureHelperCreator(),
         //Treemap variables
         visualization,
@@ -189,6 +189,7 @@ define([
             };
         };
     }
+
     function textTween() {
         return function (d) {
             // Create interpolations used for a nice slide:
@@ -509,8 +510,8 @@ define([
         canvasArea.selectAll("group")
                 .data(nodes, function (d) { return d.id; });
 
-        nodeSelected = getNode(zoomedItemPath(), json());
         // Add nodes to Canvas:
+        nodeSelected = getNode(zoomedItemPath(), json());
         kx = canvasWidth / nodeSelected.dx;
         ky = canvasHeight / nodeSelected.dy;
         x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);

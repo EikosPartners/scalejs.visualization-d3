@@ -5,17 +5,17 @@ define([
     'knockout',
     'd3',
     'd3.colorbrewer',
-    'scalejs.visualization-d3/misc-helpers'
+    'scalejs.visualization-d3/nested-data-helper'
 ], function (
     ko,
     d3,
     colorbrewer,
-    helpers
+    nestedDataHelper
 ) {
     "use strict";
 
     var unwrap = ko.utils.unwrapObservable,
-        getNode = helpers.getNode,
+        getNode = nestedDataHelper.getNode,
         nodeScale = d3.scale.linear();
 
     return function (parameters, triggerTime, zoomedItemPath) {
