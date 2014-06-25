@@ -84,6 +84,16 @@ define([
         allowTextOverflow = false,
         nodeSelected;
 
+    function getNodeTreePath(node) {
+        var path = [];
+        while (node !== root) {
+            path.push(node);
+            node = node.parent;
+        }
+        path.push(node);
+        return path;
+    }
+
     function getDistanceToTreePath(node) {
         if (zoomedItemPath().length === 0 && node === json()) { return 0 };
         var distance = 0;
