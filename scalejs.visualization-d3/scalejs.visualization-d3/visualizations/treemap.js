@@ -239,7 +239,7 @@ define([
         // Filter out nodes with children:
         nodes = treemapLayout.size([canvasWidth, canvasHeight]).sort(root.sortBy).nodes(root)
             .filter(function (d) {
-                return getDistanceToTreePath(d, zoomedItemPath()) < root.maxVisibleLevels;
+                return getDistanceToTreePath(d, getNodeTreePath(p)) < root.maxVisibleLevels;
             })
             .sort(function (a, b) {
                 return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
