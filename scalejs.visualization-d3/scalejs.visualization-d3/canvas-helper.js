@@ -32,8 +32,6 @@ define([
         canvasHeight = parseInt(elementStyle.height, 10);
         canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
 
-
-        //req canvasWidth, canvasHeight
         canvasElement = d3.select(element)
                             .style('overflow', 'hidden')
                             .append("canvas")
@@ -42,7 +40,6 @@ define([
                                 .attr("display", "none")
                                 .node();
 
-        //req canvasElement
         canvas = canvasRender.select(canvasElement).ease(d3.ease("cubic-in-out"));
 
         return {

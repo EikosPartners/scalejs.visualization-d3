@@ -396,8 +396,6 @@ define([
 
         setupGestures();
 
-        gestureHelper.resetTransformations();
-
         //start real init
         // Setup variables:
         x = mapValue().range([0, canvasWidth]);

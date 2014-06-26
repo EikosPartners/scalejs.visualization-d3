@@ -42,7 +42,9 @@ define([
 
             // Set global colorPalette (array, undefined or string) parameters:
             if (globals.colorPalette instanceof Array) {
-                if (globals.colorPalette.length === 1) globals.colorPalette[1] = globals.colorPalette[0];
+                if (globals.colorPalette.length === 1) {
+                    globals.colorPalette[1] = globals.colorPalette[0];
+                }
             } else {
                 globals.colorPalette = colorbrewer[globals.colorPalette][3];
             }
@@ -51,11 +53,12 @@ define([
         // Loop through levels to parse parameters:
         function parseLevelParameters(lvls) {
             // Clear levels:
-            var levels = [];
+            var levels = [],
+                l;
 
             // Loop through all levels and parse the parameters:
             for (var i = 0; i < lvls.length; i += 1) {
-                var l = lvls[i];
+                l = lvls[i];
                 if (l instanceof Object) {
                     // Level has parameters, or use globals
                     levels[i] = {

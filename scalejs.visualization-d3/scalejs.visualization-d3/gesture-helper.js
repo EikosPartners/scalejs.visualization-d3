@@ -316,48 +316,9 @@ define([
             return disposeLayout;
         }
 
-        //====
-
-        function setRoot(r) {
-            root = r;
-        }
-
-        function setVis(vis) {
-            visualization = vis;
-        }
-
-        function getTransform() {
-            return transform;
-        }
-
-        function setTransformHelper(input) {
-            setTransform(input.left, input.top, input.rotate, input.scale);
-        }
-
-        function setTransform(left, top, rotate, scale) {
-            transform.left = left;
-            transform.top = top;
-            transform.rotate = rotate;
-            transform.scale = scale;
-        }
-
-        function resetTransformations() {
-            transform.left = 0;
-            transform.top = 0;
-            transform.rotate = 0;
-            transform.scale = 1;
-        }
-
         return {
-            getTransform: getTransform,
-            setTransform: setTransform,
-            setTransformHelper: setTransformHelper,
-            resetTransformAnimation: resetTransformAnimation,
             setupGestures: setupGestures,
-            setVis: setVis,
-            setRoot: setRoot,
             setLayoutHandler: setLayoutHandler,
-            resetTransformations: resetTransformations
 
         };
     };
