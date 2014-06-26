@@ -349,12 +349,7 @@ define([
         releaseFunc = tempFuncObj.selectRelease;
     }
 
-    function resetTransformations() {
-        gestureHelper.resetTransformations();
-    }
-
     function init(element, valueAccessor) {
-
         parameters = valueAccessor();
         triggerTime = parameters.triggerTime == null ? 10 : parameters.triggerTime;
         enableRotate = parameters.enableRotate;
@@ -389,6 +384,7 @@ define([
                 selectedItemPath(undefined);
             }
         });
+
         json = jsonHelper(parameters, triggerTime, zoomedItemPath);
 
         // Subscribe to data changes:
@@ -396,10 +392,7 @@ define([
             update(getNode(zoomedItemPath(), json()));
         });
 
-
-
-
-        //Remove previous visualization's nodes
+        // Clear the element that this visualization is in
         while (element.firstChild) {
             element.removeChild(element.firstChild);
         }
@@ -410,10 +403,7 @@ define([
 
         setupGestures();
 
-        resetTransformations();
-
-        allowTextOverflow = unwrap(allowTextOverflow);
-
+        gestureHelper.resetTransformations();
 
         //start real init
         // Setup variables:
@@ -462,14 +452,6 @@ define([
         x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
         y.domain([nodeSelected.y, nodeSelected.y + nodeSelected.dy]);
         update(nodeSelected, 0);
-
-        // Subscribe to allowTextOverflow changes:
-        if (isObservable(allowTextOverflow)) {
-            allowTextOverflow.subscribe(function () {
-                allowTextOverflow = unwrap(allowTextOverflow);
-                update(getNode(zoomedItemPath(), json()));
-            });
-        }
     }
 
     return {

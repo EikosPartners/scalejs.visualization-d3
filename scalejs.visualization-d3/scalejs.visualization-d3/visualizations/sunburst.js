@@ -435,6 +435,7 @@ define([
                 selectedItemPath(undefined);
             }
         });
+
         json = jsonHelper(parameters, triggerTime, zoomedItemPath);
 
         // Subscribe to data changes:
@@ -442,10 +443,7 @@ define([
             update(getNode(zoomedItemPath(), json()));
         });
 
-
-
-
-        //Remove previous visualization's nodes
+        // Clear the element that this visualization is in
         while (element.firstChild) {
             element.removeChild(element.firstChild);
         }
@@ -457,9 +455,6 @@ define([
         setupGestures();
 
         gestureHelper.resetTransformations();
-
-        allowTextOverflow = unwrap(allowTextOverflow);
-
 
         // Start Real Init
         radius = Math.min(canvasWidth, canvasHeight) / 2;
@@ -500,14 +495,6 @@ define([
         x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
         y.domain([nodeSelected.y, (root.curMaxLevel + 1) / (root.maxlvl + 1)]).range([nodeSelected.y ? nodeSelected.dy * radius / 2 : 0, radius]);
         update(nodeSelected, 0);
-
-        // Subscribe to allowTextOverflow changes:
-        if (isObservable(allowTextOverflow)) {
-            allowTextOverflow.subscribe(function () {
-                allowTextOverflow = unwrap(allowTextOverflow);
-                update(getNode(zoomedItemPath(), json()));
-            });
-        }
     }
 
     function resize(width, height) {
