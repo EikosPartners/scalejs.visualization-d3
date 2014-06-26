@@ -10,9 +10,10 @@ define([
     // 3. If the Path has a length of 0, it returns the root node
     // 4. If the Path is not an array, it returns undefined
     function getNode(path, root) {
-        var curNode = root;
+        var curNode = root,
+            i;
         if (path instanceof Array) {
-            for (var i = 0; i < path.length; i += 1) {
+            for (i = 0; i < path.length; i += 1) {
                 if (curNode.childrenReference[path[i]] === undefined) {
                     return;
                 }

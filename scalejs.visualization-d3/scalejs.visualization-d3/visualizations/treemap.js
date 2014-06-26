@@ -42,7 +42,6 @@ define([
 
 
     var observable = ko.observable,
-        unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
         getNode = nestedDataHelper.getNode,
         getDistanceToTreePath = nestedDataHelper.getDistanceToTreePath,
@@ -205,6 +204,10 @@ define([
         textNodes.transition().duration(duration).tween("textTween", textTween(targetZoomedNode));
     }
 
+    function remove() {
+        canvasArea.remove();
+    }
+
     function update(p, duration) {
         duration = duration !== undefined ? duration : 1000;
         root = json();
@@ -230,10 +233,10 @@ define([
 
         // Add new nodes to Canvas:
         newGroupNodes = groupNodes.enter().append("group").each(function (d) {
-            var dNode = d.parent || d;
+            var dNode = d.parent || d,
+                newColor = parseColor(d.children && d.lvl < root.curMaxLevel ? borderColor(d.lvl / (root.maxlvl - 1)) : d.color);
             this.left = x(dNode.x) + kx * dNode.dx / 2;
             this.top = y(dNode.y) + ky * dNode.dy / 2;
-            var newColor = parseColor(d.children && d.lvl < root.curMaxLevel ? borderColor(d.lvl / (root.maxlvl - 1)) : d.color);
             this.backFill = newColor.color;
             this.opacity = 0;
         });
@@ -303,10 +306,6 @@ define([
         y.range([0, canvasHeight]);
     }
 
-    function remove() {
-        canvasArea.remove();
-    }
-
     function initializeCanvas(element) {
 
         var tempObject = canvasHelper.initializeCanvas(element);
@@ -315,7 +314,6 @@ define([
         canvasWidth = tempObject.canvasWidth;
         canvasHeight = tempObject.canvasHeight;
         canvasElement = tempObject.canvasElement;
-        elementStyle = tempObject.elementStyle;
 
     }
 
@@ -351,7 +349,7 @@ define([
 
     function init(element, valueAccessor) {
         parameters = valueAccessor();
-        triggerTime = parameters.triggerTime == null ? 10 : parameters.triggerTime;
+        triggerTime = parameters.triggerTime === undefined ? 10 : parameters.triggerTime;
         enableRotate = parameters.enableRotate;
         enableZoom = parameters.enableZoom || false;
         enableTouch = parameters.enableTouch || false;
@@ -391,11 +389,6 @@ define([
         json.subscribe(function () {
             update(getNode(zoomedItemPath(), json()));
         });
-
-        // Clear the element that this visualization is in
-        while (element.firstChild) {
-            element.removeChild(element.firstChild);
-        }
 
         initializeCanvas(element);
 

@@ -96,10 +96,12 @@ define([
         }
         a = a.map(function (x, i) {
             if (i === p.lvl - 1) {
-                return sum += parentFr;
+                sum += parentFr;
+                return sum;
             }
             if (i > p.lvl - 1 && i <= root.curMaxLevel) {
-                return sum += x;
+                sum += x;
+                return sum;
             }
             return sum;
         }).map(function (x, i, arr) {
@@ -109,9 +111,9 @@ define([
         return a;
     }
 
-    function mapRangeToDomain(a, p) {
+    function mapRangeToDomain(a) {
         var arr = [], i;
-        for (i = 0; i < a.length; i++) {
+        for (i = 0; i < a.length; i += 1) {
             arr.push(i / (a.length - 1));
         }
         return arr;
@@ -249,6 +251,14 @@ define([
                 this.angle = (params && params.enableRotatedText != null) ? (params.enableRotatedText ? angle : 0) : angle;
             };
         };
+    }
+
+    function remove() {
+        if (canvasArea !== undefined) {
+            canvasZoom.remove();
+            canvasZoom = undefined;
+            canvasArea = undefined;
+        }
     }
 
     function update(p, duration) {
@@ -400,9 +410,57 @@ define([
         }
     }
 
+    function resize(width, height) {
+        canvasWidth = width;
+        canvasHeight = height;
+
+        radius = Math.min(canvasWidth, canvasHeight) / 2;
+    }
+
+    function initializeCanvas(element) {
+
+        var canvasProperties = canvasHelper.initializeCanvas(element);
+
+        canvas          = canvasProperties.canvas;
+        canvasWidth     = canvasProperties.canvasWidth;
+        canvasHeight    = canvasProperties.canvasHeight;
+        canvasElement   = canvasProperties.canvasElement;
+
+    }
+
+    function setLayoutHandler(element) {
+        gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize);
+    }
+
+    function setupGestures() {
+        var tempFuncObj = gestureHelper.setupGestures(
+                canvas,
+                canvasElement,
+                canvasWidth,
+                canvasHeight,
+                enableRotate,
+                enableTouch,
+                enableZoom,
+                heldItemPath,
+                selectedItemPath,
+                zoomedItemPath,
+                getNode(zoomedItemPath(), json()),
+                json(),
+                enableRootZoom,
+                resize,
+                enableRotate,
+                enableRotateDefault
+            );
+
+        touchFunc = tempFuncObj.selectTouch;
+        zoomFunc = tempFuncObj.selectZoom;
+        heldFunc = tempFuncObj.selectHeld;
+        releaseFunc = tempFuncObj.selectRelease;
+    }
+
     function init(element, valueAccessor) {
         parameters = valueAccessor();
-        triggerTime = parameters.triggerTime == null ? 10 : parameters.triggerTime;
+        triggerTime = parameters.triggerTime === undefined ? 10 : parameters.triggerTime;
         enableRotate = parameters.enableRotate;
         enableZoom = parameters.enableZoom || false;
         enableTouch = parameters.enableTouch || false;
@@ -442,11 +500,6 @@ define([
         json.subscribe(function () {
             update(getNode(zoomedItemPath(), json()));
         });
-
-        // Clear the element that this visualization is in
-        while (element.firstChild) {
-            element.removeChild(element.firstChild);
-        }
 
         initializeCanvas(element);
 
@@ -495,63 +548,6 @@ define([
         x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
         y.domain([nodeSelected.y, (root.curMaxLevel + 1) / (root.maxlvl + 1)]).range([nodeSelected.y ? nodeSelected.dy * radius / 2 : 0, radius]);
         update(nodeSelected, 0);
-    }
-
-    function resize(width, height) {
-        canvasWidth = width;
-        canvasHeight = height;
-
-        radius = Math.min(canvasWidth, canvasHeight) / 2;
-    }
-
-    function remove() {
-        if (canvasArea !== undefined) {
-            canvasZoom.remove();
-            canvasZoom = undefined;
-            canvasArea = undefined;
-        }
-    }
-
-    function initializeCanvas(element) {
-
-        var canvasProperties = canvasHelper.initializeCanvas(element);
-
-        canvas          = canvasProperties.canvas;
-        canvasWidth     = canvasProperties.canvasWidth;
-        canvasHeight    = canvasProperties.canvasHeight;
-        canvasElement   = canvasProperties.canvasElement;
-        elementStyle    = canvasProperties.elementStyle;
-
-    }
-
-    function setLayoutHandler(element) {
-        gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize);
-    }
-
-    function setupGestures() {
-        var tempFuncObj = gestureHelper.setupGestures(
-                canvas,
-                canvasElement,
-                canvasWidth,
-                canvasHeight,
-                enableRotate,
-                enableTouch,
-                enableZoom,
-                heldItemPath,
-                selectedItemPath,
-                zoomedItemPath,
-                getNode(zoomedItemPath(), json()),
-                json(),
-                enableRootZoom,
-                resize,
-                enableRotate,
-                enableRotateDefault
-            );
-
-        touchFunc = tempFuncObj.selectTouch;
-        zoomFunc = tempFuncObj.selectZoom;
-        heldFunc = tempFuncObj.selectHeld;
-        releaseFunc = tempFuncObj.selectRelease;
     }
 
     return {
