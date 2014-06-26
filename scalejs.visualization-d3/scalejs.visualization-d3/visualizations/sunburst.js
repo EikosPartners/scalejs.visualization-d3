@@ -18,13 +18,12 @@ define([
     var // Imports
         unwrap = ko.utils.unwrapObservable,
         observable = ko.observable,
-        computed = ko.computed,
-        unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
         getNode = nestedDataHelper.getNode,
+        getDistanceToTreePath = nestedDataHelper.getDistanceToTreePath,
+        getNodeTreePath = nestedDataHelper.getNodeTreePath,
         gestureHelper = gestureHelperCreator(),
         //Sunburst variables
-        visualization,
         canvas,
         json,
         touchFunc,
@@ -41,8 +40,6 @@ define([
         canvasZoom,
         canvasArea,
         params,
-        tempObject,
-        elementStyle,
         canvasElement,//
         parameters,
         triggerTime,
@@ -52,32 +49,13 @@ define([
         selectedItemPath,
         heldItemPath,
         zoomedNode,
-        enableRotate = false,
-        enableRotateDefault = false,
-        enableRootZoom = true,
+        enableRotate = true,
+        enableRotateDefault = true,
+        enableRootZoom = false,
         fontSize = 11,
         fontFamily = "Times New Roman",
         allowTextOverflow = false,
         nodeSelected;
-
-    function getNodeTreePath(node) {
-        var path = [];
-        while (node.parent !== undefined) {
-            path.push(node);
-            node = node.parent;
-        }
-        path.push(node);
-        return path;
-    }
-
-    function getDistanceToTreePath(node, treePath) {
-        var distance = 0;
-        while (treePath.indexOf(node) < 0) {
-            distance += 1;
-            node = node.parent;
-        }
-        return distance;
-    }
 
     function parseColor(color) {
         var rgba, opacity = 1;
@@ -210,8 +188,15 @@ define([
                 interpFill = d3.interpolate(this.fill, newColor.color),
                 interpOpacity = d3.interpolate(this.opacity, newColor.opacity),
                 // Interpolate attributes:
-                rad, radless, offsety, angle,
-                outerRad, innerRad, arcStartAngle, arcEndAngle, arcWidth;
+                rad,
+                radless,
+                offsety,
+                angle,
+                outerRad,
+                innerRad,
+                arcStartAngle,
+                arcEndAngle,
+                arcWidth;
             this.fontFamily = d.fontFamily;
             this.fontSize = d.fontSize;
             return function (t) {
@@ -469,17 +454,9 @@ define([
 
         setLayoutHandler(element);
 
-        setupGestures(
-            enableRotate,
-            enableTouch,
-            enableZoom,
-            heldItemPath,
-            selectedItemPath,
-            zoomedItemPath,
-            getNode(zoomedItemPath(), json())
-        );
+        setupGestures();
 
-        resetTransformations();
+        gestureHelper.resetTransformations();
 
         allowTextOverflow = unwrap(allowTextOverflow);
 
@@ -550,50 +527,21 @@ define([
 
     function initializeCanvas(element) {
 
-        tempObject = canvasHelper.initializeCanvas(element);
+        var canvasProperties = canvasHelper.initializeCanvas(element);
 
-        canvas = tempObject.canvas;
-        canvasWidth = tempObject.canvasWidth;
-        canvasHeight = tempObject.canvasHeight;
-        canvasElement = tempObject.canvasElement;
-        elementStyle = tempObject.elementStyle;
+        canvas          = canvasProperties.canvas;
+        canvasWidth     = canvasProperties.canvasWidth;
+        canvasHeight    = canvasProperties.canvasHeight;
+        canvasElement   = canvasProperties.canvasElement;
+        elementStyle    = canvasProperties.elementStyle;
 
-    }
-
-    function getCanvas() {
-        return canvas;
-    }
-
-    function getCanvasWidth() {
-        return canvasWidth;
-    }
-
-    function getCanvasHeight() {
-        return canvasHeight;
-    }
-
-    function getCanvasElement() {
-        return canvasElement;
-    }
-
-    function getElementStyle() {
-        return elementStyle;
     }
 
     function setLayoutHandler(element) {
         gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize);
     }
 
-    function setupGestures(
-            enableRotate,
-            enableTouch,
-            enableZoom,
-            heldItemPath,
-            selectedItemPath,
-            zoomedItemPath,
-            zoomedNode
-
-    ) {
+    function setupGestures() {
         var tempFuncObj = gestureHelper.setupGestures(
                 canvas,
                 canvasElement,
@@ -605,13 +553,13 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                zoomedNode,
+                getNode(zoomedItemPath(), json()),
                 json(),
                 enableRootZoom,
                 resize,
                 enableRotate,
                 enableRotateDefault
-        );
+            );
 
         touchFunc = tempFuncObj.selectTouch;
         zoomFunc = tempFuncObj.selectZoom;
@@ -619,12 +567,8 @@ define([
         releaseFunc = tempFuncObj.selectRelease;
     }
 
-    function resetTransformations() {
-        gestureHelper.resetTransformations();
-    }
-
     return {
         init: init
-    }
+    };
 
 });

@@ -42,13 +42,13 @@ define([
 
 
     var observable = ko.observable,
-        computed = ko.computed,
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
         getNode = nestedDataHelper.getNode,
+        getDistanceToTreePath = nestedDataHelper.getDistanceToTreePath,
+        getNodeTreePath = nestedDataHelper.getNodeTreePath,
         gestureHelper = gestureHelperCreator(),
         //Treemap variables
-        visualization,
         canvas,
         json,
         touchFunc,
@@ -64,9 +64,8 @@ define([
         canvasArea,
         spacing = 3,
         borderColor = d3.interpolate("#888", "#fff"),
-        kx, ky,
-        tempObject,
-        elementStyle,
+        kx,
+        ky,
         canvasElement,//
         parameters,
         triggerTime,
@@ -83,25 +82,6 @@ define([
         fontFamily = "Times New Roman",
         allowTextOverflow = false,
         nodeSelected;
-
-    function getNodeTreePath(node) {
-        var path = [];
-        while (node.parent !== undefined) {
-            path.push(node);
-            node = node.parent;
-        }
-        path.push(node);
-        return path;
-    }
-
-    function getDistanceToTreePath(node, treePath) {
-        var distance = 0;
-        while (treePath.indexOf(node) < 0) {
-            distance += 1;
-            node = node.parent;
-        }
-        return distance;
-    }
 
     function getNodeSpaced(d, origD) {
         if (!d.parent) {
@@ -154,7 +134,8 @@ define([
             var nodeSpaced = getNodeSpaced(d, d),
                 interpX,
                 interpY,
-                interpWidth, interpHeight,
+                interpWidth,
+                interpHeight,
                 newFill = (d.children && d.lvl < root.curMaxLevel ? borderColor(d.lvl / (root.maxlvl - 1)) : d.color),
                 newColor = parseColor(newFill),
                 interpFill = d3.interpolate(this.backFill, newColor.color),
@@ -309,7 +290,9 @@ define([
         }).tween("textTween", textTween(p));
 
         // Prevent event from firing more than once:
-        if (d3.event) d3.event.stopPropagation();
+        if (d3.event) {
+            d3.event.stopPropagation();
+        }
     }
 
     function resize(width, height) {
@@ -326,7 +309,7 @@ define([
 
     function initializeCanvas(element) {
 
-        tempObject = canvasHelper.initializeCanvas(element);
+        var tempObject = canvasHelper.initializeCanvas(element);
 
         canvas = tempObject.canvas;
         canvasWidth = tempObject.canvasWidth;
@@ -336,40 +319,11 @@ define([
 
     }
 
-    function getCanvas() {
-        return canvas;
-    }
-
-    function getCanvasWidth() {
-        return canvasWidth;
-    }
-
-    function getCanvasHeight() {
-        return canvasHeight;
-    }
-
-    function getCanvasElement() {
-        return canvasElement;
-    }
-
-    function getElementStyle() {
-        return elementStyle;
-    }
-
     function setLayoutHandler(element) {
         gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize);
     }
 
-    function setupGestures(
-            enableRotate,
-            enableTouch,
-            enableZoom,
-            heldItemPath,
-            selectedItemPath,
-            zoomedItemPath,
-            zoomedNode
-
-    ) {
+    function setupGestures() {
         var tempFuncObj = gestureHelper.setupGestures(
                 canvas,
                 canvasElement,
@@ -381,13 +335,13 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                zoomedNode,
+                getNode(zoomedItemPath(), json()),
                 json(),
                 enableRootZoom,
                 resize,
                 enableRotate,
                 enableRotateDefault
-        );
+            );
 
         touchFunc = tempFuncObj.selectTouch;
         zoomFunc = tempFuncObj.selectZoom;
@@ -439,7 +393,6 @@ define([
 
         // Subscribe to data changes:
         json.subscribe(function () {
-            //visualization.parameters = visualizationParams;
             update(getNode(zoomedItemPath(), json()));
         });
 
@@ -455,15 +408,7 @@ define([
 
         setLayoutHandler(element);
 
-        setupGestures(
-            enableRotate,
-            enableTouch,
-            enableZoom,
-            heldItemPath,
-            selectedItemPath,
-            zoomedItemPath,
-            getNode(zoomedItemPath(), json())
-        );
+        setupGestures();
 
         resetTransformations();
 
@@ -529,6 +474,6 @@ define([
 
     return {
         init: init
-    }
+    };
 
 });

@@ -23,7 +23,28 @@ define([
         return;
     }
 
+    function getDistanceToTreePath(node, treePath) {
+        var distance = 0;
+        while (treePath.indexOf(node) < 0) {
+            distance += 1;
+            node = node.parent;
+        }
+        return distance;
+    }
+
+    function getNodeTreePath(node) {
+        var path = [];
+        while (node.parent !== undefined) {
+            path.push(node);
+            node = node.parent;
+        }
+        path.push(node);
+        return path;
+    }
+
     return {
-        getNode: getNode
+        getNode: getNode,
+        getDistanceToTreePath: getDistanceToTreePath,
+        getNodeTreePath: getNodeTreePath
     };
 });

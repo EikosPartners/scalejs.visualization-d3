@@ -18,7 +18,7 @@ define([
     }
 
     if (ko.bindingHandlers.sunburst) {
-        console.error("treemap is already setup");
+        console.error("sunburst is already setup");
     }
 
     ko.bindingHandlers.treemap = treemap;
