@@ -48,7 +48,6 @@ define([
         zoomedItemPath,
         selectedItemPath,
         heldItemPath,
-        zoomedNode,
         enableRotate = true,
         enableRotateDefault = true,
         enableRootZoom = false,
@@ -479,9 +478,8 @@ define([
                 node = json();
             }
             if (node) {
-                zoomedNode = node;
-                json().curLevel = zoomedNode.lvl;
-                json().curMaxLevel = zoomedNode.lvl + json().maxVisibleLevels - 1;
+                json().curLevel = node.lvl;
+                json().curMaxLevel = node.lvl + json().maxVisibleLevels - 1;
                 update(getNode(zoomedItemPath(), json()));    // Animate zoom effect
             }
         });
