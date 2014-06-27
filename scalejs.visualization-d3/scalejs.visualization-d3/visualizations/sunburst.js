@@ -460,7 +460,7 @@ define([
     function init(element, valueAccessor) {
 
         var nodes,
-            root = json();
+            root;
 
         parameters = valueAccessor();
         triggerTime = parameters.triggerTime === undefined ? 10 : parameters.triggerTime;
@@ -497,6 +497,7 @@ define([
         });
 
         json = jsonHelper(parameters, triggerTime, zoomedItemPath);
+        root = json();
 
         // Subscribe to data changes:
         json.subscribe(function () {
