@@ -458,6 +458,10 @@ define([
     }
 
     function init(element, valueAccessor) {
+
+        var nodes,
+            root = json();
+
         parameters = valueAccessor();
         triggerTime = parameters.triggerTime === undefined ? 10 : parameters.triggerTime;
         enableRotate = parameters.enableRotate;
@@ -509,12 +513,6 @@ define([
         radius = Math.min(canvasWidth, canvasHeight) / 2;
         x = d3.scale.linear().range([0, 2 * Math.PI]);
         y = d3.scale.linear().range([0, radius]);
-
-        // Define temp vars:
-        var nodes;
-
-        // Get sunburst data:
-        root = json();
 
         // This is a new sunburst:
         // Setup sunburst and Canvas:

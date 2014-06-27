@@ -58,7 +58,6 @@ define([
         canvasHeight,
         x,
         y,
-        root,
         treemapLayout,
         canvasArea,
         spacing = 3,
@@ -208,16 +207,15 @@ define([
     }
 
     function update(p, duration) {
-        duration = duration !== undefined ? duration : 1000;
-        root = json();
-
-        var nodes,
+        var root = json(),
+            nodes,
             groupNodes,
             newGroupNodes,
             removeGroupNodes,
             textNodes,
             newTextNodes,
             removeTextNodes;
+        duration = (duration !== undefined) ? duration : 1000;
 
         // Filter out nodes with children:
         nodes = treemapLayout.size([canvasWidth, canvasHeight]).sort(root.sortBy).nodes(root)
@@ -347,6 +345,10 @@ define([
     }
 
     function init(element, valueAccessor) {
+
+        var nodes,
+            root;
+
         parameters = valueAccessor();
         triggerTime = parameters.triggerTime === undefined ? 10 : parameters.triggerTime;
         enableRotate = parameters.enableRotate;
@@ -383,6 +385,7 @@ define([
         });
 
         json = jsonHelper(parameters, triggerTime, zoomedItemPath);
+        root = json();
 
         // Subscribe to data changes:
         json.subscribe(function () {
@@ -399,12 +402,6 @@ define([
         // Setup variables:
         x = mapValue().range([0, canvasWidth]);
         y = mapValue().range([0, canvasHeight]);
-
-        // Define temp vars:
-        var nodes;
-
-        // Get treemap data:
-        root = json();
 
         // This is a new treemap:
         // Setup treemap and SVG:
