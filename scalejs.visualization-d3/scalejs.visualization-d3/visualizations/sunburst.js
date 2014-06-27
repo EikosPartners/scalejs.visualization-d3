@@ -5,14 +5,16 @@ define([
     'scalejs.visualization-d3/canvas-helper',
     'scalejs.visualization-d3/gesture-helper',
     'scalejs.visualization-d3/json-helper',
-    'scalejs.visualization-d3/nested-data-helper'
+    'scalejs.visualization-d3/nested-data-helper',
+    'scalejs.visualization-d3/color-helper'
 ], function (
     ko,
     d3,
     canvasHelper,
     gestureHelperCreator,
     jsonHelper,
-    nestedDataHelper
+    nestedDataHelper,
+    colorHelper
 ) {
     "use strict";
     var // Imports
@@ -23,6 +25,7 @@ define([
         getDistanceToTreePath = nestedDataHelper.getDistanceToTreePath,
         getNodeTreePath = nestedDataHelper.getNodeTreePath,
         gestureHelper = gestureHelperCreator(),
+        parseColor = colorHelper.parseColor,
         //Sunburst variables
         canvas,
         json,
@@ -55,21 +58,6 @@ define([
         fontFamily = "Times New Roman",
         allowTextOverflow = false,
         nodeSelected;
-
-    function parseColor(color) {
-        var rgba, opacity = 1;
-        if (color.indexOf("rgba") === 0) {
-            rgba = color.substring(5, color.length - 1)
-                 .replace(/ /g, '')
-                 .split(',');
-            opacity = Number(rgba.pop());
-            color = "rgb(" + rgba.join(",") + ")";
-        }
-        return {
-            color: color,
-            opacity: opacity
-        };
-    }
 
     function startAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); }
     function endAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); }
@@ -498,8 +486,6 @@ define([
 
         json = jsonHelper(parameters, triggerTime, zoomedItemPath);
         root = json();
-
-        // Subscribe to data changes:
         json.subscribe(function () {
             update(getNode(zoomedItemPath(), json()));
         });

@@ -15,6 +15,7 @@
     </Content>
     <Content Include="scalejs.visualization-d3.js" />
     <Content Include="scalejs.visualization-d3\canvas-helper.js" />
+    <Content Include="scalejs.visualization-d3\color-helper.js" />
     <Content Include="scalejs.visualization-d3\gesture-helper.js" />
     <Content Include="scalejs.visualization-d3\json-helper.js" />
     <Content Include="scalejs.visualization-d3\nested-data-helper.js" />

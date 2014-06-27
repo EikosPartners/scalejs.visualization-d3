@@ -5,14 +5,16 @@ define([
     'scalejs.visualization-d3/gesture-helper',
     'knockout',
     'scalejs.visualization-d3/json-helper',
-    'scalejs.visualization-d3/nested-data-helper'
+    'scalejs.visualization-d3/nested-data-helper',
+    'scalejs.visualization-d3/color-helper'
 ], function (
     d3,
     canvasHelper,
     gestureHelperCreator,
     ko,
     jsonHelper,
-    nestedDataHelper
+    nestedDataHelper,
+    colorHelper
 ) {
     "use strict";
 
@@ -47,6 +49,7 @@ define([
         getDistanceToTreePath = nestedDataHelper.getDistanceToTreePath,
         getNodeTreePath = nestedDataHelper.getNodeTreePath,
         gestureHelper = gestureHelperCreator(),
+        parseColor = colorHelper.parseColor,
         //Treemap variables
         canvas,
         json,
@@ -107,21 +110,6 @@ define([
             y: p.dy / d.parent.dy * (d.y - d.parent.y) + p.y + spy,
             dx: p.dx / d.parent.dx * d.dx - spx * 2,
             dy: p.dy / d.parent.dy * d.dy - spy * 2
-        };
-    }
-
-    function parseColor(color) {
-        var rgba, opacity = 1;
-        if (color.indexOf("rgba") === 0) {
-            rgba = color.substring(5, color.length - 1)
-                 .replace(/ /g, '')
-                 .split(',');
-            opacity = Number(rgba.pop());
-            color = "rgb(" + rgba.join(",") + ")";
-        }
-        return {
-            color: color,
-            opacity: opacity
         };
     }
 
@@ -369,7 +357,6 @@ define([
                 node = json();
             }
             if (node) {
-                node;
                 json().curLevel = node.lvl;
                 json().curMaxLevel = node.lvl + json().maxVisibleLevels - 1;
                 update(getNode(zoomedItemPath(), json()));    // Animate zoom effect
@@ -386,8 +373,6 @@ define([
 
         json = jsonHelper(parameters, triggerTime, zoomedItemPath);
         root = json();
-
-        // Subscribe to data changes:
         json.subscribe(function () {
             update(getNode(zoomedItemPath(), json()));
         });
