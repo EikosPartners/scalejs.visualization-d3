@@ -1,5 +1,6 @@
 ﻿/*global define*/
 define([], function () {
+    "use strict";
 
     function parseColor(color) {
         var rgba,

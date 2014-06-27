@@ -113,7 +113,7 @@ define([
             function selectZoom(node) {
                 var path = [],
                     tmpNode,
-                    curZoomedNode = zoomedNode;
+                    curZoomedNode = zoomedNode;//getNode(zoomedItemPath(), root);
 
                 // Only zoom if enabled:
                 if (unwrap(enableZoom)) {
