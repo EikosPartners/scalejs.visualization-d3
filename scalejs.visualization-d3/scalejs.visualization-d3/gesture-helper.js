@@ -113,7 +113,7 @@ define([
             function selectZoom(node) {
                 var path = [],
                     tmpNode,
-                    curZoomedNode = zoomedNode;//getNode(zoomedItemPath(), root);
+                    curZoomedNode = getNode(zoomedItemPath(), root);
 
                 // Only zoom if enabled:
                 if (unwrap(enableZoom)) {
@@ -126,10 +126,10 @@ define([
                         resetTransformAnimation(canvas);
                     }
 
-                    zoomedNode = tmpNode = node;
+                    tmpNode = node;
                     // Set selected node for use in calculating the max depth.
-                    root.curLevel = zoomedNode.lvl;
-                    root.curMaxLevel = zoomedNode.lvl + root.maxVisibleLevels - 1;
+                    root.curLevel = tmpNode.lvl;
+                    root.curMaxLevel = tmpNode.lvl + root.maxVisibleLevels - 1;
 
                     // Set zoomedItemPath:
                     while (tmpNode.parent !== undefined) {
@@ -213,7 +213,7 @@ define([
                 transform.scale = 1;
                 if (scale < zoomOutScale + (1 - zoomOutScale) / 4) {
                     // zoom to parent
-                    selectZoom(zoomedNode.parent || zoomedNode);
+                    selectZoom(getNode(zoomedItemPath(), root).parent || getNode(zoomedItemPath(), root));
                 }
             }
 
