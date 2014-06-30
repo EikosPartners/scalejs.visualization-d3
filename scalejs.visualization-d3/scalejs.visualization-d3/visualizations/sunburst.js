@@ -431,11 +431,9 @@ define([
                 heldItemPath,
                 selectedItemPath,
                 zoomedItemPath,
-                getNode(zoomedItemPath(), json()),
-                json(),
+                json,
                 enableRootZoom,
                 resize,
-                enableRotate,
                 enableRotateDefault
             );
 

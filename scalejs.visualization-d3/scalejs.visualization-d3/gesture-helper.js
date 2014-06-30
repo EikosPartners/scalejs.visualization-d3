@@ -26,7 +26,6 @@ define([
             scale: 1
         },
         zoomOutScale = 0.8,
-        root,
         disposeLayout;
 
 
@@ -41,15 +40,12 @@ define([
             heldItemPath,
             selectedItemPath,
             zoomedItemPath,
-            zoomedNode,
-            rootFromJson,
+            json,
             enableRootZoom,
             resize,
-            enableRotate,
             enableRotateDefault
             ) {
 
-            root = rootFromJson;
 
             var touchHandler
 
@@ -113,12 +109,12 @@ define([
             function selectZoom(node) {
                 var path = [],
                     tmpNode,
-                    curZoomedNode = getNode(zoomedItemPath(), root);
+                    curZoomedNode = getNode(zoomedItemPath(), json());
 
                 // Only zoom if enabled:
                 if (unwrap(enableZoom)) {
                     if (enableRootZoom && node === curZoomedNode) {    // Reset path since item was already selected.
-                        node = root;
+                        node = json();
                     }
 
                     if (node !== curZoomedNode) {
@@ -128,8 +124,8 @@ define([
 
                     tmpNode = node;
                     // Set selected node for use in calculating the max depth.
-                    root.curLevel = tmpNode.lvl;
-                    root.curMaxLevel = tmpNode.lvl + root.maxVisibleLevels - 1;
+                    json().curLevel = tmpNode.lvl;
+                    json().curMaxLevel = tmpNode.lvl + json().maxVisibleLevels - 1;
 
                     // Set zoomedItemPath:
                     while (tmpNode.parent !== undefined) {
@@ -213,7 +209,7 @@ define([
                 transform.scale = 1;
                 if (scale < zoomOutScale + (1 - zoomOutScale) / 4) {
                     // zoom to parent
-                    selectZoom(getNode(zoomedItemPath(), root).parent || getNode(zoomedItemPath(), root));
+                    selectZoom(getNode(zoomedItemPath(), json()).parent || getNode(zoomedItemPath(), json()));
                 }
             }
 
