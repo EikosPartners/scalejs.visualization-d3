@@ -51,14 +51,12 @@ define([
         gestureHelper = gestureHelperCreator(),
         parseColor = colorHelper.parseColor,
         //Treemap variables
-        canvas,
+        canvasInfo,
         json,
         touchFunc,
         zoomFunc,
         heldFunc,
         releaseFunc,
-        canvasWidth,
-        canvasHeight,
         x,
         y,
         treemapLayout,
@@ -66,8 +64,7 @@ define([
         spacing = 3,
         borderColor = d3.interpolate("#888", "#fff"),
         kx,
-        ky,
-        canvasElement,//
+        ky,//
         parameters,
         triggerTime,
         enableZoom,
@@ -206,7 +203,7 @@ define([
         duration = (duration !== undefined) ? duration : 1000;
 
         // Filter out nodes with children:
-        nodes = treemapLayout.size([canvasWidth, canvasHeight]).sort(root.sortBy).nodes(root)
+        nodes = treemapLayout.size([canvasInfo.canvasWidth, canvasInfo.canvasHeight]).sort(root.sortBy).nodes(root)
             .filter(function (d) {
                 return getDistanceToTreePath(d, getNodeTreePath(p)) < root.maxVisibleLevels;
             })
@@ -243,8 +240,8 @@ define([
         });
 
         // Set zoom domain to d's area:
-        kx = canvasWidth / p.dx;
-        ky = canvasHeight / p.dy;
+        kx = canvasInfo.canvasWidth / p.dx;
+        ky = canvasInfo.canvasHeight / p.dy;
         x.domain([p.x, p.x + p.dx]);
         y.domain([p.y, p.y + p.dy]);
 
@@ -284,34 +281,26 @@ define([
     }
 
     function resize(width, height) {
-        canvasWidth = width;
-        canvasHeight = height;
+        canvasInfo.canvasWidth = width;
+        canvasInfo.canvasHeight = height;
 
-        x.range([0, canvasWidth]);
-        y.range([0, canvasHeight]);
+        x.range([0, canvasInfo.canvasWidth]);
+        y.range([0, canvasInfo.canvasHeight]);
     }
 
     function initializeCanvas(element) {
 
-        var tempObject = canvasHelper.initializeCanvas(element);
-
-        canvas = tempObject.canvas;
-        canvasWidth = tempObject.canvasWidth;
-        canvasHeight = tempObject.canvasHeight;
-        canvasElement = tempObject.canvasElement;
+        canvasInfo = canvasHelper.initializeCanvas(element);
 
     }
 
     function setLayoutHandler(element) {
-        gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize);
+        gestureHelper.setLayoutHandler(element, canvasInfo, update, zoomedItemPath, json, resize);
     }
 
     function setupGestures() {
         var tempFuncObj = gestureHelper.setupGestures(
-                canvas,
-                canvasElement,
-                canvasWidth,
-                canvasHeight,
+                canvasInfo,
                 enableRotate,
                 enableTouch,
                 enableZoom,
@@ -383,21 +372,21 @@ define([
 
         //start real init
         // Setup variables:
-        x = mapValue().range([0, canvasWidth]);
-        y = mapValue().range([0, canvasHeight]);
+        x = mapValue().range([0, canvasInfo.canvasWidth]);
+        y = mapValue().range([0, canvasInfo.canvasHeight]);
 
         // This is a new treemap:
         // Setup treemap and SVG:
         treemapLayout = d3.layout.treemap()
                         .round(false)
                         .sort(root.sortBy)
-                        .size([canvasWidth, canvasHeight])
+                        .size([canvasInfo.canvasWidth, canvasInfo.canvasHeight])
                         .sticky(false)
                         .mode('squarify')
                         .value(function (d) { return d.size; })
                         .children(function (d) { return d.children; });
 
-        canvasArea = canvas.append("group").each(function () {
+        canvasArea = canvasInfo.canvas.append("group").each(function () {
             this.fontFamily = "Times New Roman";
             this.fontSize = 11;
         });
@@ -417,8 +406,8 @@ define([
 
         // Add nodes to Canvas:
         nodeSelected = getNode(zoomedItemPath(), json());
-        kx = canvasWidth / nodeSelected.dx;
-        ky = canvasHeight / nodeSelected.dy;
+        kx = canvasInfo.canvasWidth / nodeSelected.dx;
+        ky = canvasInfo.canvasHeight / nodeSelected.dy;
         x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
         y.domain([nodeSelected.y, nodeSelected.y + nodeSelected.dy]);
         update(nodeSelected, 0);

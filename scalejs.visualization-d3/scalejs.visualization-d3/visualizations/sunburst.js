@@ -27,14 +27,12 @@ define([
         gestureHelper = gestureHelperCreator(),
         parseColor = colorHelper.parseColor,
         //Sunburst variables
-        canvas,
+        canvasInfo,
         json,
         touchFunc,
         zoomFunc,
         heldFunc,
         releaseFunc,
-        canvasWidth,
-        canvasHeight,
         radius,
         x,
         y,
@@ -42,8 +40,7 @@ define([
         sunburstLayout,
         canvasZoom,
         canvasArea,
-        params,
-        canvasElement,//
+        params,//
         parameters,
         triggerTime,
         enableZoom,
@@ -134,8 +131,8 @@ define([
                 interpOldY = d3.interpolate(this.old.y, d.y),
                 interpOldDX = d3.interpolate(this.old.dx, d.dx),
                 interpOldDY = d3.interpolate(this.old.dy, d.dy),
-                interpX = d3.interpolate(this.left, canvasWidth / 2),
-                interpY = d3.interpolate(this.top, canvasHeight / 2),
+                interpX = d3.interpolate(this.left, canvasInfo.canvasWidth / 2),
+                interpY = d3.interpolate(this.top, canvasInfo.canvasHeight / 2),
                 newColor = parseColor(d.color),
                 interpOpacity = d3.interpolate(this.opacity, opacity * newColor.opacity);
             return function (t) {
@@ -284,8 +281,8 @@ define([
         // Add new nodes to Canvas:
         newGroupNodes = groupNodes.enter().append("group")
             .each(function (d) {
-                this.left = canvasWidth / 2;
-                this.top = canvasHeight / 2;
+                this.left = canvasInfo.canvasWidth / 2;
+                this.top = canvasInfo.canvasHeight / 2;
                 this.opacity = 0;
                 this.old = {
                     x: d.x,
@@ -398,33 +395,25 @@ define([
     }
 
     function resize(width, height) {
-        canvasWidth = width;
-        canvasHeight = height;
+        canvasInfo.canvasWidth = width;
+        canvasInfo.canvasHeight = height;
 
-        radius = Math.min(canvasWidth, canvasHeight) / 2;
+        radius = Math.min(canvasInfo.canvasWidth, canvasInfo.canvasHeight) / 2;
     }
 
     function initializeCanvas(element) {
 
-        var canvasProperties = canvasHelper.initializeCanvas(element);
-
-        canvas          = canvasProperties.canvas;
-        canvasWidth     = canvasProperties.canvasWidth;
-        canvasHeight    = canvasProperties.canvasHeight;
-        canvasElement   = canvasProperties.canvasElement;
+        canvasInfo = canvasHelper.initializeCanvas(element);
 
     }
 
     function setLayoutHandler(element) {
-        gestureHelper.setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize);
+        gestureHelper.setLayoutHandler(element, canvasInfo, update, zoomedItemPath, json, resize);
     }
 
     function setupGestures() {
         var tempFuncObj = gestureHelper.setupGestures(
-                canvas,
-                canvasElement,
-                canvasWidth,
-                canvasHeight,
+                canvasInfo,
                 enableRotate,
                 enableTouch,
                 enableZoom,
@@ -495,7 +484,7 @@ define([
         setupGestures();
 
         // Start Real Init
-        radius = Math.min(canvasWidth, canvasHeight) / 2;
+        radius = Math.min(canvasInfo.canvasWidth, canvasInfo.canvasHeight) / 2;
         x = d3.scale.linear().range([0, 2 * Math.PI]);
         y = d3.scale.linear().range([0, radius]);
 

@@ -30,10 +30,7 @@ define([
 
 
         function setupGestures(
-            canvas,
-            canvasElement,
-            canvasWidth,
-            canvasHeight,
+            canvasInfo,
             enableRotate,
             enableTouch,
             enableZoom,
@@ -119,7 +116,7 @@ define([
 
                     if (node !== curZoomedNode) {
                         // Reset transform:
-                        resetTransformAnimation(canvas);
+                        resetTransformAnimation(canvasInfo.canvas);
                     }
 
                     tmpNode = node;
@@ -148,13 +145,13 @@ define([
                 transform.top = top;
                 transform.rotate = rotate;
                 transform.scale = scale;
-                canvas.select("group")
+                canvasInfo.canvas.select("group")
                     .attr("scaleX", transform.scale)
                     .attr("scaleY", transform.scale)
                     .attr("angle", transform.rotate)
                     .attr("left", transform.left)
                     .attr("top", transform.top);
-                canvas.pumpRender();
+                canvasInfo.canvas.pumpRender();
             }
 
             function startCallback() {  // Called when user initiates a touch gesture:
@@ -171,10 +168,10 @@ define([
                     if (!enableRotate) {
                         left > 0 && (left = 0);
                         top > 0 && (top = 0);
-                        var right = left + scale * canvasWidth,
-                            bottom = top + scale * canvasHeight;
-                        right < canvasWidth && (left += canvasWidth - right);
-                        bottom < canvasHeight && (top += canvasHeight - bottom);
+                        var right = left + scale * canvasInfo.canvasWidth,
+                            bottom = top + scale * canvasInfo.canvasHeight;
+                        right < canvasInfo.canvasWidth && (left += canvasInfo.canvasWidth - right);
+                        bottom < canvasInfo.canvasHeight && (top += canvasInfo.canvasHeight - bottom);
                     }
                     if (scale < 1) {   // scaling is handled differently for step and end
                         zoomOutHandler(left, top, rotate, scale);
@@ -194,8 +191,8 @@ define([
             function stepZoomOutHandler(left, top, rotate, scale) {
                 scale = Math.max(zoomOutScale, scale);
                 // Reset transform:
-                transform.left = (1 - scale) / 2 * canvasWidth;
-                transform.top = (1 - scale) / 2 * canvasHeight;
+                transform.left = (1 - scale) / 2 * canvasInfo.canvasWidth;
+                transform.top = (1 - scale) / 2 * canvasInfo.canvasHeight;
                 transform.rotate = 0;
                 transform.scale = scale;
             };
@@ -217,7 +214,7 @@ define([
             // Check if a canvas touch plugin exists (register before initializing visualization to avoid event handler conflicts):
             if (core.canvas.touch && unwrap(enableTouch)) {
                 touchHandler = core.canvas.touch({
-                    canvas: canvasElement,
+                    canvas: canvasInfo.canvasElement,
                     renderCallback: renderCallback,
                     startCallback: startCallback,
                     stepCallback: transformCallback(stepZoomOutHandler),
@@ -274,7 +271,7 @@ define([
                 });
         }
 
-        function setLayoutHandler(element, canvas, canvasWidth, canvasHeight, update, zoomedItemPath, json, resize) {
+        function setLayoutHandler(element, canvasInfo, update, zoomedItemPath, json, resize) {
 
             //Dispose previous handlers
             if (disposeLayout !== undefined) {
@@ -286,21 +283,21 @@ define([
             if (core.layout) {
                 // Add event listener for on layout change:
                 disposeLayout = core.layout.onLayoutDone(function () {
-                    var lastWidth = canvasWidth,
-                        lastHeight = canvasHeight,
+                    var lastWidth = canvasInfo.canvasWidth,
+                        lastHeight = canvasInfo.canvasHeight,
                         elementStyle = window.getComputedStyle(element);
                     // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
-                    canvasWidth = parseInt(elementStyle.width, 10);
-                    canvasWidth = canvasWidth >= 1 ? canvasWidth : 1;
-                    canvasHeight = parseInt(elementStyle.height, 10);
-                    canvasHeight = canvasHeight >= 1 ? canvasHeight : 1;
-                    if (canvasWidth === lastWidth && canvasHeight === lastHeight) return;
+                    canvasInfo.canvasWidth = parseInt(elementStyle.width, 10);
+                    canvasInfo.canvasWidth = canvasInfo.canvasWidth >= 1 ? canvasInfo.canvasWidth : 1;
+                    canvasInfo.canvasHeight = parseInt(elementStyle.height, 10);
+                    canvasInfo.canvasHeight = canvasInfo.canvasHeight >= 1 ? canvasInfo.canvasHeight : 1;
+                    if (canvasInfo.canvasWidth === lastWidth && canvasInfo.canvasHeight === lastHeight) return;
 
-                    canvas.attr('width', canvasWidth);
-                    canvas.attr('height', canvasHeight);
-                    resize(canvasWidth, canvasHeight);
+                    canvasInfo.canvas.attr('width', canvasInfo.canvasWidth);
+                    canvasInfo.canvas.attr('height', canvasInfo.canvasHeight);
+                    resize(canvasInfo.canvasWidth, canvasInfo.canvasHeight);
                     // Must set width and height before doing any animation (to calculate layouts properly):
-                    resetTransformAnimation(canvas);
+                    resetTransformAnimation(canvasInfo.canvas);
                     update(getNode( zoomedItemPath(), json() ));
                 });
                 ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
