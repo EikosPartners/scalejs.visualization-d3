@@ -24,7 +24,7 @@ define([
         getNode = nestedDataHelper.getNode,
         getDistanceToTreePath = nestedDataHelper.getDistanceToTreePath,
         getNodeTreePath = nestedDataHelper.getNodeTreePath,
-        gestureHelper = gestureHelperCreator(),
+        gestureHelper,
         parseColor = colorHelper.parseColor,
         //Sunburst variables
         canvasInfo,
@@ -437,6 +437,7 @@ define([
         var nodes,
             root;
 
+        gestureHelper = gestureHelperCreator(),
         parameters = valueAccessor();
         triggerTime = parameters.triggerTime === undefined ? 10 : parameters.triggerTime;
         enableRotate = parameters.enableRotate;
@@ -444,8 +445,17 @@ define([
         enableTouch = parameters.enableTouch || false;
         allowTextOverflow = parameters.allowTextOverflow || false;
         zoomedItemPath = isObservable(parameters.zoomedItemPath) ? parameters.zoomedItemPath : observable(parameters.zoomedItemPath);
+        if (zoomedItemPath() === undefined) {
+            zoomedItemPath([]);
+        }
         selectedItemPath = isObservable(parameters.selectedItemPath) ? parameters.selectedItemPath : observable(parameters.selectedItemPath);
+        if (selectedItemPath() === undefined) {
+            selectedItemPath([]);
+        }
         heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath);
+        if (heldItemPath() === undefined) {
+            heldItemPath([]);
+        }
 
         // Subscribe to zoomedItemPath changes, verify path and then zoom:
         zoomedItemPath.subscribe(function (path) {
