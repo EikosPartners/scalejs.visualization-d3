@@ -200,7 +200,7 @@ define([
 
             // Return the new json data:
             return root;
-        }).extend({ throttle: triggerTime });
+        });
 
         return json;
 
