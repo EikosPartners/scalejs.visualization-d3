@@ -15,7 +15,8 @@ define([
     var //Imports
         unwrap = ko.utils.unwrapObservable,
         isObservable = ko.isObservable,
-        getNode = nestedDataHelper.getNode;
+        getNode = nestedDataHelper.getNode,
+        createNodePath = nestedDataHelper.createNodePath;
 
     return function () {
         //Variables
@@ -46,35 +47,19 @@ define([
 
             var touchHandler
 
-
             // This function resets the selected node:
             function selectRelease() {
-                // Reset selectedItemPath:
                 heldItemPath(undefined);
             }
 
             // This function sets the selected node:
             function selectTouch(node) {
-                var path = [],
-                    tmpNode = node;
-                // Set selectedItemPath:
-                while (tmpNode.parent !== undefined) {
-                    path.unshift(tmpNode.index);
-                    tmpNode = tmpNode.parent;
-                }
-                selectedItemPath(path);
+                selectedItemPath(createNodePath(node));
             }
 
             // This function sets the held node:
-            function selectHeld(node) {
-                var path = [],
-                    tmpNode = node;
-                // Set heldItemPath:
-                while (tmpNode.parent !== undefined) {
-                    path.unshift(tmpNode.index);
-                    tmpNode = tmpNode.parent;
-                }
-                heldItemPath(path);
+            function selectHeld(node) { 
+                heldItemPath(createNodePath(node));
             }
 
             function resetTransformAnimation(canvas) {
@@ -271,7 +256,7 @@ define([
                 });
         }
 
-        function setLayoutHandler(element, canvasInfo, update, zoomedItemPath, json, resize) {
+        function setLayoutHandler(element, canvasInfo, update, resize) {
 
             //Dispose previous handlers
             if (disposeLayout !== undefined) {
@@ -298,7 +283,7 @@ define([
                     resize(canvasInfo.canvasWidth, canvasInfo.canvasHeight);
                     // Must set width and height before doing any animation (to calculate layouts properly):
                     resetTransformAnimation(canvasInfo.canvas);
-                    update(getNode( zoomedItemPath(), json() ));
+                    update();
                 });
                 ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
                     disposeLayout();

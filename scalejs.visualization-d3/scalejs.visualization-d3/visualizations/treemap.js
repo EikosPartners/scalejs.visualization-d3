@@ -191,8 +191,9 @@ define([
             canvasArea.remove();
         }
 
-        function update(p, duration) {
+        function update(duration) {
             var root = json(),
+                zoomedNode = getNode(zoomedItemPath(), json()),
                 nodes,
                 groupNodes,
                 newGroupNodes,
@@ -200,12 +201,14 @@ define([
                 textNodes,
                 newTextNodes,
                 removeTextNodes;
+
             duration = (duration !== undefined) ? duration : 1000;
 
             // Filter out nodes with children:
-            nodes = treemapLayout.size([canvasInfo.canvasWidth, canvasInfo.canvasHeight]).sort(root.sortBy).nodes(root)
+            nodes = treemapLayout.size([canvasInfo.canvasWidth, canvasInfo.canvasHeight])
+                .sort(root.sortBy).nodes(root)
                 .filter(function (d) {
-                    return getDistanceToTreePath(d, getNodeTreePath(p)) < root.maxVisibleLevels;
+                    return getDistanceToTreePath(d, getNodeTreePath(zoomedNode)) < root.maxVisibleLevels;
                 })
                 .sort(function (a, b) {
                     return a.depth === b.depth ? b.value - a.value : a.depth - b.depth;
@@ -216,7 +219,7 @@ define([
             // Add new nodes to Canvas:
             newGroupNodes = groupNodes.enter().append("group").each(function (d) {
                 var dNode = d.parent || d,
-                    newColor = parseColor(d.children && d.lvl < root.curMaxLevel ? borderColor(d.lvl / (root.maxlvl - 1)) : d.color);
+                    newColor = parseColor(d.children && d.lvl < root.curMaxLevel ? borderColor(d.lvl / (root.maxlvl - 1)) : d.color); //?
                 this.left = x(dNode.x) + kx * dNode.dx / 2;
                 this.top = y(dNode.y) + ky * dNode.dy / 2;
                 this.backFill = newColor.color;
@@ -240,13 +243,13 @@ define([
             });
 
             // Set zoom domain to d's area:
-            kx = canvasInfo.canvasWidth / p.dx;
-            ky = canvasInfo.canvasHeight / p.dy;
-            x.domain([p.x, p.x + p.dx]);
-            y.domain([p.y, p.y + p.dy]);
+            kx = canvasInfo.canvasWidth / zoomedNode.dx;
+            ky = canvasInfo.canvasHeight / zoomedNode.dy;
+            x.domain([zoomedNode.x, zoomedNode.x + zoomedNode.dx]);
+            y.domain([zoomedNode.y, zoomedNode.y + zoomedNode.dy]);
 
-            applyTouchTween(newGroupNodes, newTextNodes, p, duration);
-            applyTouchTween(groupNodes, groupNodes.select("text"), p, duration);
+            applyTouchTween(newGroupNodes, newTextNodes, zoomedNode, duration);
+            applyTouchTween(groupNodes, groupNodes.select("text"), zoomedNode, duration);
 
             //reset group nodes which arent visible
             groupNodes.filter(function (d) { return d.children && d.lvl < root.curMaxLevel; }).on("touch", null).on("tap", null).on("hold", null);
@@ -272,7 +275,7 @@ define([
             removeTextNodes = removeGroupNodes.select("text").each(function (d) {
                 d.sdx = 0;
                 d.sdy = 0;
-            }).tween("textTween", textTween(p));
+            }).tween("textTween", textTween(zoomedNode));
 
             // Prevent event from firing more than once:
             if (d3.event) {
@@ -291,11 +294,10 @@ define([
         function initializeCanvas(element) {
 
             canvasInfo = canvasHelper.initializeCanvas(element);
-
         }
 
         function setLayoutHandler(element) {
-            gestureHelper.setLayoutHandler(element, canvasInfo, update, zoomedItemPath, json, resize);
+            gestureHelper.setLayoutHandler(element, canvasInfo, update, resize);
         }
 
         function setupGestures() {
@@ -356,7 +358,7 @@ define([
                 if (node) {
                     json().curLevel = node.lvl;
                     json().curMaxLevel = node.lvl + json().maxVisibleLevels - 1;
-                    update(getNode(zoomedItemPath(), json()));    // Animate zoom effect
+                    update();    // Animate zoom effect
                 }
             });
 
@@ -371,7 +373,7 @@ define([
             json = jsonHelper(parameters, triggerTime, zoomedItemPath);
             root = json();
             json.subscribe(function () {
-                update(getNode(zoomedItemPath(), json()));
+                update();
             });
 
             initializeCanvas(element);
@@ -420,7 +422,7 @@ define([
             ky = canvasInfo.canvasHeight / nodeSelected.dy;
             x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
             y.domain([nodeSelected.y, nodeSelected.y + nodeSelected.dy]);
-            update(nodeSelected, 0);
+            update(0);
         }
 
         return {

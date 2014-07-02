@@ -33,6 +33,7 @@ define([
         return distance;
     }
 
+    // Creates an array of nodes up to but not including root
     function getNodeTreePath(node) {
         var path = [];
         while (node.parent !== undefined) {
@@ -43,9 +44,22 @@ define([
         return path;
     }
 
+    // Creates an array of nodes from node to root
+    function createNodePath(node) {
+        var path = [],
+            tmpNode = node;
+        // Set selectedItemPath:
+        while (tmpNode.parent !== undefined) {
+            path.unshift(tmpNode.index);
+            tmpNode = tmpNode.parent;
+        }
+        return path;
+    }
+
     return {
         getNode: getNode,
         getDistanceToTreePath: getDistanceToTreePath,
-        getNodeTreePath: getNodeTreePath
+        getNodeTreePath: getNodeTreePath,
+        createNodePath: createNodePath
     };
 });

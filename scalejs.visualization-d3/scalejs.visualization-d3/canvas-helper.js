@@ -18,7 +18,7 @@ define([
             canvasElement,
             canvas;
 
-        // Clear the element that this visualization is in
+        // Clear the dom node that this visualization is in
         while (element.firstChild) {
             element.removeChild(element.firstChild);
         }

@@ -247,18 +247,9 @@ define([
             }
         }
 
-        function update(p, duration) {
-            // Get sunburst specific parameters:
-            params = unwrap(parameters);
-
-            // Get transition duration parameter:
-            duration = duration !== undefined ? duration : 1000;
-
-            // Get treemap data:
-            root = json();
-
-            // Define temp vars:
+        function update(duration) {
             var nodes,
+                zoomedNode = getNode(zoomedItemPath(), json()),
                 groupNodes,
                 newGroupNodes,
                 removeGroupNodes,
@@ -269,11 +260,19 @@ define([
                 newTextNodes,
                 removeTextNodes;
 
+            duration = duration !== undefined ? duration : 1000;
+
+            root = json();
+
+            // Get sunburst specific parameters:
+            //TODO make this follow standard pattern
+            params = unwrap(parameters);
+
             // This is a sunburst being updated:
             // Filter out nodes with children:
             nodes = sunburstLayout.sort(root.sortBy).nodes(root)
                 .filter(function (d) {
-                    return getDistanceToTreePath(d, getNodeTreePath(p)) < root.maxVisibleLevels;
+                    return getDistanceToTreePath(d, getNodeTreePath(zoomedNode)) < root.maxVisibleLevels;
                 });
 
             // Select all nodes in Canvas, and apply data:
@@ -359,27 +358,27 @@ define([
 
             // Add tween to Canvas:
             canvasArea.transition().duration(duration)
-                .tween("zoomTween", zoomTween(p));
+                .tween("zoomTween", zoomTween(zoomedNode));
 
             // Add tween to new nodes:
             newGroupNodes.transition().duration(duration)
                 .tween("groupTween", groupTween(1));
             // Add tween to new arcs:
             newArcNodes.transition().duration(duration)
-                .tween("arcTween", arcTween(p));
+                .tween("arcTween", arcTween(zoomedNode));
             // Add tween to new text:
             newTextNodes.transition().duration(duration)
-                .tween("textTween", textTween(p));
+                .tween("textTween", textTween(zoomedNode));
 
             // Add tween to current nodes:
             groupNodes.transition().duration(duration)
                 .tween("groupTween", groupTween(1));
             // Add tween to current arcs:
             arcNodes = groupNodes.select("arc").transition().duration(duration)
-                .tween("arcTween", arcTween(p));
+                .tween("arcTween", arcTween(zoomedNode));
             // Add tween to current text:
             textNodes = groupNodes.select("text").transition().duration(duration)
-                .tween("textTween", textTween(p));
+                .tween("textTween", textTween(zoomedNode));
 
             // Remove missing nodes:
             removeGroupNodes = groupNodes.exit().transition().duration(duration)
@@ -387,8 +386,8 @@ define([
                 .each(function () {
                     this.remove();
                 }, "end");
-            removeArcNodes = removeGroupNodes.select("arc").tween("arcTween", arcTween(p));
-            removeTextNodes = removeGroupNodes.select("text").tween("textTween", textTween(p));
+            removeArcNodes = removeGroupNodes.select("arc").tween("arcTween", arcTween(zoomedNode));
+            removeTextNodes = removeGroupNodes.select("text").tween("textTween", textTween(zoomedNode));
 
             // Prevent event from firing more than once:
             if (d3.event) {
@@ -410,7 +409,7 @@ define([
         }
 
         function setLayoutHandler(element) {
-            gestureHelper.setLayoutHandler(element, canvasInfo, update, zoomedItemPath, json, resize);
+            gestureHelper.setLayoutHandler(element, canvasInfo, update, resize);
         }
 
         function setupGestures() {
@@ -471,7 +470,7 @@ define([
                 if (node) {
                     json().curLevel = node.lvl;
                     json().curMaxLevel = node.lvl + json().maxVisibleLevels - 1;
-                    update(getNode(zoomedItemPath(), json()));    // Animate zoom effect
+                    update();    // Animate zoom effect
                 }
             });
 
@@ -486,7 +485,7 @@ define([
             json = jsonHelper(parameters, triggerTime, zoomedItemPath);
             root = json();
             json.subscribe(function () {
-                update(getNode(zoomedItemPath(), json()));
+                update();
             });
 
             initializeCanvas(element);
@@ -527,7 +526,7 @@ define([
             nodeSelected = getNode(zoomedItemPath(), json());
             x.domain([nodeSelected.x, nodeSelected.x + nodeSelected.dx]);
             y.domain([nodeSelected.y, (root.curMaxLevel + 1) / (root.maxlvl + 1)]).range([nodeSelected.y ? nodeSelected.dy * radius / 2 : 0, radius]);
-            update(nodeSelected, 0);
+            update(0);
         }
 
         return {
