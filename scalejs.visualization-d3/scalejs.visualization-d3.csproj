@@ -18,6 +18,7 @@
     <Content Include="scalejs.visualization-d3\color-helper.js" />
     <Content Include="scalejs.visualization-d3\gesture-helper.js" />
     <Content Include="scalejs.visualization-d3\json-helper.js" />
+    <Content Include="scalejs.visualization-d3\loader.js" />
     <Content Include="scalejs.visualization-d3\nested-data-helper.js" />
     <Content Include="scalejs.visualization-d3\visualizations\sunburst.js" />
     <Content Include="scalejs.visualization-d3\visualizations\treemap.js" />

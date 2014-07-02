@@ -4,7 +4,8 @@ define([
     'scalejs!core',
     'knockout',
     'scalejs.visualization-d3/visualizations/treemap',
-    'scalejs.visualization-d3/visualizations/sunburst'
+    'scalejs.visualization-d3/visualizations/sunburst',
+    'scalejs.visualization-d3/loader'
 ], function (
     core,
     ko,
@@ -25,10 +26,5 @@ define([
     ko.bindingHandlers.sunburst = sunburst;
     ko.virtualElements.allowedBindings.treemap = true;
     ko.virtualElements.allowedBindings.sunburst = true;
-
-    core.registerExtension({
-        treemap: treemap,
-        sunburst: sunburst
-    });
 });
 
