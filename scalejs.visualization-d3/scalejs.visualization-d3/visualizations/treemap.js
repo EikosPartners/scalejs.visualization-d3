@@ -287,6 +287,9 @@ define([
             canvasInfo.canvasWidth = width;
             canvasInfo.canvasHeight = height;
 
+            canvasInfo.canvas.attr('width', canvasInfo.canvasWidth);
+            canvasInfo.canvas.attr('height', canvasInfo.canvasHeight);
+
             x.range([0, canvasInfo.canvasWidth]);
             y.range([0, canvasInfo.canvasHeight]);
         }
@@ -296,11 +299,7 @@ define([
             canvasInfo = canvasHelper.initializeCanvas(element);
         }
 
-        function setLayoutHandler(element) {
-            gestureHelper.setLayoutHandler(element, canvasInfo, update, resize);
-        }
-
-        function setupGestures() {
+        function setupGestures(element) {
             var tempFuncObj = gestureHelper.setupGestures(
                     canvasInfo,
                     enableRotate,
@@ -312,7 +311,9 @@ define([
                     json,
                     enableRootZoom,
                     resize,
-                    enableRotateDefault
+                    enableRotateDefault,
+                    element,
+                    update
                 );
 
             touchFunc = tempFuncObj.selectTouch;
@@ -378,9 +379,7 @@ define([
 
             initializeCanvas(element);
 
-            setLayoutHandler(element);
-
-            setupGestures();
+            setupGestures(element);
 
             //start real init
             // Setup variables:

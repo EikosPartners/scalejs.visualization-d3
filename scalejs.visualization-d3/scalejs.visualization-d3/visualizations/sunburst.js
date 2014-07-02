@@ -399,6 +399,9 @@ define([
             canvasInfo.canvasWidth = width;
             canvasInfo.canvasHeight = height;
 
+            canvasInfo.canvas.attr('width', canvasInfo.canvasWidth);
+            canvasInfo.canvas.attr('height', canvasInfo.canvasHeight);
+
             radius = Math.min(canvasInfo.canvasWidth, canvasInfo.canvasHeight) / 2;
         }
 
@@ -408,11 +411,7 @@ define([
 
         }
 
-        function setLayoutHandler(element) {
-            gestureHelper.setLayoutHandler(element, canvasInfo, update, resize);
-        }
-
-        function setupGestures() {
+        function setupGestures(element) {
             var tempFuncObj = gestureHelper.setupGestures(
                     canvasInfo,
                     enableRotate,
@@ -424,7 +423,9 @@ define([
                     json,
                     enableRootZoom,
                     resize,
-                    enableRotateDefault
+                    enableRotateDefault,
+                    element,
+                    update
                 );
 
             touchFunc = tempFuncObj.selectTouch;
@@ -490,9 +491,7 @@ define([
 
             initializeCanvas(element);
 
-            setLayoutHandler(element);
-
-            setupGestures();
+            setupGestures(element);
 
             // Start Real Init
             radius = Math.min(canvasInfo.canvasWidth, canvasInfo.canvasHeight) / 2;

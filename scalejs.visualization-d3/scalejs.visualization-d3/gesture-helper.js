@@ -41,7 +41,9 @@ define([
             json,
             enableRootZoom,
             resize,
-            enableRotateDefault
+            enableRotateDefault,
+            element,
+            update
             ) {
 
 
@@ -195,6 +197,47 @@ define([
                 }
             }
 
+            function setLayoutHandler(element, canvasInfo, update, resize) {
+
+                //Dispose previous handlers
+                if (disposeLayout !== undefined) {
+                    disposeLayout();
+                    disposeLayout = undefined;
+                }
+
+                // Check if a layout plugin exists:
+                if (core.layout) {
+                    // Add event listener for on layout change:
+                    disposeLayout = core.layout.onLayoutDone(function () {
+                        var lastWidth = canvasInfo.canvasWidth,
+                            lastHeight = canvasInfo.canvasHeight,
+                            elementStyle = window.getComputedStyle(element),
+                            newWidth,
+                            newHeight;
+                        // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
+                        newWidth = parseInt(elementStyle.width, 10);
+                        newWidth = newWidth >= 1 ? newWidth : 1;
+                        newHeight = parseInt(elementStyle.height, 10);
+                        newHeight = newHeight >= 1 ? newHeight : 1;
+
+                        if (newWidth === lastWidth && newHeight === lastHeight) return;
+
+                        resize(newWidth, newHeight);
+                        // Must set width and height before doing any animation (to calculate layouts properly):
+                        resetTransformAnimation(canvasInfo.canvas);
+                        update();
+                    });
+                    ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
+                        disposeLayout();
+                        disposeLayout = undefined;
+                    });
+                }
+
+                return disposeLayout;
+            }
+
+            setLayoutHandler(element, canvasInfo, update, resize);
+
 
             // Check if a canvas touch plugin exists (register before initializing visualization to avoid event handler conflicts):
             if (core.canvas.touch && unwrap(enableTouch)) {
@@ -230,73 +273,10 @@ define([
             };
         }
 
-        // Clear the canvas's transform and animate from current to cleared state:
-        function resetTransformAnimation(canvas) {
-            // Reset target transform:
-            transform.left = 0;
-            transform.top = 0;
-            transform.rotate = 0;
-            transform.scale = 1;
-            canvas.select("group").transition().duration(1000)
-                .tween("canvasTween", function () {
-                    // Create interpolations used for a nice slide around the parent:
-                    var interpLeft = d3.interpolate(this.left, 0),
-                        interpTop = d3.interpolate(this.top, 0),
-                        interpAngle = d3.interpolate(this.angle, 0),
-                        interpScaleX = d3.interpolate(this.scaleX, 1),
-                        interpScaleY = d3.interpolate(this.scaleY, 1),
-                        el = this;
-                    return function (t) {
-                        el.left = interpLeft(t);
-                        el.top = interpTop(t);
-                        el.angle = interpAngle(t);
-                        el.scaleX = interpScaleX(t);
-                        el.scaleY = interpScaleY(t);
-                    };
-                });
-        }
 
-        function setLayoutHandler(element, canvasInfo, update, resize) {
-
-            //Dispose previous handlers
-            if (disposeLayout !== undefined) {
-                disposeLayout();
-                disposeLayout = undefined;
-            }
-
-            // Check if a layout plugin exists:
-            if (core.layout) {
-                // Add event listener for on layout change:
-                disposeLayout = core.layout.onLayoutDone(function () {
-                    var lastWidth = canvasInfo.canvasWidth,
-                        lastHeight = canvasInfo.canvasHeight,
-                        elementStyle = window.getComputedStyle(element);
-                    // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
-                    canvasInfo.canvasWidth = parseInt(elementStyle.width, 10);
-                    canvasInfo.canvasWidth = canvasInfo.canvasWidth >= 1 ? canvasInfo.canvasWidth : 1;
-                    canvasInfo.canvasHeight = parseInt(elementStyle.height, 10);
-                    canvasInfo.canvasHeight = canvasInfo.canvasHeight >= 1 ? canvasInfo.canvasHeight : 1;
-                    if (canvasInfo.canvasWidth === lastWidth && canvasInfo.canvasHeight === lastHeight) return;
-
-                    canvasInfo.canvas.attr('width', canvasInfo.canvasWidth);
-                    canvasInfo.canvas.attr('height', canvasInfo.canvasHeight);
-                    resize(canvasInfo.canvasWidth, canvasInfo.canvasHeight);
-                    // Must set width and height before doing any animation (to calculate layouts properly):
-                    resetTransformAnimation(canvasInfo.canvas);
-                    update();
-                });
-                ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
-                    disposeLayout();
-                    disposeLayout = undefined;
-                });
-            }
-
-            return disposeLayout;
-        }
 
         return {
-            setupGestures: setupGestures,
-            setLayoutHandler: setLayoutHandler,
+            setupGestures: setupGestures
 
         };
     };
