@@ -62,7 +62,7 @@ define([
             treemapLayout,
             canvasArea,
             spacing = 3,
-            borderColor = d3.interpolate("#888", "#fff"),
+            borderColor,
             kx,
             ky,//
             parameters,
@@ -385,6 +385,9 @@ define([
             // Setup variables:
             x = mapValue().range([0, canvasInfo.canvasWidth]);
             y = mapValue().range([0, canvasInfo.canvasHeight]);
+
+            // Set Border Colors
+            borderColor = (parameters.borderColor === undefined) ? d3.interpolate("#888", "#fff") : d3.interpolate(parameters.borderColor[0], parameters.borderColor[1]);
 
             // This is a new treemap:
             // Setup treemap and SVG:
