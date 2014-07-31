@@ -1,13 +1,11 @@
 /*global define*/
 /*jslint devel: true */
 define([
-    'scalejs!core',
     'knockout',
     'scalejs.visualization-d3/visualizations/treemap',
     'scalejs.visualization-d3/visualizations/sunburst',
     'scalejs.visualization-d3/loader'
 ], function (
-    core,
     ko,
     treemap,
     sunburst

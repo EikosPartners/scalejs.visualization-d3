@@ -49,6 +49,26 @@ define([
 
             var touchHandler
 
+            function setupResize() {
+                var lastWidth = canvasInfo.canvasWidth,
+                    lastHeight = canvasInfo.canvasHeight,
+                    elementStyle = window.getComputedStyle(element),
+                    newWidth,
+                    newHeight;
+                // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
+                newWidth = parseInt(elementStyle.width, 10);
+                newWidth = newWidth >= 1 ? newWidth : 1;
+                newHeight = parseInt(elementStyle.height, 10);
+                newHeight = newHeight >= 1 ? newHeight : 1;
+
+                if (newWidth === lastWidth && newHeight === lastHeight) return;
+
+                resize(newWidth, newHeight);
+                // Must set width and height before doing any animation (to calculate layouts properly):
+                resetTransformAnimation(canvasInfo.canvas);
+                update();
+            }
+
             // This function resets the selected node:
             function selectRelease() {
                 heldItemPath(undefined);
@@ -208,30 +228,15 @@ define([
                 // Check if a layout plugin exists:
                 if (core.layout) {
                     // Add event listener for on layout change:
-                    disposeLayout = core.layout.onLayoutDone(function () {
-                        var lastWidth = canvasInfo.canvasWidth,
-                            lastHeight = canvasInfo.canvasHeight,
-                            elementStyle = window.getComputedStyle(element),
-                            newWidth,
-                            newHeight;
-                        // Get width and height. Must be >= 1 pixel in order for d3 to calculate layouts properly:
-                        newWidth = parseInt(elementStyle.width, 10);
-                        newWidth = newWidth >= 1 ? newWidth : 1;
-                        newHeight = parseInt(elementStyle.height, 10);
-                        newHeight = newHeight >= 1 ? newHeight : 1;
-
-                        if (newWidth === lastWidth && newHeight === lastHeight) return;
-
-                        resize(newWidth, newHeight);
-                        // Must set width and height before doing any animation (to calculate layouts properly):
-                        resetTransformAnimation(canvasInfo.canvas);
-                        update();
-                    });
-                    ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
-                        disposeLayout();
-                        disposeLayout = undefined;
-                    });
+                    disposeLayout = core.layout.onLayoutDone(setupResize);
+                } else {
+                    disposeLayout = window.addEventListener('resize', setupResize);
                 }
+
+                ko.utils.domNodeDisposal.addDisposeCallback(element, function () {
+                    disposeLayout();
+                    disposeLayout = undefined;
+                });
 
                 return disposeLayout;
             }
