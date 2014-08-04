@@ -50,7 +50,6 @@ define([
             zoomedItemPath,
             selectedItemPath,
             heldItemPath,
-            highlightedItemPath,
             enableRotate = true,
             enableRotateDefault = true,
             enableRootZoom = false,
@@ -458,10 +457,6 @@ define([
             heldItemPath = isObservable(parameters.heldItemPath) ? parameters.heldItemPath : observable(parameters.heldItemPath);
             if (heldItemPath() === undefined) {
                 heldItemPath([]);
-            }
-            highlightedItemPath = isObservable(parameters.heldItemPath) ? parameters.highlightedItemPath : observable(parameters.highlightedItemPath);
-            if (highlightedItemPath() === undefined) {
-                highlightedItemPath([]);
             }
 
             // Subscribe to zoomedItemPath changes, verify path and then zoom:
