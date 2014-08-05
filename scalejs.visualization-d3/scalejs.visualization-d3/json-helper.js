@@ -99,6 +99,13 @@ define([
             return levels;
         }
 
+        function getChild(level, childPath) {
+            if (typeof childPath === 'function') {
+                return childPath(level);
+            }
+            return level.childPath;
+        }
+
         // Recursively traverse json data, and build it for rendering:
         function createNodeJson(node, levelConfig, index, maxlvl) {
             var childNode, children, stepSize, color,
@@ -116,7 +123,7 @@ define([
 
 
             // Check if leaf node:
-            if (!node[lvl.childrenPath]) {
+            if (!node[getChild(lvl,childrenPath)]) {
                 if (maxlvl.value < index) maxlvl.value = index; // Update the max depth to the leaf's depth (if deeper than maxlvl's value):
                 return newNode;
             }
@@ -126,7 +133,7 @@ define([
             newNode.childrenReference = [];
 
             // Node has children, so set them up first:
-            children = node[lvl.childrenPath];
+            children = node[getChild(lvl, childrenPath)];
             for (var i = 0; i < children.length; i += 1) {
                 childNode = createNodeJson(children[i], levelConfig, index + 1, maxlvl); //recursion
                 childNode.parent = newNode;
