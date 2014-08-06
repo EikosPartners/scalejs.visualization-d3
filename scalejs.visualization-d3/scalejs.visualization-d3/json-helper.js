@@ -2,11 +2,13 @@
 /*jslint devel: true */
 /*jslint browser: true */
 define([
+    'scalejs!core',
     'knockout',
     'd3',
     'd3.colorbrewer',
     'scalejs.visualization-d3/nested-data-helper'
 ], function (
+    core,
     ko,
     d3,
     colorbrewer,
@@ -14,7 +16,8 @@ define([
 ) {
     "use strict";
 
-    var unwrap = ko.utils.unwrapObservable,
+    var is = core.type.is,
+        unwrap = ko.utils.unwrapObservable,
         getNode = nestedDataHelper.getNode,
         nodeScale = d3.scale.linear();
 
@@ -61,7 +64,8 @@ define([
         function parseLevelParameters(lvls) {
             // Clear levels:
             var levels = [],
-                l;
+                l,
+                a;
 
             // Loop through all levels and parse the parameters:
             for (var i = 0; i < lvls.length; i += 1) {
@@ -134,6 +138,17 @@ define([
 
             // Node has children, so set them up first:
             children = getProperty(node, lvl.childrenPath);
+
+            //Convert to array if it is not
+            if (!is(children,'array')) {
+                a = [];
+                Object.keys(children).forEach(function (k) {
+                    a.push(children[k]);
+                });
+                children = a;
+            }
+
+
             for (var i = 0; i < children.length; i += 1) {
                 childNode = createNodeJson(children[i], levelConfig, index + 1, maxlvl); //recursion
                 childNode.parent = newNode;
