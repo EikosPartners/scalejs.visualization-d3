@@ -18,6 +18,13 @@ define([
         getNode = nestedDataHelper.getNode,
         nodeScale = d3.scale.linear();
 
+    function getProperty(node, path) {
+        if (typeof path === 'function') {
+            return path(node);
+        }
+        return node[path];
+    }
+
     return function (parameters, triggerTime, zoomedItemPath) {
 
         var json,
@@ -99,23 +106,16 @@ define([
             return levels;
         }
 
-        function getChild(node, childPath) {
-            if (typeof childPath === 'function') {
-                return childPath(node);
-            }
-            return node[childPath];
-        }
-
         // Recursively traverse json data, and build it for rendering:
         function createNodeJson(node, levelConfig, index, maxlvl) {
             var childNode, children, stepSize, color,
                 lvl = levelConfig[index] || globals,
                 newNode = {
-                    id: node[lvl.idPath] || '',
+                    id: getProperty(node, lvl.idPath) || '',
                     name: node[lvl.namePath] || '',
                     lvl: index,
-                    size: node[lvl.areaPath] !== undefined ? node[lvl.areaPath] : 1,
-                    colorSize: node[lvl.colorPath] || 0,
+                    size: getProperty(node, lvl.areaPath) !== undefined ? getProperty(node, lvl.areaPath) : 1,
+                    colorSize: getProperty(node, lvl.colorPath) || 0,
                     fontSize: lvl.fontSize,
                     fontFamily: lvl.fontFamily,
                     fontColor: lvl.fontColor
@@ -123,7 +123,7 @@ define([
 
 
             // Check if leaf node:
-            if (!getChild(node, lvl.childrenPath)) {
+            if (!getProperty(node, lvl.childrenPath)) {
                 if (maxlvl.value < index) maxlvl.value = index; // Update the max depth to the leaf's depth (if deeper than maxlvl's value):
                 return newNode;
             }
@@ -133,15 +133,21 @@ define([
             newNode.childrenReference = [];
 
             // Node has children, so set them up first:
-            children = getChild(node, lvl.childrenPath);
+            children = getProperty(node, lvl.childrenPath);
             for (var i = 0; i < children.length; i += 1) {
                 childNode = createNodeJson(children[i], levelConfig, index + 1, maxlvl); //recursion
                 childNode.parent = newNode;
                 childNode.index = i;    // Set node's index to match the index it appears in the original dataset.
 
-                if (node[lvl.areaPath] === undefined) newNode.size += childNode.size; // If parent has no size, default to adding child colors.
+                // If parent has no size, default to adding child colors.
+                if (getProperty(node, lvl.areaPath) === undefined) {
+                    newNode.size += childNode.size;
+                }
 
-                if (node[lvl.colorPath] === undefined) newNode.colorSize += childNode.colorSize;   // If parent has no color, default to adding child colors.
+                // If parent has no color, default to adding child colors.
+                if (getProperty(node, lvl.colorPath) === undefined) {
+                    newNode.colorSize += childNode.colorSize;
+                }
 
                 newNode.minSize = Math.min(newNode.minSize || childNode.size, childNode.size);
                 newNode.maxSize = Math.max(newNode.maxSize || childNode.size + 1, childNode.size);
