@@ -1,0 +1,32 @@
+{
+  "name": "scalejs.visualization-d3",
+  "version": "0.0.0",
+  "homepage": "https://github.com/lisovin/scalejs.visualization-d3",
+  "authors": [
+    "Peter Lisovin <peter@lisovin.com>"
+  ],
+  "description": "Visualization extensions for scalable JavaScript application based on d3 library",
+  "main": "dist/scalejs.visualization-d3.js",
+  "keywords": [
+    "scalejs",
+    "d3",
+    "visualization"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "scalejs": "lisovin/scalejs#~0.4.0",
+    "d3": "~3.5.5",
+    "hammer.js": "~2.0.4",
+    "scalejs.canvas": "EikosPartners/scalejs.canvas"
+  },
+  "devDependencies": {
+    "requirejs": "latest"
+  }
+}

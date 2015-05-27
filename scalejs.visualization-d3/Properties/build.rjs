@@ -1,7 +1,0 @@
-﻿({
-	mainConfigFile: '../config.js',
-    include: 'scalejs.visualization-d3',
-    exclude: [
-        'scalejs!core'
-    ]
-})
