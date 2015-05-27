@@ -947,7 +947,7 @@ define('scalejs.visualization-d3/json-helper',[
             // Create copy of data in a easy structure for d3:
             levels = parseLevelParameters(levelsSource);
             // Generate Json:
-            root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
+            var root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
             // Make maxVisibleLevels the max lvl if not specified:
             maxVisibleLevels = maxVisibleLevels || maxlvl.value + 1;
 
@@ -985,6 +985,7 @@ define('scalejs.visualization-d3/json-helper',[
     }
 
 });
+
 /*global define*/
 define('scalejs.visualization-d3/color-helper',[], function () {
     "use strict";
@@ -1090,7 +1091,9 @@ define('scalejs.visualization-d3/visualizations/treemap',[
             fontSize = 11,
             fontFamily = "Times New Roman",
             allowTextOverflow = false,
-            nodeSelected;
+            nodeSelected,
+            gestureHelper,
+            root;
 
         function getNodeSpaced(d, origD) {
             if (!d.parent) {
@@ -1204,8 +1207,7 @@ define('scalejs.visualization-d3/visualizations/treemap',[
         }
 
         function update(duration) {
-            var root = json(),
-                zoomedNode = getNode(zoomedItemPath(), json()),
+            var zoomedNode = getNode(zoomedItemPath(), json()),
                 nodes,
                 groupNodes,
                 newGroupNodes,
@@ -1213,6 +1215,8 @@ define('scalejs.visualization-d3/visualizations/treemap',[
                 textNodes,
                 newTextNodes,
                 removeTextNodes;
+
+            root = json();
 
             duration = (duration !== undefined) ? duration : 1000;
 
@@ -1336,8 +1340,7 @@ define('scalejs.visualization-d3/visualizations/treemap',[
 
         function initializeTreemap(element, valueAccessor) {
 
-            var nodes,
-                root;
+            var nodes;
 
             gestureHelper = gestureHelperCreator(),
             parameters = valueAccessor();
@@ -1456,6 +1459,7 @@ define('scalejs.visualization-d3/visualizations/treemap',[
     };
 
 });
+
 /*global define*/
 define('scalejs.visualization-d3/visualizations/sunburst',[
     'knockout',
@@ -1514,7 +1518,8 @@ define('scalejs.visualization-d3/visualizations/sunburst',[
             fontSize = 11,
             fontFamily = "Times New Roman",
             allowTextOverflow = false,
-            nodeSelected;
+            nodeSelected,
+            gestureHelper;
 
         function startAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); }
         function endAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); }
@@ -1993,7 +1998,7 @@ define('scalejs.visualization-d3/visualizations/sunburst',[
     }
 
     function init(element, valueAccessor) {
-        
+
         var sunburstObj = createInstance();
 
         sunburstObj.initializeSunburst(element, valueAccessor);

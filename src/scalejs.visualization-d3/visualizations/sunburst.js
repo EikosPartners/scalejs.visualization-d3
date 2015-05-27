@@ -56,7 +56,8 @@ define([
             fontSize = 11,
             fontFamily = "Times New Roman",
             allowTextOverflow = false,
-            nodeSelected;
+            nodeSelected,
+            gestureHelper;
 
         function startAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x))); }
         function endAngle(d) { return Math.max(0, Math.min(2 * Math.PI, x(d.x + d.dx))); }
@@ -535,7 +536,7 @@ define([
     }
 
     function init(element, valueAccessor) {
-        
+
         var sunburstObj = createInstance();
 
         sunburstObj.initializeSunburst(element, valueAccessor);

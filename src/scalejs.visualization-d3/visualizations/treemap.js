@@ -78,7 +78,9 @@ define([
             fontSize = 11,
             fontFamily = "Times New Roman",
             allowTextOverflow = false,
-            nodeSelected;
+            nodeSelected,
+            gestureHelper,
+            root;
 
         function getNodeSpaced(d, origD) {
             if (!d.parent) {
@@ -192,8 +194,7 @@ define([
         }
 
         function update(duration) {
-            var root = json(),
-                zoomedNode = getNode(zoomedItemPath(), json()),
+            var zoomedNode = getNode(zoomedItemPath(), json()),
                 nodes,
                 groupNodes,
                 newGroupNodes,
@@ -201,6 +202,8 @@ define([
                 textNodes,
                 newTextNodes,
                 removeTextNodes;
+
+            root = json();
 
             duration = (duration !== undefined) ? duration : 1000;
 
@@ -324,8 +327,7 @@ define([
 
         function initializeTreemap(element, valueAccessor) {
 
-            var nodes,
-                root;
+            var nodes;
 
             gestureHelper = gestureHelperCreator(),
             parameters = valueAccessor();

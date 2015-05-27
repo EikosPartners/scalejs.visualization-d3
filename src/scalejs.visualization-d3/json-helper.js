@@ -197,7 +197,7 @@ define([
             // Create copy of data in a easy structure for d3:
             levels = parseLevelParameters(levelsSource);
             // Generate Json:
-            root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
+            var root = createNodeJson(dataSource, levels, 0, maxlvl, 0);
             // Make maxVisibleLevels the max lvl if not specified:
             maxVisibleLevels = maxVisibleLevels || maxlvl.value + 1;
 
